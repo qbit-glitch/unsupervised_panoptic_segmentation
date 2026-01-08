@@ -1,0 +1,81 @@
+# D1: Slot Attention Iterations
+# Number of refinement iterations
+
+# Variant 1: 1 iteration (minimal)
+D1_iter_1:
+  model:
+    backbone: "base"
+    num_slots: 12
+    num_iterations: 1
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_D1_iter_1"
+
+---
+# Variant 2: 3 iterations (default)
+D1_iter_3:
+  model:
+    backbone: "base"
+    num_slots: 12
+    num_iterations: 3
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_D1_iter_3"
+
+---
+# Variant 3: 5 iterations
+D1_iter_5:
+  model:
+    backbone: "base"
+    num_slots: 12
+    num_iterations: 5
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_D1_iter_5"
+
+---
+# Variant 4: 7 iterations
+D1_iter_7:
+  model:
+    backbone: "base"
+    num_slots: 12
+    num_iterations: 7
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 12
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_D1_iter_7"

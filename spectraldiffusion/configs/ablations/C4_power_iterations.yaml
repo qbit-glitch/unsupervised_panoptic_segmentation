@@ -1,0 +1,85 @@
+# C4: Power Iteration Steps
+# Convergence of eigenvector computation
+
+# Variant 1: Quick (20 iterations)
+C4_power_20:
+  model:
+    backbone: "base"
+    scales: [8, 16, 32]
+    slots_per_scale: 4
+    num_power_iters: 20
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_C4_power_20"
+
+---
+# Variant 2: Standard (50 iterations) - default
+C4_power_50:
+  model:
+    backbone: "base"
+    scales: [8, 16, 32]
+    slots_per_scale: 4
+    num_power_iters: 50
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_C4_power_50"
+
+---
+# Variant 3: Precise (100 iterations)
+C4_power_100:
+  model:
+    backbone: "base"
+    scales: [8, 16, 32]
+    slots_per_scale: 4
+    num_power_iters: 100
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_C4_power_100"
+
+---
+# Variant 4: Very Precise (200 iterations)
+C4_power_200:
+  model:
+    backbone: "base"
+    scales: [8, 16, 32]
+    slots_per_scale: 4
+    num_power_iters: 200
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_C4_power_200"

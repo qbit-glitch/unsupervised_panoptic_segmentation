@@ -1,0 +1,67 @@
+# B2: DINOv3 vs DINOv2 Comparison
+# Compare feature quality between versions
+
+# Variant 1: DINOv3 Base (proposed)
+B2_dinov3:
+  model:
+    backbone: "base"
+    backbone_model: "dinov3-base"
+    backbone_version: "v3"
+    feature_dim: 768
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_B2_dinov3"
+
+---
+# Variant 2: DINOv2 Base (baseline)
+B2_dinov2:
+  model:
+    backbone: "base"
+    backbone_model: "dinov2-base"
+    backbone_version: "v2"
+    feature_dim: 768
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_B2_dinov2"
+
+---
+# Variant 3: DINOv2 Large (higher capacity baseline)
+B2_dinov2_large:
+  model:
+    backbone: "large"
+    backbone_model: "dinov2-large"
+    backbone_version: "v2"
+    feature_dim: 1024
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 8
+  training:
+    epochs: 30
+    lr: 5e-5
+  logging:
+    exp_name: "ablation_B2_dinov2_large"

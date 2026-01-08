@@ -1,0 +1,86 @@
+# A3: Diffusion vs Pixel Reconstruction vs MLP Head
+# Compare decoder architectures
+
+# Variant 1: Latent Diffusion Decoder (proposed)
+A3_diffusion:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+    diffusion_steps: 50
+    ddim_steps: 10
+    latent_channels: 4
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_A3_diffusion"
+
+---
+# Variant 2: MLP Mask Head (baseline)
+A3_mlp:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: false
+    decoder_type: "mlp"
+    decoder_hidden_dim: 256
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_A3_mlp"
+
+---
+# Variant 3: CNN Decoder (like Slot Attention original)
+A3_cnn:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: false
+    decoder_type: "cnn"
+    decoder_channels: [64, 64, 64, 4]
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_A3_cnn"
+
+---
+# Variant 4: Pixel-wise Reconstruction (SLATE-style)
+A3_pixel:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: false
+    decoder_type: "pixel"
+    use_transformer_decoder: true
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_A3_pixel"

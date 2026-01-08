@@ -1,0 +1,81 @@
+# E2: Latent Channel Dimension
+# VAE latent space channels
+
+# Variant 1: Compact latent (C=2)
+E2_latent_2:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+    latent_channels: 2
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_E2_latent_2"
+
+---
+# Variant 2: Standard latent (C=4) - default
+E2_latent_4:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+    latent_channels: 4
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_E2_latent_4"
+
+---
+# Variant 3: Rich latent (C=8)
+E2_latent_8:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+    latent_channels: 8
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 12
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_E2_latent_8"
+
+---
+# Variant 4: Large latent (C=16)
+E2_latent_16:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+    latent_channels: 16
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 8
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_E2_latent_16"

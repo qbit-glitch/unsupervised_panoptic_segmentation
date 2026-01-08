@@ -1,0 +1,93 @@
+# F1: Diffusion Loss Weight (lambda_diff)
+# Weight of the main reconstruction/diffusion loss
+
+# Variant 1: Low weight (0.5)
+F1_lambda_diff_0.5:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  loss:
+    lambda_diff: 0.5
+    lambda_spec: 0.1
+    lambda_ident: 0.01
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_F1_lambda_diff_0.5"
+
+---
+# Variant 2: Standard weight (1.0) - default
+F1_lambda_diff_1.0:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  loss:
+    lambda_diff: 1.0
+    lambda_spec: 0.1
+    lambda_ident: 0.01
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_F1_lambda_diff_1.0"
+
+---
+# Variant 3: High weight (2.0)
+F1_lambda_diff_2.0:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  loss:
+    lambda_diff: 2.0
+    lambda_spec: 0.1
+    lambda_ident: 0.01
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_F1_lambda_diff_2.0"
+
+---
+# Variant 4: Very high weight (5.0)
+F1_lambda_diff_5.0:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  loss:
+    lambda_diff: 5.0
+    lambda_spec: 0.1
+    lambda_ident: 0.01
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_F1_lambda_diff_5.0"

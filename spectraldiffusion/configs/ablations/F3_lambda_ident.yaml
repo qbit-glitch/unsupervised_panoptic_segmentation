@@ -1,0 +1,116 @@
+# F3: Identifiability Loss Weight (lambda_ident)
+# Weight of the identifiability regularization
+
+# Variant 1: Disabled (0.0)
+F3_lambda_ident_0.0:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  loss:
+    lambda_diff: 1.0
+    lambda_spec: 0.1
+    lambda_ident: 0.0
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_F3_lambda_ident_0.0"
+
+---
+# Variant 2: Low weight (0.001)
+F3_lambda_ident_0.001:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  loss:
+    lambda_diff: 1.0
+    lambda_spec: 0.1
+    lambda_ident: 0.001
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_F3_lambda_ident_0.001"
+
+---
+# Variant 3: Standard weight (0.01) - default
+F3_lambda_ident_0.01:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  loss:
+    lambda_diff: 1.0
+    lambda_spec: 0.1
+    lambda_ident: 0.01
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_F3_lambda_ident_0.01"
+
+---
+# Variant 4: High weight (0.1)
+F3_lambda_ident_0.1:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  loss:
+    lambda_diff: 1.0
+    lambda_spec: 0.1
+    lambda_ident: 0.1
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_F3_lambda_ident_0.1"
+
+---
+# Variant 5: Very high weight (1.0)
+F3_lambda_ident_1.0:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  loss:
+    lambda_diff: 1.0
+    lambda_spec: 0.1
+    lambda_ident: 1.0
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_F3_lambda_ident_1.0"

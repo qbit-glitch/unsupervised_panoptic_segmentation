@@ -1,0 +1,86 @@
+# B3: Feature Dimension Ablation
+# Effect of slot/feature dimension
+
+# Variant 1: Low dimension (384)
+B3_dim_384:
+  model:
+    backbone: "small"
+    feature_dim: 384
+    slot_dim: 384
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 24
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_B3_dim_384"
+
+---
+# Variant 2: Medium dimension (768) - default
+B3_dim_768:
+  model:
+    backbone: "base"
+    feature_dim: 768
+    slot_dim: 768
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_B3_dim_768"
+
+---
+# Variant 3: High dimension (1024)
+B3_dim_1024:
+  model:
+    backbone: "large"
+    feature_dim: 1024
+    slot_dim: 1024
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 8
+  training:
+    epochs: 30
+    lr: 5e-5
+  logging:
+    exp_name: "ablation_B3_dim_1024"
+
+---
+# Variant 4: Projected dimension (768 -> 256)
+B3_dim_projected:
+  model:
+    backbone: "base"
+    feature_dim: 768
+    slot_dim: 256  # Project down
+    use_projection: true
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 24
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_B3_dim_projected"

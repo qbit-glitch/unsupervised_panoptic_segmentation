@@ -1,0 +1,81 @@
+# G4: Model Parameters
+# Total parameter count comparison
+
+# Variant 1: Small model
+G4_small:
+  model:
+    backbone: "small"
+    feature_dim: 384
+    num_slots: 8
+    d_state: 32
+    expand: 1
+    latent_channels: 2
+    unet_channel_mults: [1, 2, 4]
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  benchmark:
+    count_params: true
+    count_flops: true
+  logging:
+    exp_name: "ablation_G4_small"
+
+---
+# Variant 2: Base model (default)
+G4_base:
+  model:
+    backbone: "base"
+    feature_dim: 768
+    num_slots: 12
+    d_state: 64
+    expand: 2
+    latent_channels: 4
+    unet_channel_mults: [1, 2, 4, 4]
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  benchmark:
+    count_params: true
+    count_flops: true
+  logging:
+    exp_name: "ablation_G4_base"
+
+---
+# Variant 3: Large model
+G4_large:
+  model:
+    backbone: "large"
+    feature_dim: 1024
+    num_slots: 16
+    d_state: 128
+    expand: 2
+    latent_channels: 8
+    unet_channel_mults: [1, 2, 4, 8]
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  benchmark:
+    count_params: true
+    count_flops: true
+  logging:
+    exp_name: "ablation_G4_large"
+
+---
+# Variant 4: XL model (maximum)
+G4_xl:
+  model:
+    backbone: "large"
+    feature_dim: 1024
+    num_slots: 24
+    d_state: 256
+    expand: 4
+    latent_channels: 16
+    unet_channel_mults: [1, 2, 4, 8, 8]
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  benchmark:
+    count_params: true
+    count_flops: true
+  logging:
+    exp_name: "ablation_G4_xl"

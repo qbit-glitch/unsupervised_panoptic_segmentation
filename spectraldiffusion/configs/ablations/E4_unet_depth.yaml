@@ -1,0 +1,81 @@
+# E4: U-Net Depth
+# Denoiser architecture depth
+
+# Variant 1: Shallow [1, 2, 4]
+E4_unet_shallow:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+    unet_channel_mults: [1, 2, 4]
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_E4_unet_shallow"
+
+---
+# Variant 2: Standard [1, 2, 4, 4] - default
+E4_unet_standard:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+    unet_channel_mults: [1, 2, 4, 4]
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_E4_unet_standard"
+
+---
+# Variant 3: Deep [1, 2, 4, 8]
+E4_unet_deep:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+    unet_channel_mults: [1, 2, 4, 8]
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 8
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_E4_unet_deep"
+
+---
+# Variant 4: Very Deep [1, 2, 4, 8, 8]
+E4_unet_very_deep:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+    unet_channel_mults: [1, 2, 4, 8, 8]
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 4
+  training:
+    epochs: 30
+    lr: 5e-5
+  logging:
+    exp_name: "ablation_E4_unet_very_deep"

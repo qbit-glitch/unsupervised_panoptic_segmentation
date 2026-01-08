@@ -1,0 +1,106 @@
+# C1: Multi-scale vs Single Scale Spectral Init
+# Effect of hierarchical spectral decomposition
+
+# Variant 1: Multi-scale [8, 16, 32] (proposed)
+C1_multiscale_8_16_32:
+  model:
+    backbone: "base"
+    scales: [8, 16, 32]
+    slots_per_scale: 4  # Total 12 slots
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_C1_multiscale_8_16_32"
+
+---
+# Variant 2: Single scale 8x8
+C1_single_8:
+  model:
+    backbone: "base"
+    scales: [8]
+    slots_per_scale: 12  # All slots from one scale
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_C1_single_8"
+
+---
+# Variant 3: Single scale 16x16
+C1_single_16:
+  model:
+    backbone: "base"
+    scales: [16]
+    slots_per_scale: 12
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_C1_single_16"
+
+---
+# Variant 4: Dual scale [8, 32]
+C1_dual_8_32:
+  model:
+    backbone: "base"
+    scales: [8, 32]
+    slots_per_scale: 6  # Total 12 slots
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_C1_dual_8_32"
+
+---
+# Variant 5: Fine-grained [4, 8, 16]
+C1_fine_4_8_16:
+  model:
+    backbone: "base"
+    scales: [4, 8, 16]
+    slots_per_scale: 4
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_C1_fine_4_8_16"

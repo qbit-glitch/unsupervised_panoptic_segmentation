@@ -1,0 +1,83 @@
+# E3: Noise Schedule
+# Diffusion noise schedule type
+
+# Variant 1: Linear schedule
+E3_linear:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+    noise_schedule: "linear"
+    beta_start: 0.0001
+    beta_end: 0.02
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_E3_linear"
+
+---
+# Variant 2: Cosine schedule (default)
+E3_cosine:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+    noise_schedule: "cosine"
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_E3_cosine"
+
+---
+# Variant 3: Sigmoid schedule
+E3_sigmoid:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+    noise_schedule: "sigmoid"
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_E3_sigmoid"
+
+---
+# Variant 4: Squared cosine
+E3_squared_cosine:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+    noise_schedule: "squared_cosine"
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_E3_squared_cosine"

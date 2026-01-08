@@ -1,0 +1,85 @@
+# B1: DINOv3 Model Size Ablation
+# Compare Tiny/Small/Base/Large variants
+
+# Variant 1: DINOv3 Tiny (fastest, lowest quality)
+B1_tiny:
+  model:
+    backbone: "tiny"
+    backbone_model: "dinov3-tiny"
+    feature_dim: 192
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 32  # Can use larger batch
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_B1_tiny"
+
+---
+# Variant 2: DINOv3 Small
+B1_small:
+  model:
+    backbone: "small"
+    backbone_model: "dinov3-small"
+    feature_dim: 384
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 24
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_B1_small"
+
+---
+# Variant 3: DINOv3 Base (default)
+B1_base:
+  model:
+    backbone: "base"
+    backbone_model: "dinov3-base"
+    feature_dim: 768
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_B1_base"
+
+---
+# Variant 4: DINOv3 Large (highest quality, slowest)
+B1_large:
+  model:
+    backbone: "large"
+    backbone_model: "dinov3-large"
+    feature_dim: 1024
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 8  # Smaller batch for memory
+  training:
+    epochs: 30
+    lr: 5e-5  # Lower LR for larger model
+  logging:
+    exp_name: "ablation_B1_large"

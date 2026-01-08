@@ -1,0 +1,85 @@
+# D2: Mamba State Dimension
+# SSM state space size
+
+# Variant 1: Small state (N=32)
+D2_state_32:
+  model:
+    backbone: "base"
+    num_slots: 12
+    num_iterations: 3
+    d_state: 32
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_D2_state_32"
+
+---
+# Variant 2: Medium state (N=64) - default
+D2_state_64:
+  model:
+    backbone: "base"
+    num_slots: 12
+    num_iterations: 3
+    d_state: 64
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_D2_state_64"
+
+---
+# Variant 3: Large state (N=128)
+D2_state_128:
+  model:
+    backbone: "base"
+    num_slots: 12
+    num_iterations: 3
+    d_state: 128
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 12
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_D2_state_128"
+
+---
+# Variant 4: Very Large state (N=256)
+D2_state_256:
+  model:
+    backbone: "base"
+    num_slots: 12
+    num_iterations: 3
+    d_state: 256
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 8
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_D2_state_256"

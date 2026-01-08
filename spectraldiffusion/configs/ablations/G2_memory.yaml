@@ -1,0 +1,92 @@
+# G2: Memory Usage
+# Peak memory consumption across batch sizes
+
+# Variant 1: Batch size 1
+G2_batch_1:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [518, 518]
+    batch_size: 1
+  benchmark:
+    measure_memory: true
+  logging:
+    exp_name: "ablation_G2_batch_1"
+
+---
+# Variant 2: Batch size 4
+G2_batch_4:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [518, 518]
+    batch_size: 4
+  benchmark:
+    measure_memory: true
+  logging:
+    exp_name: "ablation_G2_batch_4"
+
+---
+# Variant 3: Batch size 8
+G2_batch_8:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [518, 518]
+    batch_size: 8
+  benchmark:
+    measure_memory: true
+  logging:
+    exp_name: "ablation_G2_batch_8"
+
+---
+# Variant 4: Batch size 16
+G2_batch_16:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [518, 518]
+    batch_size: 16
+  benchmark:
+    measure_memory: true
+  logging:
+    exp_name: "ablation_G2_batch_16"
+
+---
+# Variant 5: With gradient checkpointing
+G2_grad_checkpoint:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+    gradient_checkpointing: true
+  data:
+    dataset: "synthetic"
+    image_size: [518, 518]
+    batch_size: 16
+  benchmark:
+    measure_memory: true
+  logging:
+    exp_name: "ablation_G2_grad_checkpoint"

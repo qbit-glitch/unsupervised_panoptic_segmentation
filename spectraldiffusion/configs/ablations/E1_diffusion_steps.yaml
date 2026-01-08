@@ -1,0 +1,85 @@
+# E1: Diffusion Steps
+# Number of training and inference timesteps
+
+# Variant 1: Few steps (T=20 train, 5 DDIM)
+E1_steps_20_5:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+    num_timesteps: 20
+    ddim_steps: 5
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_E1_steps_20_5"
+
+---
+# Variant 2: Standard (T=50 train, 10 DDIM) - default
+E1_steps_50_10:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+    num_timesteps: 50
+    ddim_steps: 10
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_E1_steps_50_10"
+
+---
+# Variant 3: Many steps (T=100 train, 20 DDIM)
+E1_steps_100_20:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+    num_timesteps: 100
+    ddim_steps: 20
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 12
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_E1_steps_100_20"
+
+---
+# Variant 4: High quality (T=200 train, 50 DDIM)
+E1_steps_200_50:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+    num_timesteps: 200
+    ddim_steps: 50
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 8
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_E1_steps_200_50"

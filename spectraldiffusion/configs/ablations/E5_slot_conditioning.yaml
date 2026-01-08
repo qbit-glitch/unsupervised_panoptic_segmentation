@@ -1,0 +1,81 @@
+# E5: Slot Conditioning Method
+# How slots condition the diffusion decoder
+
+# Variant 1: Cross-attention (default)
+E5_cross_attention:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+    slot_conditioning: "cross_attention"
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_E5_cross_attention"
+
+---
+# Variant 2: Concatenation
+E5_concatenation:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+    slot_conditioning: "concatenation"
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_E5_concatenation"
+
+---
+# Variant 3: FiLM conditioning
+E5_film:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+    slot_conditioning: "film"
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_E5_film"
+
+---
+# Variant 4: Adaptive (cross + FiLM)
+E5_adaptive:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+    slot_conditioning: "adaptive"
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 12
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_E5_adaptive"

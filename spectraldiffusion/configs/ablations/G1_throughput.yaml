@@ -1,0 +1,109 @@
+# G1: Throughput Comparison
+# FPS benchmark across configurations
+
+# Variant 1: Full model (proposed)
+G1_full:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+    use_pruning: true
+  data:
+    dataset: "synthetic"
+    image_size: [518, 518]  # Full resolution
+    batch_size: 1  # For FPS measurement
+  benchmark:
+    measure_fps: true
+    num_warmup: 10
+    num_runs: 100
+  logging:
+    exp_name: "ablation_G1_full"
+
+---
+# Variant 2: Without diffusion
+G1_no_diffusion:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: false
+    use_pruning: true
+  data:
+    dataset: "synthetic"
+    image_size: [518, 518]
+    batch_size: 1
+  benchmark:
+    measure_fps: true
+    num_warmup: 10
+    num_runs: 100
+  logging:
+    exp_name: "ablation_G1_no_diffusion"
+
+---
+# Variant 3: Without Mamba (use attention)
+G1_no_mamba:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: false
+    use_diffusion: true
+    use_pruning: true
+  data:
+    dataset: "synthetic"
+    image_size: [518, 518]
+    batch_size: 1
+  benchmark:
+    measure_fps: true
+    num_warmup: 10
+    num_runs: 100
+  logging:
+    exp_name: "ablation_G1_no_mamba"
+
+---
+# Variant 4: With pruning (efficient)
+G1_pruned:
+  model:
+    backbone: "base"
+    num_slots: 24  # Start with more, prune down
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+    use_pruning: true
+    pruning_mode: "hard"
+    pruning_threshold: 0.1
+  data:
+    dataset: "synthetic"
+    image_size: [518, 518]
+    batch_size: 1
+  benchmark:
+    measure_fps: true
+    num_warmup: 10
+    num_runs: 100
+  logging:
+    exp_name: "ablation_G1_pruned"
+
+---
+# Variant 5: Minimal (fastest)
+G1_minimal:
+  model:
+    backbone: "small"
+    num_slots: 8
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: false
+    use_pruning: true
+    ddim_steps: 5
+  data:
+    dataset: "synthetic"
+    image_size: [256, 256]
+    batch_size: 1
+  benchmark:
+    measure_fps: true
+    num_warmup: 10
+    num_runs: 100
+  logging:
+    exp_name: "ablation_G1_minimal"

@@ -1,0 +1,319 @@
+# Ablation Study Configurations for SpectralDiffusion
+# All ablation experiments in one file
+
+# =============================================================================
+# A. CORE ARCHITECTURE ABLATIONS
+# =============================================================================
+
+A1_spectral_vs_random:
+  name: "A1: Spectral Init vs Random"
+  description: "Compare spectral initialization with random and learned"
+  variants:
+    - init_mode: "spectral"
+    - init_mode: "random"
+    - init_mode: "learned"
+  metrics: ["ARI", "FG_ARI", "convergence_speed"]
+  expected_impact: "Spectral +5-8% ARI"
+
+A2_mamba_vs_attention:
+  name: "A2: Mamba vs Attention"
+  description: "Compare Mamba SSM with standard attention"
+  variants:
+    - use_mamba: true
+    - use_mamba: false  # Standard attention
+  metrics: ["ARI", "PQ", "inference_speed", "memory"]
+  expected_impact: "Mamba 3-5x faster, similar quality"
+
+A3_diffusion_vs_mlp:
+  name: "A3: Diffusion vs MLP Decoder"
+  description: "Compare diffusion decoder with direct MLP"
+  variants:
+    - use_diffusion: true
+    - use_diffusion: false
+  metrics: ["PQ", "SQ", "mask_quality"]
+  expected_impact: "Diffusion +3-5% PQ"
+
+A4_identifiability:
+  name: "A4: Identifiability Prior"
+  description: "Effect of identifiability regularization"
+  variants:
+    - lambda_ident: 0.01
+    - lambda_ident: 0.0
+    - lambda_ident: 0.1
+  metrics: ["slot_consistency", "object_separation"]
+  expected_impact: "Improved slot consistency"
+
+A5_adaptive_pruning:
+  name: "A5: Adaptive Pruning"
+  description: "Compare adaptive vs fixed slot count"
+  variants:
+    - use_pruning: true
+    - use_pruning: false
+  metrics: ["inference_speed", "memory", "ARI"]
+  expected_impact: "Pruning 2x faster, minimal quality loss"
+
+# =============================================================================
+# B. BACKBONE ABLATIONS
+# =============================================================================
+
+B1_backbone_size:
+  name: "B1: DINOv3 Model Size"
+  description: "Compare DINOv3 variants"
+  variants:
+    - backbone: "small"   # 384 dim
+    - backbone: "base"    # 768 dim
+    - backbone: "large"   # 1024 dim
+  metrics: ["ARI", "PQ", "FPS", "memory", "params"]
+  expected_impact: "Larger = +2-3% quality, -50% speed"
+
+B2_dino_version:
+  name: "B2: DINOv3 vs DINOv2"
+  description: "Compare DINOv3 with DINOv2"
+  variants:
+    - backbone: "dinov3-base"
+    - backbone: "dinov2-base"
+  metrics: ["ARI", "PQ", "feature_quality"]
+  expected_impact: "DINOv3 +1-2% improvement"
+
+B3_feature_dim:
+  name: "B3: Feature Dimension"
+  description: "Effect of feature dimension"
+  variants:
+    - feature_dim: 384
+    - feature_dim: 768
+    - feature_dim: 1024
+  metrics: ["ARI", "memory", "training_time"]
+  expected_impact: "Higher dim = better quality, more compute"
+
+B4_backbone_finetuning:
+  name: "B4: Frozen vs Fine-tuned"
+  description: "Compare frozen with fine-tuned backbone"
+  variants:
+    - freeze_backbone: true
+    - freeze_backbone: false
+    - unfreeze_last_n: 2
+  metrics: ["ARI", "PQ", "training_stability"]
+  expected_impact: "Fine-tuning +1-2%, risk of overfitting"
+
+# =============================================================================
+# C. SPECTRAL INITIALIZATION ABLATIONS
+# =============================================================================
+
+C1_multiscale:
+  name: "C1: Multi-scale vs Single"
+  description: "Compare multi-scale with single scale spectral init"
+  variants:
+    - scales: [8, 16, 32]
+    - scales: [16]
+    - scales: [8, 32]
+  metrics: ["ARI", "small_object_detection"]
+  expected_impact: "Multi-scale +3-5% on small objects"
+
+C2_slots_per_scale:
+  name: "C2: Slots per Scale"
+  description: "Number of slots extracted per scale"
+  variants:
+    - slots_per_scale: 2
+    - slots_per_scale: 4
+    - slots_per_scale: 6
+  metrics: ["ARI", "object_count_accuracy"]
+  expected_impact: "4 optimal for most scenes"
+
+C3_knn_neighbors:
+  name: "C3: k-NN Neighbors"
+  description: "Number of neighbors for affinity"
+  variants:
+    - k_neighbors: 10
+    - k_neighbors: 20
+    - k_neighbors: 40
+  metrics: ["spectral_quality", "clustering_NMI"]
+  expected_impact: "20 optimal, 40 diminishing returns"
+
+C4_power_iteration:
+  name: "C4: Power Iteration Steps"
+  description: "Number of power iteration steps"
+  variants:
+    - num_power_iters: 20
+    - num_power_iters: 50
+    - num_power_iters: 100
+  metrics: ["eigenvalue_accuracy", "init_time"]
+  expected_impact: "50 sufficient for convergence"
+
+# =============================================================================
+# D. MAMBA-SLOT ATTENTION ABLATIONS
+# =============================================================================
+
+D1_num_iterations:
+  name: "D1: Slot Attention Iterations"
+  description: "Number of slot attention iterations"
+  variants:
+    - num_iterations: 1
+    - num_iterations: 3
+    - num_iterations: 5
+  metrics: ["ARI", "convergence", "inference_time"]
+  expected_impact: "3 optimal, 5 marginal improvement"
+
+D2_state_dim:
+  name: "D2: Mamba State Dimension"
+  description: "SSM state dimension N"
+  variants:
+    - d_state: 32
+    - d_state: 64
+    - d_state: 128
+  metrics: ["ARI", "memory", "expressiveness"]
+  expected_impact: "64 best quality/efficiency"
+
+D3_expand_factor:
+  name: "D3: Mamba Expand Factor"
+  description: "Expansion factor for inner dimension"
+  variants:
+    - expand: 1
+    - expand: 2
+    - expand: 4
+  metrics: ["ARI", "params", "FPS"]
+  expected_impact: "2 optimal"
+
+D4_bidirectional:
+  name: "D4: Bidirectional Mamba"
+  description: "Bidirectional vs unidirectional scan"
+  variants:
+    - bidirectional: true
+    - bidirectional: false
+  metrics: ["ARI", "spatial_coherence"]
+  expected_impact: "Bidirectional +2-3% ARI"
+
+# =============================================================================
+# E. DIFFUSION DECODER ABLATIONS
+# =============================================================================
+
+E1_diffusion_steps:
+  name: "E1: Diffusion Steps"
+  description: "Number of diffusion timesteps"
+  variants:
+    train_steps:
+      - num_timesteps: 20
+      - num_timesteps: 50
+      - num_timesteps: 100
+    inference_steps:
+      - ddim_steps: 5
+      - ddim_steps: 10
+      - ddim_steps: 20
+  metrics: ["mask_quality", "FID", "inference_time"]
+  expected_impact: "50 train, 10 inference optimal"
+
+E2_latent_dim:
+  name: "E2: Latent Dimension"
+  description: "VAE latent space dimension"
+  variants:
+    - latent_channels: 2
+    - latent_channels: 4
+    - latent_channels: 8
+  metrics: ["reconstruction_quality", "mask_sharpness"]
+  expected_impact: "4 optimal balance"
+
+E3_noise_schedule:
+  name: "E3: Noise Schedule"
+  description: "Diffusion noise schedule"
+  variants:
+    - schedule: "linear"
+    - schedule: "cosine"
+    - schedule: "sigmoid"
+  metrics: ["training_stability", "sample_quality"]
+  expected_impact: "Cosine best for masks"
+
+E4_unet_depth:
+  name: "E4: U-Net Depth"
+  description: "Depth of denoising U-Net"
+  variants:
+    - channel_mults: [1, 2, 4]
+    - channel_mults: [1, 2, 4, 4]
+    - channel_mults: [1, 2, 4, 8]
+  metrics: ["mask_quality", "params", "memory"]
+  expected_impact: "[1,2,4,4] best balance"
+
+E5_cross_attention:
+  name: "E5: Slot Cross-Attention"
+  description: "Cross-attention vs concatenation for slot conditioning"
+  variants:
+    - conditioning: "cross_attention"
+    - conditioning: "concatenation"
+    - conditioning: "adaptive"
+  metrics: ["slot_influence", "mask_consistency"]
+  expected_impact: "Cross-attn +2% mask quality"
+
+# =============================================================================
+# F. LOSS WEIGHT ABLATIONS
+# =============================================================================
+
+F1_lambda_diff:
+  name: "F1: Diffusion Loss Weight"
+  description: "Weight of diffusion reconstruction loss"
+  variants:
+    - lambda_diff: 0.5
+    - lambda_diff: 1.0
+    - lambda_diff: 2.0
+  metrics: ["ARI", "mask_quality", "convergence"]
+  expected_impact: "1.0 optimal"
+
+F2_lambda_spec:
+  name: "F2: Spectral Loss Weight"
+  description: "Weight of spectral consistency loss"
+  variants:
+    - lambda_spec: 0.01
+    - lambda_spec: 0.1
+    - lambda_spec: 1.0
+  metrics: ["spectral_alignment", "slot_stability"]
+  expected_impact: "0.1 optimal"
+
+F3_lambda_ident:
+  name: "F3: Identifiability Loss Weight"
+  description: "Weight of identifiability regularization"
+  variants:
+    - lambda_ident: 0.001
+    - lambda_ident: 0.01
+    - lambda_ident: 0.1
+  metrics: ["slot_identifiability", "consistency"]
+  expected_impact: "0.01 optimal"
+
+# =============================================================================
+# G. EFFICIENCY ABLATIONS
+# =============================================================================
+
+G1_throughput:
+  name: "G1: Inference Throughput"
+  description: "Measure FPS across configurations"
+  variants:
+    - config: "full"
+    - config: "no_diffusion"
+    - config: "no_mamba"
+    - config: "pruned"
+  metrics: ["FPS", "latency_ms"]
+  target: "10x faster than CUPS (0.23 FPS)"
+
+G2_memory:
+  name: "G2: Memory Usage"
+  description: "GPU memory consumption"
+  variants:
+    - batch_size: 1
+    - batch_size: 4
+    - batch_size: 8
+    - batch_size: 16
+  metrics: ["peak_memory_GB", "can_run_on_M4"]
+  target: "Under 48GB for M4 Pro"
+
+G3_training_time:
+  name: "G3: Training Time"
+  description: "Time to convergence"
+  variants:
+    - epochs_to_convergence: true
+     - samples_per_second: true
+  metrics: ["hours_to_target_ARI", "GPU_utilization"]
+  
+G4_model_params:
+  name: "G4: Model Parameters"
+  description: "Total parameter count comparison"
+  variants:
+    - config: "small"
+    - config: "base"
+    - config: "large"
+  metrics: ["total_params", "trainable_params", "FLOPs"]

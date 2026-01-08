@@ -1,0 +1,67 @@
+# D3: Mamba Expand Factor
+# Inner dimension expansion
+
+# Variant 1: No expansion (expand=1)
+D3_expand_1:
+  model:
+    backbone: "base"
+    num_slots: 12
+    num_iterations: 3
+    d_state: 64
+    expand: 1
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_D3_expand_1"
+
+---
+# Variant 2: 2x expansion (default)
+D3_expand_2:
+  model:
+    backbone: "base"
+    num_slots: 12
+    num_iterations: 3
+    d_state: 64
+    expand: 2
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_D3_expand_2"
+
+---
+# Variant 3: 4x expansion
+D3_expand_4:
+  model:
+    backbone: "base"
+    num_slots: 12
+    num_iterations: 3
+    d_state: 64
+    expand: 4
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 8
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_D3_expand_4"

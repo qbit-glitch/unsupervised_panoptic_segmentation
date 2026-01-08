@@ -1,0 +1,58 @@
+# A1: Spectral Init vs Random vs Learned
+# Compare initialization strategies
+
+# Variant 1: Spectral Initialization (default/proposed)
+A1_spectral:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_A1_spectral"
+
+---
+# Variant 2: Random Initialization (baseline)
+A1_random:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "random"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_A1_random"
+
+---
+# Variant 3: Learned Initialization (baseline)
+A1_learned:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "learned"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_A1_learned"

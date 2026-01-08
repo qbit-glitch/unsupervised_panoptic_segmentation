@@ -1,0 +1,70 @@
+# A4: With/Without Identifiability Prior
+# Effect of identifiability regularization (NeurIPS 2024)
+
+# Variant 1: With Identifiability Prior (proposed)
+A4_with_ident:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  loss:
+    lambda_diff: 1.0
+    lambda_spec: 0.1
+    lambda_ident: 0.01
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_A4_with_ident"
+
+---
+# Variant 2: Without Identifiability Prior
+A4_without_ident:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  loss:
+    lambda_diff: 1.0
+    lambda_spec: 0.1
+    lambda_ident: 0.0  # Disabled
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_A4_without_ident"
+
+---
+# Variant 3: Strong Identifiability (high lambda)
+A4_strong_ident:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  loss:
+    lambda_diff: 1.0
+    lambda_spec: 0.1
+    lambda_ident: 0.1  # 10x stronger
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_A4_strong_ident"

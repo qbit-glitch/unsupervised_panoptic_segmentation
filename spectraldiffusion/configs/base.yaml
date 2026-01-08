@@ -1,0 +1,53 @@
+# SpectralDiffusion Base Configuration
+# For training on Cityscapes/COCO-Stuff
+
+# Model settings
+model:
+  backbone: "base"  # dinov3-base
+  num_slots: 12
+  scales: [8, 16, 32]
+  slots_per_scale: 4
+  use_diffusion: true
+  use_mamba: true
+  use_pruning: true
+  init_mode: "spectral"
+  freeze_backbone: true
+  num_iterations: 3
+  d_state: 64
+  diffusion_steps: 50
+  pruning_threshold: 0.05
+
+# Data settings
+data:
+  dataset: "coco"
+  data_dir: "../../datasets"
+  image_size: [518, 518]
+  batch_size: 8
+  num_workers: 4
+  
+# Training settings
+training:
+  epochs: 100
+  lr: 1e-4
+  weight_decay: 1e-5
+  warmup_epochs: 5
+  grad_clip: 1.0
+  
+# Loss weights
+loss:
+  lambda_diff: 1.0
+  lambda_spec: 0.1
+  lambda_ident: 0.01
+  
+# Device settings
+device: "mps"
+mixed_precision: false
+
+# Logging settings
+logging:
+  output_dir: "./outputs"
+  exp_name: "spectral_diffusion_base"
+  log_interval: 10
+  eval_interval: 1
+  save_interval: 5
+  wandb: false

@@ -1,0 +1,86 @@
+# B4: Frozen vs Fine-tuned Backbone
+# Effect of backbone training
+
+# Variant 1: Fully Frozen (default)
+B4_frozen:
+  model:
+    backbone: "base"
+    freeze_backbone: true
+    unfreeze_last_n: 0
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_B4_frozen"
+
+---
+# Variant 2: Last 2 blocks unfrozen
+B4_unfreeze_2:
+  model:
+    backbone: "base"
+    freeze_backbone: true
+    unfreeze_last_n: 2
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 12  # Smaller batch for gradient memory
+  training:
+    epochs: 30
+    lr: 5e-5  # Lower LR for fine-tuning
+    backbone_lr_mult: 0.1  # Even lower for backbone
+  logging:
+    exp_name: "ablation_B4_unfreeze_2"
+
+---
+# Variant 3: Last 4 blocks unfrozen
+B4_unfreeze_4:
+  model:
+    backbone: "base"
+    freeze_backbone: true
+    unfreeze_last_n: 4
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 8
+  training:
+    epochs: 30
+    lr: 5e-5
+    backbone_lr_mult: 0.1
+  logging:
+    exp_name: "ablation_B4_unfreeze_4"
+
+---
+# Variant 4: Fully Fine-tuned
+B4_finetune_all:
+  model:
+    backbone: "base"
+    freeze_backbone: false
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 4  # Much smaller batch
+  training:
+    epochs: 30
+    lr: 1e-5  # Very low LR
+  logging:
+    exp_name: "ablation_B4_finetune_all"

@@ -1,0 +1,107 @@
+# A5: Adaptive Pruning vs Fixed K
+# Compare dynamic vs fixed slot count
+
+# Variant 1: Adaptive Pruning - Soft (proposed)
+A5_adaptive_soft:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+    use_pruning: true
+    pruning_mode: "soft"
+    pruning_threshold: 0.05
+    min_slots: 4
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_A5_adaptive_soft"
+
+---
+# Variant 2: Adaptive Pruning - Hard
+A5_adaptive_hard:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+    use_pruning: true
+    pruning_mode: "hard"
+    pruning_threshold: 0.05
+    min_slots: 4
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_A5_adaptive_hard"
+
+---
+# Variant 3: Fixed K=12 (no pruning)
+A5_fixed_12:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+    use_pruning: false
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_A5_fixed_12"
+
+---
+# Variant 4: Fixed K=8 (fewer slots)
+A5_fixed_8:
+  model:
+    backbone: "base"
+    num_slots: 8
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+    use_pruning: false
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_A5_fixed_8"
+
+---
+# Variant 5: Fixed K=16 (more slots)
+A5_fixed_16:
+  model:
+    backbone: "base"
+    num_slots: 16
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+    use_pruning: false
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_A5_fixed_16"

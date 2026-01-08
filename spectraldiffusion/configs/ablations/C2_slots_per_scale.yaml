@@ -1,0 +1,85 @@
+# C2: Slots per Scale
+# Number of spectral prototypes per resolution level
+
+# Variant 1: 2 slots per scale (6 total)
+C2_slots_2:
+  model:
+    backbone: "base"
+    scales: [8, 16, 32]
+    slots_per_scale: 2
+    num_slots: 6
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_C2_slots_2"
+
+---
+# Variant 2: 4 slots per scale (12 total) - default
+C2_slots_4:
+  model:
+    backbone: "base"
+    scales: [8, 16, 32]
+    slots_per_scale: 4
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_C2_slots_4"
+
+---
+# Variant 3: 6 slots per scale (18 total)
+C2_slots_6:
+  model:
+    backbone: "base"
+    scales: [8, 16, 32]
+    slots_per_scale: 6
+    num_slots: 18
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 12
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_C2_slots_6"
+
+---
+# Variant 4: 8 slots per scale (24 total)
+C2_slots_8:
+  model:
+    backbone: "base"
+    scales: [8, 16, 32]
+    slots_per_scale: 8
+    num_slots: 24
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 8
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_C2_slots_8"

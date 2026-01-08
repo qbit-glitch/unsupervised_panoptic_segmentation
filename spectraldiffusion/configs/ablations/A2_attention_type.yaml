@@ -1,0 +1,80 @@
+# A2: Mamba vs Standard Attention vs Linear Attention
+# Compare slot attention mechanisms
+
+# Variant 1: Mamba SSM (proposed)
+A2_mamba:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: true
+    attention_type: "mamba"
+    d_state: 64
+    bidirectional: true
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_A2_mamba"
+
+---
+# Variant 2: Standard Transformer Attention (O(N²))
+A2_transformer:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: false
+    attention_type: "transformer"
+    n_heads: 8
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_A2_transformer"
+
+---
+# Variant 3: Standard Slot Attention (Locatello 2020)
+A2_slot_attention:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: false
+    attention_type: "standard"
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_A2_slot_attention"
+
+---
+# Variant 4: Linear Attention (O(N))
+A2_linear:
+  model:
+    backbone: "base"
+    num_slots: 12
+    init_mode: "spectral"
+    use_mamba: false
+    attention_type: "linear"
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_A2_linear"

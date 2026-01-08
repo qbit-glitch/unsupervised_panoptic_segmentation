@@ -1,0 +1,36 @@
+# CLEVR Dataset Configuration
+# For synthetic object discovery validation
+
+# Inherit from base
+_base_: base.yaml
+
+# Model adjustments for CLEVR
+model:
+  backbone: "base"
+  num_slots: 11  # Max 10 objects + background
+  scales: [8, 16]
+  slots_per_scale: 4
+  image_size: [240, 320]
+
+# Data settings
+data:
+  dataset: "clevr"
+  data_dir: "../../datasets/clevr/CLEVR_v1.0"
+  image_size: [240, 320]
+  batch_size: 16
+  num_workers: 4
+
+# Training - CLEVR converges faster
+training:
+  epochs: 50
+  lr: 2e-4
+  warmup_epochs: 3
+
+# Logging
+logging:
+  exp_name: "spectral_diffusion_clevr"
+
+# Targets
+targets:
+  ari: 0.92
+  fg_ari: 0.95

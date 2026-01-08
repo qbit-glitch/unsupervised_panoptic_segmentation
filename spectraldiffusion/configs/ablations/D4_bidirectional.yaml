@@ -1,0 +1,45 @@
+# D4: Bidirectional vs Unidirectional Mamba
+# Scan direction ablation
+
+# Variant 1: Bidirectional (default)
+D4_bidirectional:
+  model:
+    backbone: "base"
+    num_slots: 12
+    num_iterations: 3
+    d_state: 64
+    bidirectional: true
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_D4_bidirectional"
+
+---
+# Variant 2: Unidirectional (forward only)
+D4_unidirectional:
+  model:
+    backbone: "base"
+    num_slots: 12
+    num_iterations: 3
+    d_state: 64
+    bidirectional: false
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_D4_unidirectional"

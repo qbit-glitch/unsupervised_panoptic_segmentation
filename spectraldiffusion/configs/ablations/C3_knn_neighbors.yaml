@@ -1,0 +1,89 @@
+# C3: k-NN Neighbors for Affinity Graph
+# Sparsity of the affinity matrix
+
+# Variant 1: Sparse (k=10)
+C3_knn_10:
+  model:
+    backbone: "base"
+    scales: [8, 16, 32]
+    slots_per_scale: 4
+    k_neighbors: 10
+    sigma: 1.0
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_C3_knn_10"
+
+---
+# Variant 2: Medium (k=20) - default
+C3_knn_20:
+  model:
+    backbone: "base"
+    scales: [8, 16, 32]
+    slots_per_scale: 4
+    k_neighbors: 20
+    sigma: 1.0
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_C3_knn_20"
+
+---
+# Variant 3: Dense (k=40)
+C3_knn_40:
+  model:
+    backbone: "base"
+    scales: [8, 16, 32]
+    slots_per_scale: 4
+    k_neighbors: 40
+    sigma: 1.0
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_C3_knn_40"
+
+---
+# Variant 4: Very Dense (k=80)
+C3_knn_80:
+  model:
+    backbone: "base"
+    scales: [8, 16, 32]
+    slots_per_scale: 4
+    k_neighbors: 80
+    sigma: 1.0
+    init_mode: "spectral"
+    use_mamba: true
+    use_diffusion: true
+  data:
+    dataset: "synthetic"
+    image_size: [128, 128]
+    batch_size: 16
+  training:
+    epochs: 30
+    lr: 1e-4
+  logging:
+    exp_name: "ablation_C3_knn_80"
