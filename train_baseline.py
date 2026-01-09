@@ -153,7 +153,10 @@ def evaluate(model, val_loader, args):
         images = batch['image'].to(args.device).float()
         
         outputs = model(images, return_loss=True)
-        total_loss += outputs['loss'].item()
+        loss = outputs['loss']
+        if loss.dim() > 0:
+            loss = loss.mean()
+        total_loss += loss.item()
         
         # ARI
         if 'mask' in batch:
