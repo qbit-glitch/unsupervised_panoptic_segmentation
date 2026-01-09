@@ -54,8 +54,12 @@ def parse_args():
                        help="Path to datasets directory")
     parser.add_argument("--output-dir", type=str, default="./outputs")
     parser.add_argument("--num-workers", type=int, default=4)
-    parser.add_argument(\"--diversity-weight\", type=float, default=0.001,
-                       help=\"Weight for diversity loss to prevent slot collapse\")
+    parser.add_argument("--diversity-weight", type=float, default=0.001,
+                       help="Weight for diversity loss to prevent slot collapse")
+    parser.add_argument("--use-curriculum", action="store_true", default=False,
+                       help="Use curriculum learning (simple → complex scenes)")
+    parser.add_argument("--use-tta", action="store_true", default=False,
+                       help="Use Test-Time Augmentation for evaluation")
     add_multi_gpu_args(parser)  # Add --multi-gpu and --gpu-ids
     return parser.parse_args()
 

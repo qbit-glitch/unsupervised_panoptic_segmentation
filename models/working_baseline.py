@@ -43,11 +43,12 @@ class WorkingSlotAttention(nn.Module):
         self.eps = eps
         self.scale = dim ** -0.5  # Temperature
         
-        # Slot initialization (Gaussian)
-        self.slots_mu = nn.Parameter(torch.randn(1, 1, dim))
-        self.slots_logsigma = nn.Parameter(torch.zeros(1, 1, dim))
-        nn.init.xavier_uniform_(self.slots_mu)
-        nn.init.xavier_uniform_(self.slots_logsigma)
+        # Slot initialization with ORTHOGONAL init (per-slot means)
+        # Per debug guides: orthogonal init prevents collapse
+        slots_init = torch.empty(num_slots, dim)
+        nn.init.orthogonal_(slots_init)
+        self.slots_mu = nn.Parameter(slots_init.unsqueeze(0))  # [1, K, D]
+        self.slots_logsigma = nn.Parameter(torch.zeros(1, num_slots, dim))
         
         # Attention components
         self.to_q = nn.Linear(dim, dim, bias=False)
