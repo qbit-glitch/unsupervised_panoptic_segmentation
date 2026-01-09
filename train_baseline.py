@@ -54,8 +54,45 @@ def parse_args():
                        help="Path to datasets directory")
     parser.add_argument("--output-dir", type=str, default="./outputs")
     parser.add_argument("--num-workers", type=int, default=4)
+    parser.add_argument("--diversity-weight", type=float, default=0.1,
+                       help="Weight for diversity loss to prevent slot collapse")
     add_multi_gpu_args(parser)  # Add --multi-gpu and --gpu-ids
     return parser.parse_args()
+
+
+def compute_diversity_loss(slots):
+    """
+    Compute diversity loss to prevent slot collapse.
+    Penalizes slots that are too similar to each other.
+    
+    Args:
+        slots: [B, K, D] slot representations
+    Returns:
+        diversity_loss: scalar loss value
+    """
+    # Handle DataParallel - slots might be gathered from multiple GPUs
+    if slots.dim() == 4:
+        # [num_gpus, B, K, D] -> [B*num_gpus, K, D]
+        slots = slots.reshape(-1, slots.shape[-2], slots.shape[-1])
+    
+    B, K, D = slots.shape
+    
+    # Normalize slots
+    slots_norm = F.normalize(slots, dim=-1)  # [B, K, D]
+    
+    # Compute pairwise cosine similarity
+    sim = torch.bmm(slots_norm, slots_norm.transpose(1, 2))  # [B, K, K]
+    
+    # Mask diagonal (self-similarity)
+    mask = ~torch.eye(K, dtype=torch.bool, device=slots.device)
+    
+    # Penalize high off-diagonal similarity
+    off_diag_sim = sim[:, mask].reshape(B, -1)
+    
+    # Loss: mean of squared similarities (want them to be 0)
+    diversity_loss = (off_diag_sim ** 2).mean()
+    
+    return diversity_loss
 
 
 def create_dataloaders(args):
@@ -107,6 +144,7 @@ def train_epoch(model, train_loader, optimizer, epoch, step, args):
     """Train one epoch."""
     model.train()
     total_loss = 0.0
+    total_div_loss = 0.0
     
     pbar = tqdm(train_loader, desc=f"Epoch {epoch}")
     for batch in pbar:
@@ -120,11 +158,20 @@ def train_epoch(model, train_loader, optimizer, epoch, step, args):
         optimizer.zero_grad()
         
         outputs = model(images, return_loss=True)
-        loss = outputs['loss']
+        recon_loss = outputs['loss']
         
         # DataParallel gathers loss from each GPU into a vector, take mean
-        if loss.dim() > 0:
-            loss = loss.mean()
+        if recon_loss.dim() > 0:
+            recon_loss = recon_loss.mean()
+        
+        # Compute diversity loss to prevent slot collapse
+        slots = outputs['slots']
+        div_loss = compute_diversity_loss(slots)
+        if div_loss.dim() > 0:
+            div_loss = div_loss.mean()
+        
+        # Total loss with diversity regularization
+        loss = recon_loss + args.diversity_weight * div_loss
         
         loss.backward()
         
@@ -133,10 +180,11 @@ def train_epoch(model, train_loader, optimizer, epoch, step, args):
         
         optimizer.step()
         
-        total_loss += loss.item()
+        total_loss += recon_loss.item()
+        total_div_loss += div_loss.item()
         step += 1
         
-        pbar.set_postfix(loss=f"{loss.item():.4f}", lr=f"{lr:.2e}")
+        pbar.set_postfix(loss=f"{recon_loss.item():.4f}", div=f"{div_loss.item():.4f}", lr=f"{lr:.2e}")
     
     return total_loss / len(train_loader), step
 
