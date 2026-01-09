@@ -122,6 +122,10 @@ def train_epoch(model, train_loader, optimizer, epoch, step, args):
         outputs = model(images, return_loss=True)
         loss = outputs['loss']
         
+        # DataParallel gathers loss from each GPU into a vector, take mean
+        if loss.dim() > 0:
+            loss = loss.mean()
+        
         loss.backward()
         
         # CRITICAL: Gradient clipping
