@@ -20,7 +20,12 @@ from torch.utils.data import DataLoader
 # Use torch.autocast for both MPS and CUDA
 import numpy as np
 from tqdm import tqdm
-import wandb
+try:
+    import wandb
+    WANDB_AVAILABLE = True
+except ImportError:
+    WANDB_AVAILABLE = False
+    wandb = None
 
 # Add parent to path
 sys.path.insert(0, str(Path(__file__).parent))
