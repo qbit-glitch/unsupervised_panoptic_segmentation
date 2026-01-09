@@ -50,6 +50,8 @@ def parse_args():
     parser.add_argument("--image-size", type=int, default=128)
     parser.add_argument("--subset-percent", type=float, default=0.1)
     parser.add_argument("--device", type=str, default="mps", choices=["mps", "cuda", "cpu"])
+    parser.add_argument("--data-dir", type=str, default="../datasets",
+                       help="Path to datasets directory")
     parser.add_argument("--output-dir", type=str, default="./outputs")
     parser.add_argument("--num-workers", type=int, default=4)
     add_multi_gpu_args(parser)  # Add --multi-gpu and --gpu-ids
@@ -59,8 +61,9 @@ def parse_args():
 def create_dataloaders(args):
     """Create CLEVR dataloaders."""
     from data.clevr import CLEVRDataset
+    import os
     
-    clevr_root = "../datasets/clevr/CLEVR_v1.0"
+    clevr_root = os.path.join(args.data_dir, "clevr/CLEVR_v1.0")
     image_size = (args.image_size, args.image_size)
     
     full_dataset = CLEVRDataset(
