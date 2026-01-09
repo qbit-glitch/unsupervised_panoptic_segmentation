@@ -54,8 +54,8 @@ def parse_args():
                        help="Path to datasets directory")
     parser.add_argument("--output-dir", type=str, default="./outputs")
     parser.add_argument("--num-workers", type=int, default=4)
-    parser.add_argument("--diversity-weight", type=float, default=0.1,
-                       help="Weight for diversity loss to prevent slot collapse")
+    parser.add_argument(\"--diversity-weight\", type=float, default=0.001,
+                       help=\"Weight for diversity loss to prevent slot collapse\")
     add_multi_gpu_args(parser)  # Add --multi-gpu and --gpu-ids
     return parser.parse_args()
 
@@ -63,12 +63,12 @@ def parse_args():
 def compute_diversity_loss(slots):
     """
     Compute diversity loss to prevent slot collapse.
-    Penalizes slots that are too similar to each other.
+    Only penalizes POSITIVE similarity (slots pointing same direction).
     
     Args:
         slots: [B, K, D] slot representations
     Returns:
-        diversity_loss: scalar loss value
+        diversity_loss: scalar in [0, 1] range (never negative)
     """
     # Handle DataParallel - slots might be gathered from multiple GPUs
     if slots.dim() == 4:
@@ -86,11 +86,15 @@ def compute_diversity_loss(slots):
     # Mask diagonal (self-similarity)
     mask = ~torch.eye(K, dtype=torch.bool, device=slots.device)
     
-    # Penalize high off-diagonal similarity
+    # Get off-diagonal similarities
     off_diag_sim = sim[:, mask].reshape(B, -1)
     
-    # Loss: mean of squared similarities (want them to be 0)
-    diversity_loss = (off_diag_sim ** 2).mean()
+    # KEY FIX: Only penalize POSITIVE similarity (per debug_3.md)
+    # Negative sim = orthogonal slots = good, don't penalize
+    positive_sim = torch.clamp(off_diag_sim, min=0.0)
+    
+    # Loss: mean of positive similarities
+    diversity_loss = positive_sim.mean()
     
     return diversity_loss
 
