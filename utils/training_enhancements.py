@@ -280,3 +280,197 @@ class AdaptiveLossWeighting(nn.Module):
             weights[f'weight_{i}'] = precision.item()
         
         return total, weights
+
+
+class MeanTeacherFramework(nn.Module):
+    """
+    Mean Teacher Framework for semi-supervised learning.
+    Based on Tarvainen & Valpola (NeurIPS 2017) + 2025 improvements.
+    
+    Key idea: Teacher model provides more stable pseudo-labels than student.
+    Teacher weights are EMA of student weights.
+    
+    Expected improvement: +4-5 PQ
+    """
+    
+    def __init__(
+        self,
+        student_model: nn.Module,
+        ema_decay: float = 0.999,
+        consistency_weight: float = 1.0,
+        confidence_threshold: float = 0.95,
+    ):
+        super().__init__()
+        self.student = student_model
+        self.teacher = deepcopy(student_model)
+        self.ema_decay = ema_decay
+        self.consistency_weight = consistency_weight
+        self.confidence_threshold = confidence_threshold
+        
+        # Freeze teacher - updated via EMA only
+        for param in self.teacher.parameters():
+            param.requires_grad = False
+    
+    @torch.no_grad()
+    def update_teacher(self):
+        """EMA update of teacher weights."""
+        for t_param, s_param in zip(self.teacher.parameters(), self.student.parameters()):
+            t_param.data.mul_(self.ema_decay).add_(s_param.data, alpha=1 - self.ema_decay)
+    
+    def strong_augment(self, images: torch.Tensor) -> torch.Tensor:
+        """Strong augmentation for consistency training."""
+        # Color jitter
+        if torch.rand(1).item() > 0.5:
+            # Random brightness, contrast
+            images = images * (0.8 + 0.4 * torch.rand(1, device=images.device))
+            images = images.clamp(0, 1)
+        
+        # Random horizontal flip
+        if torch.rand(1).item() > 0.5:
+            images = torch.flip(images, dims=[3])
+        
+        return images
+    
+    def forward(
+        self,
+        images: torch.Tensor,
+        return_loss: bool = True,
+    ) -> Dict:
+        """
+        Forward pass with consistency loss between student and teacher.
+        
+        Args:
+            images: [B, 3, H, W] input images
+            
+        Returns:
+            dict with outputs and consistency loss
+        """
+        # Student forward (with augmentation)
+        images_aug = self.strong_augment(images)
+        student_outputs = self.student(images_aug, return_loss=return_loss)
+        
+        # Teacher forward (no augmentation, no grad)
+        with torch.no_grad():
+            teacher_outputs = self.teacher(images, return_loss=False)
+        
+        # Consistency loss: KL divergence between student and teacher masks
+        student_masks = student_outputs['masks']  # [B, K, H, W]
+        teacher_masks = teacher_outputs['masks']  # [B, K, H, W]
+        
+        # Flatten spatial dims for KL
+        B, K, H, W = student_masks.shape
+        student_flat = student_masks.reshape(B, K, -1)  # [B, K, H*W]
+        teacher_flat = teacher_masks.reshape(B, K, -1)  # [B, K, H*W]
+        
+        # Softmax over slots (competition)
+        student_prob = F.softmax(student_flat, dim=1)  # [B, K, H*W]
+        teacher_prob = F.softmax(teacher_flat, dim=1)  # [B, K, H*W]
+        
+        # KL divergence (student should match teacher)
+        consistency_loss = F.kl_div(
+            student_prob.log(),
+            teacher_prob,
+            reduction='batchmean'
+        )
+        
+        # Confidence mask: only use high-confidence teacher predictions
+        teacher_confidence = teacher_prob.max(dim=1)[0]  # [B, H*W]
+        confidence_mask = (teacher_confidence > self.confidence_threshold).float()
+        
+        # Weighted consistency loss
+        if confidence_mask.sum() > 0:
+            consistency_loss = (consistency_loss * confidence_mask.mean())
+        
+        student_outputs['consistency_loss'] = self.consistency_weight * consistency_loss
+        student_outputs['teacher_masks'] = teacher_masks
+        
+        return student_outputs
+
+
+class UncertaintyAwareLoss(nn.Module):
+    """
+    Uncertainty-Aware Loss for pseudo-labeling.
+    
+    Weights pseudo-labels by prediction uncertainty (entropy or KL variance).
+    Low uncertainty = high weight, high uncertainty = low weight.
+    
+    Based on CVPR 2025 semi-supervised segmentation methods.
+    Expected improvement: +2-3 PQ
+    """
+    
+    def __init__(
+        self,
+        uncertainty_threshold: float = 0.1,
+        temperature: float = 1.0,
+    ):
+        super().__init__()
+        self.uncertainty_threshold = uncertainty_threshold
+        self.temperature = temperature
+    
+    def compute_uncertainty(
+        self,
+        pred: torch.Tensor,
+    ) -> torch.Tensor:
+        """
+        Compute uncertainty from prediction.
+        
+        Args:
+            pred: [B, K, H, W] slot predictions (logits or probs)
+            
+        Returns:
+            uncertainty: [B, H, W] uncertainty map (0 = certain, 1 = uncertain)
+        """
+        # Softmax over slots
+        if pred.min() < 0:  # Logits
+            prob = F.softmax(pred / self.temperature, dim=1)
+        else:  # Already probabilities
+            prob = pred
+        
+        # Entropy as uncertainty: H = -sum(p * log(p))
+        entropy = -(prob * torch.log(prob + 1e-8)).sum(dim=1)  # [B, H, W]
+        
+        # Normalize by max entropy (log(K))
+        K = pred.shape[1]
+        max_entropy = np.log(K)
+        normalized_entropy = entropy / max_entropy  # [0, 1]
+        
+        return normalized_entropy
+    
+    def forward(
+        self,
+        pred: torch.Tensor,
+        target: torch.Tensor,
+        reduction: str = 'mean',
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Compute uncertainty-weighted loss.
+        
+        Args:
+            pred: [B, K, H, W] predictions (logits)
+            target: [B, H, W] ground truth or pseudo-labels
+            
+        Returns:
+            loss: Weighted cross-entropy
+            uncertainty: [B, H, W] uncertainty map
+        """
+        B, K, H, W = pred.shape
+        
+        # Compute uncertainty
+        uncertainty = self.compute_uncertainty(pred)  # [B, H, W]
+        
+        # Weight: low uncertainty = high weight
+        # weight = 1 - uncertainty, but clamp at threshold
+        reliable_mask = (uncertainty < self.uncertainty_threshold).float()
+        weight = (1 - uncertainty) * reliable_mask
+        
+        # Cross entropy loss
+        loss = F.cross_entropy(pred, target.long(), reduction='none')  # [B, H, W]
+        
+        # Weighted loss
+        if reliable_mask.sum() > 0:
+            weighted_loss = (loss * weight).sum() / (weight.sum() + 1e-8)
+        else:
+            weighted_loss = loss.mean()
+        
+        return weighted_loss, uncertainty
+
