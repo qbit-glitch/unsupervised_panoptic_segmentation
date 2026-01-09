@@ -307,7 +307,8 @@ class WorkingSlotAttentionModel(nn.Module):
             # Reconstruction loss (MSE)
             recon_loss = F.mse_loss(recon, images)
             outputs['loss'] = recon_loss
-            outputs['loss_dict'] = {'recon': recon_loss.item()}
+            # Keep as tensor for DataParallel compatibility (don't use .item())
+            outputs['loss_dict'] = {'recon': recon_loss}
         
         return outputs
 
