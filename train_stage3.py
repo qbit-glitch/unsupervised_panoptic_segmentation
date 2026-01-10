@@ -18,7 +18,6 @@ Expected performance:
 Usage:
     # Train from scratch
     python train_stage3.py --epochs 100 --batch-size 32
-    
     # Continue from Stage-1 weights
     python train_stage3.py --epochs 100 --stage1-ckpt outputs/baseline_best_20260105_062929.pt
 """
@@ -171,6 +170,10 @@ def train_epoch(model, train_loader, optimizer, epoch, step, args):
         outputs = model(images, return_loss=True)
         loss = outputs['loss']
         
+        # DataParallel gathers loss from each GPU into a vector, take mean
+        if loss.dim() > 0:
+            loss = loss.mean()
+        
         loss.backward()
         
         # Gradient clipping
@@ -181,16 +184,25 @@ def train_epoch(model, train_loader, optimizer, epoch, step, args):
         batch_time = time.time() - batch_start
         batch_times.append(batch_time)
         
-        total_loss += outputs['loss_dict']['total']
-        total_recon_loss += outputs['loss_dict']['recon']
-        total_ident_loss += outputs['loss_dict']['ident']
+        # Get loss values - handle DataParallel tensor gathering
+        loss_total = outputs['loss_dict']['total']
+        loss_recon = outputs['loss_dict']['recon']
+        loss_ident = outputs['loss_dict']['ident']
+        if hasattr(loss_total, 'dim') and loss_total.dim() > 0:
+            loss_total = loss_total.mean()
+            loss_recon = loss_recon.mean()
+            loss_ident = loss_ident.mean()
+        
+        total_loss += loss_total.item() if hasattr(loss_total, 'item') else loss_total
+        total_recon_loss += loss_recon.item() if hasattr(loss_recon, 'item') else loss_recon
+        total_ident_loss += loss_ident.item() if hasattr(loss_ident, 'item') else loss_ident
         step += 1
         
         if batch_idx % args.log_interval == 0:
             pbar.set_postfix(
-                loss=f"{outputs['loss_dict']['total']:.4f}",
-                recon=f"{outputs['loss_dict']['recon']:.4f}",
-                ident=f"{outputs['loss_dict']['ident']:.4f}",
+                loss=f"{loss_total:.4f}",
+                recon=f"{loss_recon:.4f}",
+                ident=f"{loss_ident:.4f}",
                 lr=f"{lr:.2e}",
                 ms=f"{batch_time*1000:.0f}"
             )
