@@ -234,8 +234,15 @@ def evaluate(model, val_loader, args):
         images = batch['image'].to(args.device).float()
         
         outputs = model(images, return_loss=True)
-        total_loss += outputs['loss_dict']['total']
-        total_recon_loss += outputs['loss_dict']['recon']
+        
+        # Handle DataParallel tensor gathering - take mean and convert to scalar
+        loss_total = outputs['loss_dict']['total']
+        loss_recon = outputs['loss_dict']['recon']
+        if hasattr(loss_total, 'dim') and loss_total.dim() > 0:
+            loss_total = loss_total.mean()
+            loss_recon = loss_recon.mean()
+        total_loss += loss_total.item() if hasattr(loss_total, 'item') else loss_total
+        total_recon_loss += loss_recon.item() if hasattr(loss_recon, 'item') else loss_recon
         
         eval_times.append(time.time() - batch_start)
         
@@ -255,6 +262,7 @@ def evaluate(model, val_loader, args):
     }
     
     return metrics
+
 
 
 def check_slot_diversity(model, val_loader, args):

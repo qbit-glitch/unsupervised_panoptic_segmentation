@@ -398,11 +398,11 @@ class MambaSlotAttentionModel(nn.Module):
             total_loss = recon_loss + self.lambda_ident * ident_loss
             
             outputs['loss'] = total_loss
-            # Keep as tensors for DataParallel compatibility (don't use .item())
+            # Keep as 1D tensors for DataParallel compatibility (avoid scalar gather warning)
             outputs['loss_dict'] = {
-                'recon': recon_loss,
-                'ident': ident_loss,
-                'total': total_loss,
+                'recon': recon_loss.unsqueeze(0),
+                'ident': ident_loss.unsqueeze(0),
+                'total': total_loss.unsqueeze(0),
             }
         
         return outputs
