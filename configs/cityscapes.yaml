@@ -1,0 +1,29 @@
+# Cityscapes-specific configuration
+# Inherits from default.yaml, overrides dataset-specific values
+
+_base_: "default.yaml"
+
+architecture:
+  num_classes: 19
+
+data:
+  dataset: "cityscapes"
+  data_dir: "/data/cityscapes"
+  depth_dir: "/data/cityscapes/depth_zoedepth"
+  num_classes: 19
+  num_stuff_classes: 11
+  num_thing_classes: 8
+  image_size: [512, 1024]
+  crop_size: [512, 512]
+
+  # Cityscapes stuff classes (0-10)
+  stuff_classes: ["road", "sidewalk", "building", "wall", "fence",
+                   "pole", "traffic_light", "traffic_sign", "vegetation",
+                   "terrain", "sky"]
+  # Cityscapes thing classes (11-18)
+  thing_classes: ["person", "rider", "car", "truck", "bus",
+                   "train", "motorcycle", "bicycle"]
+
+evaluation:
+  ignore_label: 255
+  pred_all_class: true

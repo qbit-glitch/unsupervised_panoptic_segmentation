@@ -1,0 +1,7 @@
+# Ablation: Oracle Stuff-Things Labels
+_base_: "../default.yaml"
+
+ablation:
+  name: "oracle_stuff_things"
+  description: "Use ground-truth stuff/things labels instead of classifier"
+  use_oracle_stuff_things: true

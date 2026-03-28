@@ -1,0 +1,30 @@
+{
+  "dataset": "mots",
+  "checkpoint": "checkpoints/dinov3_stage3/dinov3_official_stage3_step8000.ckpt",
+  "num_images": 2862,
+  "metrics": {
+    "PQ": 0.63375,
+    "SQ": 0.88118,
+    "RQ": 0.69021,
+    "PQ_things": 0.30384,
+    "SQ_things": 0.79868,
+    "RQ_things": 0.38042,
+    "PQ_stuff": 0.96367,
+    "SQ_stuff": 0.96367,
+    "RQ_stuff": 1.0,
+    "mIoU": 0.91435,
+    "Acc": 0.98282
+  },
+  "per_class": {
+    "background": {
+      "PQ": 0.96367,
+      "SQ": 0.96367,
+      "RQ": 1.0
+    },
+    "person": {
+      "PQ": 0.30384,
+      "SQ": 0.79868,
+      "RQ": 0.38042
+    }
+  }
+}

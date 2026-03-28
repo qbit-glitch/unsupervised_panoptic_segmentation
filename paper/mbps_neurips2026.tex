@@ -1,0 +1,869 @@
+% NeurIPS 2026 Submission
+\documentclass{article}
+
+% NeurIPS style — use [final] for camera-ready, [preprint] for arXiv
+\usepackage[preprint,nonatbib]{neurips_2026}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{nicefrac}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{multirow}
+\usepackage{wrapfig}
+\usepackage{natbib}
+
+\newcommand{\myfootnote}[1]{\footnote{#1}}
+\newcommand{\ie}{\emph{i.e.}}
+\newcommand{\eg}{\emph{e.g.}}
+\newcommand{\etal}{\emph{et al.}}
+\newcommand{\wrt}{w.r.t.\ }
+\newcommand{\lsem}{\mathcal{L}_{\text{sem}}}
+\newcommand{\linst}{\mathcal{L}_{\text{inst}}}
+\newcommand{\lbridge}{\mathcal{L}_{\text{bridge}}}
+\newcommand{\lconsist}{\mathcal{L}_{\text{consist}}}
+\newcommand{\lpq}{\mathcal{L}_{\text{PQ}}}
+\newcommand{\ltotal}{\mathcal{L}_{\text{total}}}
+
+\title{MBPS: Mamba-Bridge Panoptic Segmentation via\\Depth-Guided Cross-Modal State Space Fusion}
+
+\author{%
+  Anonymous Author(s)\\
+  \texttt{anonymous@institution.edu}
+}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+We present \textbf{MBPS} (Mamba-Bridge Panoptic Segmentation), a novel framework for \emph{unsupervised panoptic segmentation} that unifies depth-guided semantic segmentation and 3D-aware instance segmentation through a bidirectional Mamba2 state-space bridge.
+Unlike prior methods such as CUPS that require stereo video for stuff-things disambiguation, MBPS operates on monocular images with precomputed depth, deriving three geometric cues---Depth Boundary Density, Feature Cluster Compactness, and Instance Decomposition Frequency---to classify semantic clusters as stuff or things without motion signals.
+Our key technical contributions include: (1) an \emph{Adaptive Projection Bridge} that aligns heterogeneous feature spaces (90-dim semantic codes and 384-dim instance features) into a shared 192-dim manifold; (2) a \emph{Bidirectional Cross-Modal Scan} (BiCMS) that interleaves semantic and instance tokens for joint reasoning via Mamba2's structured state-space duality; (3) a \emph{Gradient-Balanced Curriculum} with four training phases that resolves conflicting objectives between contrastive semantic losses and boundary-focused instance losses; and (4) cross-branch consistency losses that enforce semantic uniformity within instances and boundary alignment across branches.
+We evaluate MBPS on Cityscapes and COCO-Stuff-27 with comprehensive ablations across five architectural variants and three random seeds.
+Experimental results are \underline{\hspace{2em}} (results to be evaluated).
+\end{abstract}
+
+
+%=========================================================================
+\section{Introduction}
+\label{sec:intro}
+%=========================================================================
+
+Panoptic segmentation~\cite{kirillov2019panoptic} requires assigning every pixel in an image both a semantic class label and an instance identity, unifying the traditionally separate tasks of semantic segmentation (labeling \emph{stuff} regions like sky and road) and instance segmentation (detecting and delineating individual \emph{thing} objects like cars and pedestrians). While supervised panoptic methods have achieved remarkable performance~\cite{cheng2022mask2former}, they rely on dense pixel-level annotations that are prohibitively expensive to obtain at scale---a single Cityscapes image requires approximately 1.5 hours of labeling effort~\cite{cordts2016cityscapes}.
+
+The pursuit of \emph{unsupervised} panoptic segmentation has gained momentum as self-supervised visual representations have matured. DINO~\cite{caron2021dino} demonstrated that self-supervised Vision Transformers learn features with emergent semantic structure, enabling methods like STEGO~\cite{hamilton2022stego} to perform unsupervised semantic segmentation by distilling feature correspondences. On the instance side, CutLER~\cite{wang2023cutler} and CutS3D~\cite{sick2025cuts3d} showed that normalized cuts~\cite{shi2000ncut} on self-supervised feature graphs---augmented with 3D geometric cues from monocular depth---can discover object instances without supervision. Most recently, CUPS~\cite{hahn2025cups} achieved the first competitive unsupervised panoptic segmentation on scene-centric data by leveraging stereo video motion and depth to generate panoptic pseudo-labels, reaching a Panoptic Quality (PQ) of 27.8 on Cityscapes.
+
+However, CUPS's reliance on \emph{stereo video} limits its applicability: it requires temporally consistent stereo pairs to compute optical flow and scene flow for stuff-things disambiguation, restricting deployment to datasets with stereo rigs and excluding the vast majority of monocular image collections. Furthermore, CUPS follows a two-stage pipeline---generate pseudo-labels offline, then train a separate network on them---which prevents end-to-end optimization of the panoptic objective.
+
+We ask: \emph{Can we achieve competitive unsupervised panoptic segmentation from monocular images alone, without stereo video, through principled cross-modal fusion of semantic and instance representations?}
+
+We answer affirmatively with \textbf{MBPS} (Mamba-Bridge Panoptic Segmentation), which makes three key observations:
+
+\textbf{(1) Monocular depth encodes sufficient geometric structure for stuff-things disambiguation.} Things (cars, persons) exhibit sharp depth discontinuities at their boundaries, form compact clusters in feature space, and are frequently decomposed into distinct instances. Stuff (road, sky) shows smooth depth gradients, diffuse feature distributions, and contiguous spatial extent. We formalize these intuitions as three complementary cues---Depth Boundary Density (DBD), Feature Cluster Compactness (FCC), and Instance Decomposition Frequency (IDF)---that replace stereo motion signals.
+
+\textbf{(2) State-space models provide an efficient mechanism for cross-modal sequence fusion.} The semantic branch (DepthG~\cite{sick2024depthg}, 90-dim codes) and instance branch (CutS3D~\cite{sick2025cuts3d}, 384-dim features) produce representations of vastly different dimensionalities and semantics. Rather than simple concatenation or attention-based fusion, we project both into a shared 192-dim bridge space and process them via Mamba2's structured state-space duality (SSD)~\cite{dao2024mamba2}. The SSD formulation enables $O(LP)$ chunked matrix multiplications that map efficiently to TPU systolic arrays, achieving 2--8$\times$ faster processing than attention while maintaining global receptive fields.
+
+\textbf{(3) Curriculum learning with gradient conflict resolution stabilizes multi-objective training.} The contrastive losses driving semantic clustering (pull same-class features together) can conflict with the boundary-precision losses driving instance detection (sharpen boundaries). Our four-phase curriculum---semantic foundation, instance integration with gradient projection, joint bridge training, and confidence-weighted self-training---ensures convergent optimization toward a Pareto-optimal solution.
+
+\paragraph{Contributions.} In summary, we make the following contributions:
+\begin{itemize}
+    \item We propose MBPS, the first Mamba-based unsupervised panoptic segmentation framework, which operates on monocular images with precomputed depth and requires no stereo video or manual annotations.
+    \item We introduce a Bidirectional Cross-Modal Scan (BiCMS) that interleaves semantic and instance tokens and processes them through bidirectional Mamba2 layers, enabling global context propagation across modalities.
+    \item We develop a multi-cue stuff-things classifier using depth boundary density, feature cluster compactness, and instance decomposition frequency, eliminating the need for motion-based disambiguation.
+    \item We design cross-branch consistency losses (semantic uniformity, boundary alignment, depth-boundary coherence) and a gradient-balanced curriculum that resolves training conflicts between the semantic and instance objectives.
+    \item We conduct comprehensive experiments on Cityscapes and COCO-Stuff-27 with ablations over five architectural variants, providing \underline{\hspace{2em}} (results to be evaluated).
+\end{itemize}
+
+
+%=========================================================================
+\section{Related Work}
+\label{sec:related}
+%=========================================================================
+
+\paragraph{Supervised Panoptic Segmentation.}
+Since the formalization of panoptic segmentation by Kirillov~\etal~\cite{kirillov2019panoptic}, which introduced the Panoptic Quality (PQ) metric decomposed into Segmentation Quality (SQ) and Recognition Quality (RQ), the field has seen rapid progress. Early approaches combined separate semantic and instance segmentation networks with heuristic merging~\cite{kirillov2019panopticfpn}. Mask2Former~\cite{cheng2022mask2former} unified all segmentation tasks under a single masked-attention transformer architecture, achieving 57.8 PQ on COCO. While supervised methods achieve impressive performance, they require dense per-pixel annotations that limit scalability.
+
+\paragraph{Unsupervised Semantic Segmentation.}
+Self-supervised visual features, particularly from DINO~\cite{caron2021dino}, exhibit emergent semantic structure that enables unsupervised semantic segmentation. STEGO~\cite{hamilton2022stego} distills feature correspondences from DINO into compact semantic clusters via a contrastive loss, achieving significant improvements over prior art. DepthG~\cite{sick2024depthg} extends this paradigm by incorporating monocular depth information, using depth-guided feature correlation to induce knowledge about scene structure into the segmentation process. By correlating feature maps with depth maps, DepthG achieves a +1.1\% mIoU improvement over STEGO with a ViT-S/8 backbone. Our semantic branch builds directly on DepthG, inheriting its depth-correlation loss while integrating it into a unified panoptic framework.
+
+\paragraph{Unsupervised Instance Segmentation.}
+CutLER~\cite{wang2023cutler} pioneered unsupervised instance segmentation by applying MaskCut---normalized cuts~\cite{shi2000ncut} on DINO feature affinity graphs---to generate coarse masks, then training a detector on these pseudo-labels with robust self-training. CutS3D~\cite{sick2025cuts3d} extends this approach to 3D, leveraging monocular depth to construct point clouds and performing normalized cuts in 3D space. The key insight is that instances overlapping in 2D image space can often be separated in 3D by exploiting depth discontinuities. CutS3D introduces a Spatial Importance function for boundary resharpening and Spatial Confidence components that isolate clean training signals. Our instance branch adopts CutS3D's 3D-aware graph cut formulation while replacing the computationally expensive Dinic's max-flow with scipy's sparse graph algorithms for practical scalability.
+
+\paragraph{Unsupervised Panoptic Segmentation.}
+The intersection of unsupervised semantic and instance segmentation toward full panoptic output has been explored only recently. U2Seg~\cite{niu2024u2seg} proposed the first unified framework for unsupervised universal segmentation by generating pseudo semantic labels via clustering of self-supervised features, achieving 18.4 PQ on Cityscapes. CUPS~\cite{hahn2025cups} significantly advanced the state of the art by leveraging stereo video motion and depth to generate high-quality panoptic pseudo-labels, training a monocular panoptic network on these labels and reaching 27.8 PQ on Cityscapes---a 9.4 PQ point improvement over prior art. However, CUPS's dependence on stereo video for stuff-things disambiguation via optical/scene flow analysis limits its applicability to datasets with stereo acquisition. Our work addresses this limitation by demonstrating that monocular depth alone, combined with principled feature analysis, suffices for competitive panoptic segmentation.
+
+\paragraph{State Space Models for Vision.}
+Mamba~\cite{gu2023mamba} introduced selective state-space models with input-dependent parameters, achieving linear-time sequence modeling competitive with Transformers. Mamba2~\cite{dao2024mamba2} established the Structured State-Space Duality (SSD) framework, revealing that selective SSMs are equivalent to a form of structured masked attention, enabling 2--8$\times$ faster implementations via chunked matrix multiplications. Vision Mamba (Vim)~\cite{zhu2024vim} adapted Mamba for visual representation learning using bidirectional scanning, while VMamba~\cite{liu2024vmamba} proposed 2D selective scanning for image recognition. Several works have explored Mamba for cross-modal fusion: Fusion-Mamba~\cite{dong2024fusionmamba} uses state-space channel swapping for RGB-infrared object detection. Our BiCMS mechanism differs by interleaving heterogeneous tokens (semantic and instance) rather than homogeneous multi-modal features, and by operating within an unsupervised panoptic segmentation framework.
+
+\paragraph{Multi-Task Learning and Gradient Balancing.}
+Training models with multiple competing objectives is challenging because gradient directions can conflict. GradNorm~\cite{chen2018gradnorm} proposed dynamically tuning task weights based on gradient norms. PCGrad~\cite{yu2020pcgrad} projects conflicting gradients to remove negative interference. Our gradient-balanced curriculum learning extends these ideas to unsupervised panoptic segmentation, where the semantic contrastive loss and instance boundary loss have fundamentally different gradient geometries that evolve across training phases.
+
+\paragraph{Depth Conditioning in Neural Networks.}
+Feature-wise Linear Modulation (FiLM)~\cite{perez2018film} introduced affine feature transformations conditioned on auxiliary information, originally for visual reasoning. Our Unified Depth Conditioning Module adapts FiLM to condition both semantic and instance features on depth, using sinusoidal positional encoding of the depth map followed by gated modulation with residual connections.
+
+
+%=========================================================================
+\section{Method}
+\label{sec:method}
+%=========================================================================
+
+\subsection{Overview}
+\label{sec:overview}
+
+Given an RGB image $\mathbf{x} \in \mathbb{R}^{3 \times H \times W}$ and a precomputed monocular depth map $D \in \mathbb{R}^{H \times W}$ (obtained from ZoeDepth~\cite{bhat2023zoedepth} or MiDaS~\cite{ranftl2020midas}), MBPS produces a panoptic segmentation $P \in (\mathbb{N} \times \{1, \ldots, K\})^{H \times W}$ where each pixel is assigned an instance identity and a semantic class. The overall architecture (Figure~\ref{fig:architecture}) proceeds as follows:
+
+\begin{enumerate}
+    \item A frozen DINO ViT-S/8~\cite{caron2021dino} backbone extracts dense features $\mathbf{F} \in \mathbb{R}^{N \times 384}$, where $N = \frac{H}{8} \times \frac{W}{8}$ is the number of patch tokens.
+    \item A \textbf{Semantic Branch} (DepthG head) projects features to semantic codes $\mathbf{S} \in \mathbb{R}^{N \times 90}$.
+    \item An \textbf{Instance Branch} (CutS3D + Cascade Mask R-CNN) produces instance masks $\{m_j\}$ and confidence scores.
+    \item The \textbf{Adaptive Projection Bridge} maps $\mathbf{S}$ and $\mathbf{F}$ to a shared $D_b = 192$-dimensional space.
+    \item \textbf{Unified Depth Conditioning} applies FiLM-style gating using the encoded depth map.
+    \item The \textbf{Bidirectional Cross-Modal Scan} (BiCMS) processes interleaved semantic-instance tokens through 4 Mamba2 SSD layers.
+    \item \textbf{Inverse Projection} maps fused features back to original dimensions for prediction.
+    \item The \textbf{Stuff-Things Classifier} uses DBD, FCC, and IDF cues to partition semantic clusters.
+    \item \textbf{Panoptic Merging} with CRF post-processing~\cite{krahenbuhl2011crf} produces the final output.
+\end{enumerate}
+
+\begin{figure}[t]
+    \centering
+    % Placeholder for architecture figure
+    \fbox{\parbox{0.95\textwidth}{\centering\vspace{3em}
+    \textbf{Architecture Diagram}\\[0.5em]
+    DINO ViT-S/8 $\rightarrow$ [Semantic Branch (DepthG)] + [Instance Branch (CutS3D)] \\
+    $\rightarrow$ Adaptive Projection Bridge $\rightarrow$ Depth Conditioning (FiLM) \\
+    $\rightarrow$ BiCMS Mamba2 (4 layers) $\rightarrow$ Inverse Projection \\
+    $\rightarrow$ Stuff-Things Classifier $\rightarrow$ Panoptic Merge + CRF
+    \vspace{3em}}}
+    \caption{Overview of the MBPS architecture. A frozen DINO ViT-S/8 backbone provides features to parallel semantic and instance branches. The Adaptive Projection Bridge aligns them to a shared 192-dim space, depth conditioning applies geometric priors via FiLM, and the BiCMS Mamba2 bridge performs bidirectional cross-modal fusion. The stuff-things classifier uses three monocular depth cues for category partitioning without motion signals.}
+    \label{fig:architecture}
+\end{figure}
+
+
+\subsection{Backbone and Branch Architecture}
+\label{sec:branches}
+
+\paragraph{DINO ViT-S/8 Backbone.}
+We use a frozen DINO ViT-S/8~\cite{caron2021dino} with patch size 8, producing 384-dimensional features per patch. The backbone is kept frozen throughout training; all gradients flow only through the downstream heads. Given input image $\mathbf{x}$, the backbone outputs $\mathbf{F} = \phi(\mathbf{x}) \in \mathbb{R}^{N \times 384}$.
+
+\paragraph{Semantic Branch.}
+Following DepthG~\cite{sick2024depthg}, we apply a three-layer MLP (384 $\rightarrow$ 384 $\rightarrow$ 384 $\rightarrow$ 90) to produce semantic codes $\mathbf{S} = f_{\text{sem}}(\mathbf{F}) \in \mathbb{R}^{N \times 90}$. These codes are clustered via K-means to produce semantic labels. The branch is trained with a combination of STEGO correspondence loss~\cite{hamilton2022stego} and depth-guided feature correlation loss:
+\begin{equation}
+\lsem = \mathcal{L}_{\text{STEGO}} + \lambda_d \cdot \mathcal{L}_{\text{DepthG}},
+\label{eq:semantic_loss}
+\end{equation}
+where $\mathcal{L}_{\text{STEGO}}$ is an InfoNCE loss over KNN-mined positive pairs in DINO feature space with temperature $\tau = 0.1$, and $\mathcal{L}_{\text{DepthG}}$ encourages features at similar depths to be similar:
+\begin{equation}
+\mathcal{L}_{\text{DepthG}} = \sum_{(i,j)} w_{ij}^d \cdot \left(1 - \frac{\mathbf{s}_i^\top \mathbf{s}_j}{\|\mathbf{s}_i\| \|\mathbf{s}_j\|}\right)^2, \quad
+w_{ij}^d = \exp\!\left(-\frac{|D_i - D_j|^2}{2\sigma_d^2}\right).
+\label{eq:depthg_loss}
+\end{equation}
+
+\paragraph{Instance Branch.}
+Following CutS3D~\cite{sick2025cuts3d}, we generate instance pseudo-labels by performing normalized cuts~\cite{shi2000ncut} on an affinity graph constructed from DINO features, augmented with 3D point cloud information from the monocular depth map. The affinity between patches $i$ and $j$ is:
+\begin{equation}
+W_{ij} = \text{cos}(\mathbf{f}_i, \mathbf{f}_j) \cdot \exp\!\left(-\frac{\|\mathbf{p}_i^{3D} - \mathbf{p}_j^{3D}\|^2}{2\sigma_{\text{3D}}^2}\right),
+\end{equation}
+where $\mathbf{p}^{3D}$ are 3D coordinates obtained by back-projecting pixel locations using the depth map. A class-agnostic Cascade Mask R-CNN~\cite{cai2019cascade} is trained on these pseudo-labels with confidence-weighted binary cross-entropy:
+\begin{equation}
+\linst = \mathcal{L}_{\text{BCE}}^{\text{CW}} + \lambda_{\text{drop}} \cdot \mathcal{L}_{\text{Drop}} + \lambda_{\text{box}} \cdot \mathcal{L}_{\text{box}},
+\label{eq:instance_loss}
+\end{equation}
+where $\mathcal{L}_{\text{Drop}}$ regularizes features of unmatched instances and $\mathcal{L}_{\text{box}}$ is the bounding box regression loss.
+
+
+\subsection{Adaptive Projection Bridge}
+\label{sec:bridge}
+
+The semantic codes ($D_s = 90$) and instance features ($D_f = 384$) live in vastly different spaces. Direct concatenation creates imbalanced representations dominated by the higher-dimensional instance features. We resolve this via an Adaptive Projection Bridge (APB) that maps both to a shared $D_b = 192$-dimensional space:
+\begin{equation}
+\mathbf{s}' = \text{LN}(\mathbf{W}_s \mathbf{s} + \mathbf{b}_s), \quad
+\mathbf{f}' = \text{LN}(\mathbf{W}_f \mathbf{f} + \mathbf{b}_f),
+\label{eq:projection}
+\end{equation}
+where $\mathbf{W}_s \in \mathbb{R}^{D_b \times D_s}$, $\mathbf{W}_f \in \mathbb{R}^{D_b \times D_f}$, and LN denotes LayerNorm. The bridge dimension $D_b = 192$ is chosen to balance reconstruction fidelity and cross-modal alignment, as formalized by the objective:
+\begin{equation}
+D_b^* = \arg\min_{D_b} \left[\|\mathbf{s} - \hat{\mathbf{s}}\|_2^2 + \|\mathbf{f} - \hat{\mathbf{f}}\|_2^2 - \lambda \cdot \text{CKA}(\mathbf{s}', \mathbf{f}')\right],
+\label{eq:optimal_bridge}
+\end{equation}
+where $\hat{\mathbf{s}} = \mathbf{W}_s^\dagger \mathbf{z}_s$ and $\hat{\mathbf{f}} = \mathbf{W}_f^\dagger \mathbf{z}_f$ are reconstructions via learned pseudo-inverse projections from the Mamba-processed features, and CKA (Centered Kernel Alignment~\cite{kornblith2019cka}) measures representational similarity:
+\begin{equation}
+\text{CKA}(\mathbf{S}', \mathbf{F}') = \frac{\|\mathbf{S}'^{\!\top} \mathbf{F}'\|_F^2}{\|\mathbf{S}'^{\!\top} \mathbf{S}'\|_F \cdot \|\mathbf{F}'^{\!\top} \mathbf{F}'\|_F}.
+\label{eq:cka}
+\end{equation}
+
+
+\subsection{Unified Depth Conditioning}
+\label{sec:depth_cond}
+
+We inject geometric structure into both branches via FiLM-style~\cite{perez2018film} depth conditioning. The depth map is first encoded with sinusoidal positional encoding and projected to the bridge dimension:
+\begin{equation}
+\mathbf{d} = \text{Conv}_{1 \times 1}(\text{PosEnc}(D)) \in \mathbb{R}^{D_b \times H' \times W'},
+\end{equation}
+where $H' = H/8, W' = W/8$. Depth-conditioned features are obtained via gated modulation with a residual connection:
+\begin{equation}
+\mathbf{s}_d = \mathbf{s}' \odot \sigma(\mathbf{W}_d^s \mathbf{d}) + \mathbf{s}', \quad
+\mathbf{f}_d = \mathbf{f}' \odot \sigma(\mathbf{W}_d^f \mathbf{d}) + \mathbf{f}'.
+\label{eq:film}
+\end{equation}
+This ensures that features at the same depth are encouraged to interact more strongly during Mamba processing, while the residual connection preserves the original feature information.
+
+
+\subsection{Bidirectional Cross-Modal Scan (BiCMS)}
+\label{sec:bicms}
+
+The core fusion mechanism of MBPS is the Bidirectional Cross-Modal Scan, which leverages Mamba2's Structured State-Space Duality (SSD)~\cite{dao2024mamba2} for efficient sequence-level reasoning across modalities.
+
+\paragraph{Token Interleaving.}
+Given depth-conditioned features $\mathbf{s}_d, \mathbf{f}_d \in \mathbb{R}^{N \times D_b}$, we construct an interleaved sequence:
+\begin{equation}
+\mathbf{z} = [\mathbf{s}_1, \mathbf{f}_1, \mathbf{s}_2, \mathbf{f}_2, \ldots, \mathbf{s}_N, \mathbf{f}_N] \in \mathbb{R}^{2N \times D_b},
+\label{eq:interleave}
+\end{equation}
+where odd positions hold semantic tokens and even positions hold instance tokens. This interleaving ensures that the SSM's sequential state update naturally couples semantic-instance pairs at each spatial location.
+
+\paragraph{Mamba2 SSD Layer.}
+Each Mamba2 layer computes:
+\begin{equation}
+\mathbf{y} = \mathbf{C} \cdot \mathbf{M} \cdot (\mathbf{B} \odot \mathbf{x}), \quad
+\mathbf{M}_{ij} = \begin{cases} \mathbf{C}_i^\top \bar{\mathbf{A}}^{i-j} \mathbf{B}_j & i \geq j \\ 0 & i < j \end{cases},
+\label{eq:mamba2_ssd}
+\end{equation}
+where $\bar{\mathbf{A}} = \exp(\Delta \odot \mathbf{A})$ is the discretized state transition, $\Delta = \text{Softplus}(\text{Linear}(\mathbf{x}))$ is input-dependent, and $\mathbf{B}, \mathbf{C}$ are input-dependent projections. The semiseparable structure of $\mathbf{M}$ enables chunked computation: dividing the length-$2N$ sequence into chunks of size $P = 128$ (aligned with TPU systolic arrays) yields $O(LP + LN_s/P)$ FLOPs, where $N_s = 64$ is the state dimension.
+
+\paragraph{Bidirectional Fusion.}
+We process the interleaved sequence in both directions:
+\begin{equation}
+\mathbf{y}^{\rightarrow} = \text{Mamba2}(\mathbf{z}), \quad
+\mathbf{y}^{\leftarrow} = \text{Mamba2}(\text{rev}(\mathbf{z})),
+\label{eq:bidirectional}
+\end{equation}
+and fuse the outputs with a learned projection and residual:
+\begin{equation}
+\mathbf{y} = \mathbf{W}_{\text{fuse}}[\mathbf{y}^{\rightarrow}; \text{rev}(\mathbf{y}^{\leftarrow})] + \mathbf{z},
+\label{eq:fusion}
+\end{equation}
+where $\mathbf{W}_{\text{fuse}} \in \mathbb{R}^{D_b \times 2D_b}$. The fused features are deinterleaved to recover modality-specific outputs: $\mathbf{S}_{\text{fused}} = \mathbf{y}[0\!:\!:2]$ and $\mathbf{F}_{\text{fused}} = \mathbf{y}[1\!:\!:2]$.
+
+We stack 4 BiCMS layers with LayerNorm and residual connections, yielding a model with global receptive field over both spatial locations and modalities. The forward scan propagates semantic context to inform instance predictions, while the backward scan allows instance evidence to refine semantic boundaries.
+
+
+\subsection{Stuff-Things Classifier}
+\label{sec:stuff_things}
+
+A key challenge in monocular unsupervised panoptic segmentation is determining which semantic clusters correspond to \emph{stuff} (amorphous regions like sky, road) versus \emph{things} (countable objects like cars, persons). CUPS~\cite{hahn2025cups} resolves this using stereo video motion cues. We instead derive three complementary cues from monocular depth and DINO features:
+
+\paragraph{Depth Boundary Density (DBD).}
+Things exhibit sharp depth discontinuities at their boundaries. For semantic cluster $c$ occupying region $R_c$:
+\begin{equation}
+\text{DBD}(c) = \frac{1}{|R_c|} \sum_{(x,y) \in R_c} \mathbb{1}\!\left[G_d(x,y) > \tau_d\right], \quad
+G_d = \sqrt{\left(\frac{\partial D}{\partial x}\right)^2 + \left(\frac{\partial D}{\partial y}\right)^2}.
+\label{eq:dbd}
+\end{equation}
+
+\paragraph{Feature Cluster Compactness (FCC).}
+Thing classes form tighter clusters in DINO feature space than stuff classes:
+\begin{equation}
+\text{FCC}(c) = 1 - \frac{\text{tr}(\Sigma_c)}{\text{tr}(\Sigma_{\text{total}})}, \quad
+\Sigma_c = \frac{1}{|c|}\sum_{i \in c}(\mathbf{f}_i - \boldsymbol{\mu}_c)(\mathbf{f}_i - \boldsymbol{\mu}_c)^\top.
+\label{eq:fcc}
+\end{equation}
+
+\paragraph{Instance Decomposition Frequency (IDF).}
+Regions frequently decomposed into multiple instances by CutS3D are likely things:
+\begin{equation}
+\text{IDF}(c) = \frac{\mathbb{E}[\text{num\_instances}(R) \mid \text{sem}(R) = c]}{\mathbb{E}[\text{area}(R) \mid \text{sem}(R) = c]}.
+\label{eq:idf}
+\end{equation}
+
+\paragraph{Classification.}
+The three cues are normalized to $[0, 1]$ and fed through a small MLP (3 $\rightarrow$ 16 $\rightarrow$ 8 $\rightarrow$ 1) to produce a stuff-things score:
+\begin{equation}
+p(\text{thing} \mid c) = \sigma\!\left(\text{MLP}([\text{DBD}(c); \text{FCC}(c); \text{IDF}(c)])\right).
+\label{eq:stc}
+\end{equation}
+A cluster is classified as a thing if $p(\text{thing} \mid c) > 0.5$. The MLP is trained on a held-out validation split using ground-truth stuff/thing labels for threshold tuning only---the cue features themselves remain unsupervised.
+
+
+\subsection{Panoptic Merging}
+\label{sec:merge}
+
+Following the panoptic merging protocol established by Kirillov~\etal~\cite{kirillov2019panoptic}, we assemble the final output:
+\begin{enumerate}
+    \item Sort predicted instance masks by confidence score (descending).
+    \item For each mask whose majority semantic class is a \emph{thing}: assign it a unique instance ID if its overlap with already-assigned pixels is below $\tau_{\text{overlap}} = 0.5$.
+    \item Fill remaining pixels with their semantic class label (stuff regions get instance ID 0).
+    \item Apply dense CRF~\cite{krahenbuhl2011crf} post-processing (10 iterations) to refine boundaries.
+\end{enumerate}
+
+
+\subsection{Loss Functions}
+\label{sec:losses}
+
+\paragraph{Bridge Loss.}
+The Mamba bridge is regularized by three terms:
+\begin{equation}
+\lbridge = \lambda_r \cdot \underbrace{\|\mathbf{s} - \hat{\mathbf{s}}\|_2^2 + \|\mathbf{f} - \hat{\mathbf{f}}\|_2^2}_{\text{Reconstruction}} + \lambda_{\text{cka}} \cdot \underbrace{(1 - \text{CKA}(\mathbf{S}_{\text{fused}}, \mathbf{F}_{\text{fused}}))}_{\text{Cross-modal alignment}} + \lambda_h \cdot \underbrace{\|\mathbf{h}_T\|_2^2}_{\text{State reg.}},
+\label{eq:bridge_loss}
+\end{equation}
+where $\mathbf{h}_T$ is the final hidden state of the SSM, penalized to prevent unbounded state growth.
+
+\paragraph{Consistency Loss.}
+Cross-branch coherence is enforced by three complementary losses:
+\begin{equation}
+\lconsist = \lambda_u \cdot \underbrace{\frac{1}{K}\sum_{k=1}^{K} H(\text{sem} \mid m_k)}_{\text{Semantic uniformity}} + \lambda_b \cdot \underbrace{\sum_{(i,j) \in \mathcal{E}} |B_{\text{sem}}(i,j) - B_{\text{inst}}(i,j)|}_{\text{Boundary alignment}} + \lambda_{\text{dbc}} \cdot \mathcal{L}_{\text{DBC}},
+\label{eq:consistency_loss}
+\end{equation}
+where $H(\text{sem} \mid m_k)$ is the entropy of semantic labels within instance mask $m_k$ (encouraging each instance to have a single dominant semantic class), $B_{\text{sem}}$ and $B_{\text{inst}}$ are semantic and instance boundary indicators, and $\mathcal{L}_{\text{DBC}}$ enforces coherence between depth discontinuities and segmentation boundaries.
+
+\paragraph{Differentiable PQ Proxy Loss.}
+We directly optimize a smooth approximation to Panoptic Quality:
+\begin{equation}
+\lpq = 1 - \frac{2 \cdot \text{TP}_{\text{soft}}}{\text{TP}_{\text{soft}} + |\mathcal{M}| + |\hat{\mathcal{M}}|}, \quad
+\text{TP}_{\text{soft}} = \sum_{(m, \hat{m})} \sigma\!\left(\frac{\text{IoU}_{\text{soft}}(m, \hat{m}) - 0.5}{\tau_{\text{pq}}}\right),
+\label{eq:pq_loss}
+\end{equation}
+where $\text{IoU}_{\text{soft}}$ uses element-wise $\min$ and $\max$ for differentiability.
+
+\paragraph{Total Loss.}
+\begin{equation}
+\ltotal = \alpha \cdot \lsem + \beta \cdot \linst + \gamma \cdot \lbridge + \delta \cdot \lconsist + \epsilon \cdot \lpq.
+\label{eq:total_loss}
+\end{equation}
+
+
+\subsection{Gradient-Balanced Curriculum Learning}
+\label{sec:curriculum}
+
+Training proceeds in four phases with loss weight scheduling (Table~\ref{tab:curriculum}):
+
+\paragraph{Phase A: Semantic Foundation (Epochs 1--20).}
+Only $\lsem$ is active ($\beta = \gamma = \delta = \epsilon = 0$). The semantic head forms stable cluster structure.
+
+\paragraph{Phase B: Instance Integration (Epochs 21--40).}
+The instance loss is gradually introduced via $\beta_t = \beta_0 (1 - e^{-(t - t_A)/\tau_\beta})$. To resolve gradient conflicts, we apply gradient projection:
+\begin{equation}
+\mathbf{g}_{\text{inst}}^{\text{proj}} = \mathbf{g}_{\text{inst}} - \frac{\min(0, \langle \mathbf{g}_{\text{inst}}, \mathbf{g}_{\text{sem}} \rangle)}{\|\mathbf{g}_{\text{sem}}\|^2 + \epsilon} \cdot \mathbf{g}_{\text{sem}},
+\label{eq:grad_proj}
+\end{equation}
+which removes the component of the instance gradient that conflicts with the semantic gradient, while preserving aligned components.
+
+\paragraph{Phase C: Joint Refinement (Epochs 41--60).}
+All loss terms are active. An EMA teacher ($\mu = 0.999$) generates pseudo-labels for the PQ proxy loss. Gradient magnitude ratios $\rho_t = \|\nabla_\theta \lsem\| / \|\nabla_\theta \linst\|$ adaptively balance $\alpha_t$ and $\beta_t$.
+
+\paragraph{Phase D: Self-Training (3 rounds $\times$ 5 epochs).}
+The EMA teacher generates panoptic pseudo-labels filtered by joint confidence:
+\begin{equation}
+c(i) = c_s(i)^\alpha \cdot c_f(i)^{1-\alpha}, \quad c_s(i) = \max_k p(y_i = k \mid \mathbf{x}),
+\label{eq:confidence}
+\end{equation}
+with threshold $\tau_r$ increasing by 0.05 per round (starting at 0.7). Only pixels with $c(i) > \tau_r$ contribute to the loss.
+
+\begin{table}[t]
+\centering
+\caption{Loss weight schedule across training phases.}
+\label{tab:curriculum}
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Phase} & $\alpha$ (sem) & $\beta$ (inst) & $\gamma$ (bridge) & $\delta$ (consist) & $\epsilon$ (PQ) \\
+\midrule
+A: Semantic (1--20) & 1.0 & 0.0 & 0.0 & 0.0 & 0.0 \\
+B: Instance (21--40) & 1.0 & $0 \rightarrow 1.0$ & 0.0 & 0.0 & 0.0 \\
+C: Joint (41--60) & 0.8 & 1.0 & 0.1 & 0.3 & 0.2 \\
+D: Self-Train & 0.6 & 1.0 & 0.1 & 0.4 & 0.3 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+%=========================================================================
+\section{Experimental Setup}
+\label{sec:experiments}
+%=========================================================================
+
+\subsection{Datasets}
+
+\paragraph{Cityscapes.}
+We use the Cityscapes dataset~\cite{cordts2016cityscapes} with 2,975 training and 500 validation images at 1024$\times$2048 resolution, evaluating on the 19-class panoptic benchmark (8 stuff + 11 thing classes). Monocular depth is precomputed using MiDaS DPT-Large~\cite{ranftl2020midas}.
+
+\paragraph{COCO-Stuff-27.}
+We evaluate on the 27-class subset of COCO-Stuff~\cite{caesar2018cocostuff} (15 stuff + 12 thing classes), with approximately 118K training and 5K validation images. This benchmark is important because CUPS~\cite{hahn2025cups} cannot operate on COCO (no stereo video), making it a key differentiator for monocular approaches.
+
+\subsection{Implementation Details}
+
+\paragraph{Architecture.}
+DINO ViT-S/8 backbone (384-dim, frozen), DepthG head (MLP 384$\rightarrow$384$\rightarrow$384$\rightarrow$90), Cascade Mask R-CNN for instance detection, Adaptive Projection Bridge ($D_b = 192$), 4-layer Mamba2 SSD (state dim $N = 64$, chunk size $P = 128$), BiCMS with learned fusion projection, stuff-things MLP (3$\rightarrow$16$\rightarrow$8$\rightarrow$1).
+
+\paragraph{Training.}
+We train for 60 epochs (Phases A/B/C) plus 15 self-training epochs (Phase D, 3 rounds $\times$ 5 epochs) = 75 total epochs. We use AdamW optimizer with initial learning rate $10^{-4}$, cosine decay schedule, gradient clipping at norm 1.0, and batch size 8 per TPU core (32 effective batch size on 4-core TPU v4-8). Training is performed on Google Cloud TPU v4-8 VMs using JAX/Flax with \texttt{jax.pmap} for data parallelism.
+
+\paragraph{Evaluation.}
+We report Panoptic Quality (PQ), Segmentation Quality (SQ), Recognition Quality (RQ), PQ for stuff classes (PQ\textsuperscript{St}), PQ for thing classes (PQ\textsuperscript{Th}), mean IoU (mIoU), and Average Precision (AP). All experiments are run with 3 seeds (42, 123, 456) and we report mean $\pm$ standard deviation.
+
+\subsection{Ablation Configurations}
+
+We conduct systematic ablations by removing one component at a time, using identical hyperparameters except for the ablated module:
+
+\begin{itemize}
+    \item \textbf{Full model}: All components active.
+    \item \textbf{No Mamba} (\texttt{no\_mamba}): Replace Mamba2 BiCMS with a simple concatenation + MLP fusion baseline.
+    \item \textbf{No depth conditioning} (\texttt{no\_depth\_cond}): Remove the FiLM depth gates; features pass directly to BiCMS.
+    \item \textbf{No BiCMS} (\texttt{no\_bicms}): Forward-only Mamba scan (no backward pass or bidirectional fusion).
+    \item \textbf{No consistency} (\texttt{no\_consistency}): Set $\delta = 0$; remove all cross-branch consistency losses.
+    \item \textbf{Oracle stuff-things} (\texttt{oracle\_st}): Use ground-truth stuff/things labels to upper-bound the classifier's contribution.
+\end{itemize}
+
+
+%=========================================================================
+\section{Results}
+\label{sec:results}
+%=========================================================================
+
+\subsection{Main Results}
+
+\begin{table}[t]
+\centering
+\caption{Unsupervised panoptic segmentation results on Cityscapes \texttt{val}. $\dagger$: requires stereo video. Results to be evaluated are marked with \underline{\hspace{1em}}.}
+\label{tab:main_cityscapes}
+\begin{tabular}{lcccccc}
+\toprule
+\textbf{Method} & \textbf{Input} & \textbf{PQ} & \textbf{PQ\textsuperscript{St}} & \textbf{PQ\textsuperscript{Th}} & \textbf{SQ} & \textbf{RQ} \\
+\midrule
+U2Seg~\cite{niu2024u2seg} & Mono & 18.4 & --- & --- & --- & --- \\
+CUPS$^\dagger$~\cite{hahn2025cups} & Stereo Video & 27.8 & --- & --- & --- & --- \\
+\midrule
+MBPS (ours) & Mono + Depth & \underline{\hspace{2em}} & \underline{\hspace{2em}} & \underline{\hspace{2em}} & \underline{\hspace{2em}} & \underline{\hspace{2em}} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\centering
+\caption{Unsupervised panoptic segmentation results on COCO-Stuff-27 \texttt{val}. Note: CUPS cannot operate on COCO (no stereo video available).}
+\label{tab:main_coco}
+\begin{tabular}{lcccccc}
+\toprule
+\textbf{Method} & \textbf{Input} & \textbf{PQ} & \textbf{PQ\textsuperscript{St}} & \textbf{PQ\textsuperscript{Th}} & \textbf{SQ} & \textbf{RQ} \\
+\midrule
+U2Seg~\cite{niu2024u2seg} & Mono & --- & --- & --- & --- & --- \\
+CUPS~\cite{hahn2025cups} & \multicolumn{6}{c}{\emph{Not applicable (requires stereo video)}} \\
+\midrule
+MBPS (ours) & Mono + Depth & \underline{\hspace{2em}} & \underline{\hspace{2em}} & \underline{\hspace{2em}} & \underline{\hspace{2em}} & \underline{\hspace{2em}} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\underline{Results to be evaluated.} Tables~\ref{tab:main_cityscapes} and \ref{tab:main_coco} will present the main panoptic segmentation results on Cityscapes and COCO-Stuff-27 respectively, comparing MBPS against U2Seg and CUPS baselines.
+
+
+\subsection{Ablation Studies}
+
+\begin{table}[t]
+\centering
+\caption{Ablation study on Cityscapes \texttt{val}. All experiments use seed 42; $\Delta$PQ is relative to the full model.}
+\label{tab:ablations}
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Configuration} & \textbf{PQ} & \textbf{PQ\textsuperscript{St}} & \textbf{PQ\textsuperscript{Th}} & \textbf{mIoU} & $\Delta$\textbf{PQ} \\
+\midrule
+Full model & \underline{\hspace{2em}} & \underline{\hspace{2em}} & \underline{\hspace{2em}} & \underline{\hspace{2em}} & --- \\
+\midrule
+$-$ Mamba bridge & \underline{\hspace{2em}} & \underline{\hspace{2em}} & \underline{\hspace{2em}} & \underline{\hspace{2em}} & \underline{\hspace{2em}} \\
+$-$ Depth conditioning & \underline{\hspace{2em}} & \underline{\hspace{2em}} & \underline{\hspace{2em}} & \underline{\hspace{2em}} & \underline{\hspace{2em}} \\
+$-$ BiCMS (fwd only) & \underline{\hspace{2em}} & \underline{\hspace{2em}} & \underline{\hspace{2em}} & \underline{\hspace{2em}} & \underline{\hspace{2em}} \\
+$-$ Consistency losses & \underline{\hspace{2em}} & \underline{\hspace{2em}} & \underline{\hspace{2em}} & \underline{\hspace{2em}} & \underline{\hspace{2em}} \\
+\midrule
+$+$ Oracle stuff-things & \underline{\hspace{2em}} & \underline{\hspace{2em}} & \underline{\hspace{2em}} & \underline{\hspace{2em}} & \underline{\hspace{2em}} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\underline{Results to be evaluated.} Table~\ref{tab:ablations} will present ablation results validating the contribution of each architectural component:
+\begin{itemize}
+    \item \textbf{Mamba bridge} ($-$ Mamba): We expect the largest drop when replacing Mamba2 BiCMS with MLP fusion, as the SSM provides global context propagation across the interleaved sequence.
+    \item \textbf{Depth conditioning} ($-$ Depth cond): Removing FiLM gates should reduce performance on depth-discontinuity-heavy classes.
+    \item \textbf{Bidirectional scan} ($-$ BiCMS): Forward-only scan should degrade instance-to-semantic feedback, particularly affecting PQ\textsuperscript{Th}.
+    \item \textbf{Consistency losses} ($-$ Consistency): Removing cross-branch losses should cause semantic-instance misalignment, reducing both PQ\textsuperscript{St} and PQ\textsuperscript{Th}.
+    \item \textbf{Oracle stuff-things} ($+$ Oracle): Using ground-truth stuff/thing labels provides an upper bound on the classifier's contribution and measures the gap of our unsupervised MC-STC approach.
+\end{itemize}
+
+
+\subsection{Stuff-Things Classification Analysis}
+
+\begin{table}[t]
+\centering
+\caption{Stuff-Things classification accuracy on Cityscapes \texttt{val}. Each cue is evaluated individually and in combination.}
+\label{tab:stc_analysis}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Cue Configuration} & \textbf{Accuracy (\%)} & \textbf{F1 Score} \\
+\midrule
+DBD only & \underline{\hspace{2em}} & \underline{\hspace{2em}} \\
+FCC only & \underline{\hspace{2em}} & \underline{\hspace{2em}} \\
+IDF only & \underline{\hspace{2em}} & \underline{\hspace{2em}} \\
+DBD + FCC & \underline{\hspace{2em}} & \underline{\hspace{2em}} \\
+DBD + IDF & \underline{\hspace{2em}} & \underline{\hspace{2em}} \\
+FCC + IDF & \underline{\hspace{2em}} & \underline{\hspace{2em}} \\
+\midrule
+DBD + FCC + IDF (full) & \underline{\hspace{2em}} & \underline{\hspace{2em}} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\underline{Results to be evaluated.} Table~\ref{tab:stc_analysis} will quantify the contribution of each stuff-things cue (DBD, FCC, IDF) individually and in combination, measuring how effectively monocular depth cues replace stereo motion signals for stuff-things disambiguation.
+
+
+\subsection{Computational Analysis}
+
+\begin{table}[t]
+\centering
+\caption{Computational comparison of fusion mechanisms. Measured on a single TPU v4-8 core with batch size 1 and input resolution $128 \times 256$.}
+\label{tab:compute}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Fusion Method} & \textbf{GFLOPs} & \textbf{Params (M)} & \textbf{ms/image} \\
+\midrule
+Concat + MLP & \underline{\hspace{2em}} & \underline{\hspace{2em}} & \underline{\hspace{2em}} \\
+Cross-Attention (4 layers) & \underline{\hspace{2em}} & \underline{\hspace{2em}} & \underline{\hspace{2em}} \\
+Mamba2 BiCMS (4 layers) & \underline{\hspace{2em}} & \underline{\hspace{2em}} & \underline{\hspace{2em}} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\underline{Results to be evaluated.} Table~\ref{tab:compute} will compare the computational cost of our Mamba2 BiCMS against alternative fusion mechanisms. The chunked SSD formulation with $P = 128$ is designed to map efficiently onto TPU v4 systolic arrays, achieving linear-time complexity $O(LP + LN/P)$ versus the quadratic cost of cross-attention.
+
+
+%=========================================================================
+\section{Discussion}
+\label{sec:discussion}
+%=========================================================================
+
+\paragraph{Monocular Depth as a Sufficient Signal.}
+A central question of this work is whether monocular depth provides sufficient geometric information to replace stereo video for unsupervised panoptic segmentation. Our multi-cue stuff-things classifier leverages three orthogonal signals from depth: boundary sharpness (DBD), feature space geometry (FCC), and instance decomposition patterns (IDF). While stereo-derived motion provides a strong separation signal (moving objects are things), our cues capture complementary geometric intuitions that generalize to static scenes. The oracle ablation (Table~\ref{tab:ablations}) will quantify the remaining gap between our unsupervised classifier and perfect stuff-things knowledge.
+
+\paragraph{Why Mamba2 for Cross-Modal Fusion?}
+The choice of Mamba2 SSD~\cite{dao2024mamba2} over cross-attention is motivated by three considerations: (1) \textbf{Linear complexity}: The interleaved sequence length $2N$ can reach 2048+ tokens for high-resolution inputs; attention's $O(N^2)$ cost becomes prohibitive. (2) \textbf{TPU efficiency}: Mamba2's chunked matmul formulation with $P = 128$ aligns with TPU v4's $128 \times 128$ systolic arrays, avoiding the custom CUDA kernels that standard Mamba requires. (3) \textbf{Sequential inductive bias}: The SSM's state propagation naturally couples adjacent semantic-instance token pairs, while attention treats all pairs equally. The no-Mamba ablation (Table~\ref{tab:ablations}) will quantify this advantage over MLP fusion.
+
+\paragraph{Gradient Conflict Resolution.}
+The semantic contrastive loss (Eq.~\ref{eq:depthg_loss}) pulls features of depth-similar pixels together, which can blur instance boundaries. The instance boundary loss pushes features apart at object edges, potentially fragmenting semantic regions. Our gradient projection (Eq.~\ref{eq:grad_proj}) removes the conflicting component while preserving aligned gradients, ensuring that both objectives progress. The Phase B curriculum gradually introduces instance losses to avoid disrupting the semantic cluster structure established in Phase A. This approach draws inspiration from PCGrad~\cite{yu2020pcgrad} but adapts it to the specific geometry of unsupervised panoptic learning.
+
+\paragraph{Limitations.}
+Several limitations merit discussion: (1) \textbf{Depth quality}: MBPS relies on precomputed monocular depth estimates, whose accuracy varies across domains. Indoor scenes with textureless walls may challenge both ZoeDepth and our depth-based cues. (2) \textbf{Number of semantic classes}: Like all unsupervised semantic segmentation methods, the number of clusters $K$ is a hyperparameter. We use $K = 27$ for Cityscapes (following DepthG) but this requires dataset-specific tuning. (3) \textbf{Small objects}: The DINO ViT-S/8 backbone's patch size of 8 limits resolution; objects smaller than $8 \times 8$ pixels cannot be individually resolved. (4) \textbf{Computational cost}: While Mamba2 is more efficient than attention, the four-phase curriculum with self-training requires 75 total epochs, making training expensive.
+
+
+%=========================================================================
+\section{Conclusion}
+\label{sec:conclusion}
+%=========================================================================
+
+We have presented MBPS, a novel framework for unsupervised panoptic segmentation that unifies depth-guided semantic and 3D-aware instance segmentation through a bidirectional Mamba2 state-space bridge. Our key innovation is demonstrating that monocular depth, combined with principled feature analysis, can replace stereo video for stuff-things disambiguation---opening unsupervised panoptic segmentation to the vast majority of image datasets that lack stereo capture. The Adaptive Projection Bridge and Bidirectional Cross-Modal Scan provide an efficient, TPU-native mechanism for fusing heterogeneous representations, while the gradient-balanced curriculum and cross-branch consistency losses ensure stable multi-objective optimization. Experimental results on Cityscapes and COCO-Stuff-27 are \underline{\hspace{3em}} (to be evaluated upon completion of the training runs).
+
+\paragraph{Broader Impact.}
+Unsupervised panoptic segmentation reduces the annotation burden for scene understanding, potentially democratizing access to dense prediction models for applications in autonomous driving, robotics, and augmented reality. However, the quality of unsupervised labels currently lags behind supervised methods, and deploying such models in safety-critical applications requires careful validation. Our use of TPU v4 hardware for training has a non-trivial energy footprint, though the single-training approach (vs. CUPS's two-stage pipeline) may reduce total compute.
+
+
+%=========================================================================
+% References
+%=========================================================================
+
+\bibliographystyle{plain}
+
+\begin{thebibliography}{99}
+
+\bibitem{kirillov2019panoptic}
+A.~Kirillov, K.~He, R.~Girshick, C.~Rother, and P.~Doll{\'a}r.
+\newblock Panoptic segmentation.
+\newblock In \emph{Proc. IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)}, pages 9404--9413, 2019.
+
+\bibitem{cheng2022mask2former}
+B.~Cheng, I.~Misra, A.G.~Schwing, A.~Kirillov, and R.~Girdhar.
+\newblock Masked-attention mask transformer for universal image segmentation.
+\newblock In \emph{Proc. IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)}, pages 1290--1299, 2022.
+
+\bibitem{cordts2016cityscapes}
+M.~Cordts, M.~Omran, S.~Ramos, T.~Rehfeld, M.~Enzweiler, R.~Benenson, U.~Franke, S.~Roth, and B.~Schiele.
+\newblock The {C}ityscapes dataset for semantic urban scene understanding.
+\newblock In \emph{Proc. IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)}, pages 3213--3223, 2016.
+
+\bibitem{caron2021dino}
+M.~Caron, H.~Touvron, I.~Misra, H.~J{\'e}gou, J.~Mairal, P.~Bojanowski, and A.~Joulin.
+\newblock Emerging properties in self-supervised vision transformers.
+\newblock In \emph{Proc. IEEE/CVF International Conference on Computer Vision (ICCV)}, pages 9650--9660, 2021.
+
+\bibitem{hamilton2022stego}
+M.~Hamilton, Z.~Zhang, B.~Hariharan, N.~Snavely, and W.T.~Freeman.
+\newblock Unsupervised semantic segmentation by distilling feature correspondences.
+\newblock In \emph{Proc. International Conference on Learning Representations (ICLR)}, 2022.
+
+\bibitem{sick2024depthg}
+L.~Sick, D.~Engel, P.~Hermosilla, and T.~Ropinski.
+\newblock Unsupervised semantic segmentation through depth-guided feature correlation and sampling.
+\newblock In \emph{Proc. IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)}, pages 3637--3646, 2024.
+
+\bibitem{sick2025cuts3d}
+L.~Sick, D.~Engel, S.~Hartwig, P.~Hermosilla, and T.~Ropinski.
+\newblock {CutS3D}: Cutting semantics in {3D} for {2D} unsupervised instance segmentation.
+\newblock In \emph{Proc. IEEE/CVF International Conference on Computer Vision (ICCV)}, 2025.
+
+\bibitem{wang2023cutler}
+X.~Wang, R.~Girdhar, S.X.~Yu, and I.~Misra.
+\newblock Cut and learn for unsupervised object detection and instance segmentation.
+\newblock In \emph{Proc. IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)}, pages 3124--3134, 2023.
+
+\bibitem{hahn2025cups}
+O.~Hahn, S.~Hosseini, M.~R{\"u}hling, N.~Araslanov, D.~Cremers, and S.~Roth.
+\newblock Scene-centric unsupervised panoptic segmentation.
+\newblock In \emph{Proc. IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)}, 2025.
+
+\bibitem{niu2024u2seg}
+D.~Niu, X.~Wang, X.~Han, L.~Lian, R.~Herzig, and T.~Darrell.
+\newblock Unsupervised universal image segmentation.
+\newblock In \emph{Proc. IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)}, 2024.
+
+\bibitem{gu2023mamba}
+A.~Gu and T.~Dao.
+\newblock Mamba: Linear-time sequence modeling with selective state spaces.
+\newblock \emph{arXiv preprint arXiv:2312.00752}, 2023.
+
+\bibitem{dao2024mamba2}
+T.~Dao and A.~Gu.
+\newblock Transformers are {SSMs}: Generalized models and efficient algorithms through structured state space duality.
+\newblock In \emph{Proc. International Conference on Machine Learning (ICML)}, 2024.
+
+\bibitem{zhu2024vim}
+L.~Zhu, B.~Liao, Q.~Zhang, X.~Wang, W.~Liu, and X.~Wang.
+\newblock Vision {M}amba: Efficient visual representation learning with bidirectional state space model.
+\newblock In \emph{Proc. International Conference on Machine Learning (ICML)}, 2024.
+
+\bibitem{liu2024vmamba}
+Y.~Liu, Y.~Tian, Y.~Zhao, H.~Yu, L.~Xie, Y.~Wang, Q.~Ye, and Y.~Liu.
+\newblock {VMamba}: Visual state space model.
+\newblock In \emph{Proc. Advances in Neural Information Processing Systems (NeurIPS)}, 2024.
+
+\bibitem{dong2024fusionmamba}
+D.~Dong, Y.~Huang, S.~Xu, and X.~Luo.
+\newblock Fusion-{M}amba for cross-modality object detection.
+\newblock \emph{arXiv preprint arXiv:2404.09146}, 2024.
+
+\bibitem{shi2000ncut}
+J.~Shi and J.~Malik.
+\newblock Normalized cuts and image segmentation.
+\newblock \emph{IEEE Transactions on Pattern Analysis and Machine Intelligence}, 22(8):888--905, 2000.
+
+\bibitem{kornblith2019cka}
+S.~Kornblith, M.~Norouzi, H.~Lee, and G.~Hinton.
+\newblock Similarity of neural network representations revisited.
+\newblock In \emph{Proc. International Conference on Machine Learning (ICML)}, pages 3519--3529, 2019.
+
+\bibitem{perez2018film}
+E.~Perez, F.~Strub, H.~de~Vries, V.~Dumoulin, and A.C.~Courville.
+\newblock {FiLM}: Visual reasoning with a general conditioning layer.
+\newblock In \emph{Proc. AAAI Conference on Artificial Intelligence}, pages 3942--3951, 2018.
+
+\bibitem{krahenbuhl2011crf}
+P.~Kr{\"a}henb{\"u}hl and V.~Koltun.
+\newblock Efficient inference in fully connected {CRFs} with {G}aussian edge potentials.
+\newblock In \emph{Proc. Advances in Neural Information Processing Systems (NeurIPS)}, pages 109--117, 2011.
+
+\bibitem{cai2019cascade}
+Z.~Cai and N.~Vasconcelos.
+\newblock Cascade {R-CNN}: High quality object detection and instance segmentation.
+\newblock \emph{IEEE Transactions on Pattern Analysis and Machine Intelligence}, 43(5):1483--1498, 2021.
+
+\bibitem{chen2018gradnorm}
+Z.~Chen, V.~Badrinarayanan, C.-Y.~Lee, and A.~Rabinovich.
+\newblock {GradNorm}: Gradient normalization for adaptive loss balancing in deep multitask networks.
+\newblock In \emph{Proc. International Conference on Machine Learning (ICML)}, pages 794--803, 2018.
+
+\bibitem{yu2020pcgrad}
+T.~Yu, S.~Kumar, A.~Gupta, S.~Levine, K.~Hausman, and C.~Finn.
+\newblock Gradient surgery for multi-task learning.
+\newblock In \emph{Proc. Advances in Neural Information Processing Systems (NeurIPS)}, pages 5824--5836, 2020.
+
+\bibitem{bhat2023zoedepth}
+S.F.~Bhat, R.~Birkl, D.~Wofk, P.~Wonka, and M.~M{\"u}ller.
+\newblock {ZoeDepth}: Zero-shot transfer by combining relative and metric depth.
+\newblock \emph{arXiv preprint arXiv:2302.12288}, 2023.
+
+\bibitem{ranftl2020midas}
+R.~Ranftl, K.~Lasinger, D.~Hafner, K.~Schindler, and V.~Koltun.
+\newblock Towards robust monocular depth estimation: Mixing datasets for zero-shot cross-dataset transfer.
+\newblock \emph{IEEE Transactions on Pattern Analysis and Machine Intelligence}, 44(3):1623--1637, 2022.
+
+\bibitem{caesar2018cocostuff}
+H.~Caesar, J.~Uijlings, and V.~Ferrari.
+\newblock {COCO-Stuff}: Thing and stuff classes in context.
+\newblock In \emph{Proc. IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)}, pages 1209--1218, 2018.
+
+\bibitem{kirillov2019panopticfpn}
+A.~Kirillov, R.~Girshick, K.~He, and P.~Doll{\'a}r.
+\newblock Panoptic feature pyramid networks.
+\newblock In \emph{Proc. IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)}, pages 6399--6408, 2019.
+
+\end{thebibliography}
+
+
+%=========================================================================
+% Appendix
+%=========================================================================
+\appendix
+
+\section{Extended Algorithmic Details}
+\label{sec:appendix_algorithms}
+
+\subsection{Algorithm 1: Complete MBPS Training Pipeline}
+
+\begin{algorithm}[H]
+\caption{MBPS: Mamba-Bridge Panoptic Segmentation Training}
+\label{alg:mbps_train}
+\begin{algorithmic}[1]
+\REQUIRE Dataset $\mathcal{D} = \{(\mathbf{x}_i, D_i)\}$, frozen backbone $\phi$, phase transitions $t_A, t_B, T$
+\ENSURE Trained model parameters $\theta^*$
+\STATE Initialize: SemanticHead, InstanceHead, ProjectionBridge, Mamba2SSD (4 layers), StuffThingsClassifier, PanopticMerger
+\STATE \textbf{// Phase A: Semantic Foundation (epochs 1 to $t_A$)}
+\FOR{$t = 1$ to $t_A$}
+    \FOR{each batch $(\mathbf{x}, D) \in \mathcal{D}$}
+        \STATE $\mathbf{F} \leftarrow \phi(\mathbf{x})$ \COMMENT{DINO features, $\mathbb{R}^{N \times 384}$}
+        \STATE $\mathbf{S} \leftarrow \text{SemanticHead}(\mathbf{F})$ \COMMENT{$\mathbb{R}^{N \times 90}$}
+        \STATE $\mathcal{L} \leftarrow \mathcal{L}_{\text{STEGO}}(\mathbf{S}, \mathbf{F}) + \lambda_d \cdot \mathcal{L}_{\text{DepthG}}(\mathbf{S}, D)$
+        \STATE $\theta_{\text{sem}} \leftarrow \theta_{\text{sem}} - \eta \nabla_{\theta_{\text{sem}}} \mathcal{L}$
+    \ENDFOR
+\ENDFOR
+\STATE \textbf{// Phase B: Instance Integration (epochs $t_A+1$ to $t_B$)}
+\FOR{$t = t_A + 1$ to $t_B$}
+    \STATE $\beta_t \leftarrow \beta_0 (1 - e^{-(t-t_A)/\tau_\beta})$
+    \FOR{each batch $(\mathbf{x}, D) \in \mathcal{D}$}
+        \STATE Compute $\mathbf{g}_{\text{sem}}, \mathbf{g}_{\text{inst}}$; project $\mathbf{g}_{\text{inst}}$ (Eq.~\ref{eq:grad_proj})
+        \STATE $\theta \leftarrow \theta - \eta(\mathbf{g}_{\text{sem}} + \beta_t \cdot \mathbf{g}_{\text{inst}}^{\text{proj}})$
+    \ENDFOR
+\ENDFOR
+\STATE \textbf{// Phase C: Joint Training (epochs $t_B+1$ to $T$)}
+\STATE $\theta_{\text{ema}} \leftarrow \theta$
+\FOR{$t = t_B + 1$ to $T$}
+    \FOR{each batch $(\mathbf{x}, D) \in \mathcal{D}$}
+        \STATE Full forward: Bridge $\rightarrow$ DepthCond $\rightarrow$ BiCMS $\rightarrow$ InvProj $\rightarrow$ StuffThings $\rightarrow$ Merge
+        \STATE $\mathcal{L} \leftarrow \alpha \lsem + \beta \linst + \gamma \lbridge + \delta \lconsist + \epsilon \lpq$
+        \STATE $\theta \leftarrow \theta - \eta \nabla_\theta \mathcal{L}$; \quad $\theta_{\text{ema}} \leftarrow 0.999 \cdot \theta_{\text{ema}} + 0.001 \cdot \theta$
+    \ENDFOR
+\ENDFOR
+\STATE \textbf{// Phase D: Self-Training ($R$ rounds)}
+\FOR{$r = 1$ to $R$}
+    \STATE Generate pseudo-labels with $\theta_{\text{ema}}$, filter by $c(i) > \tau_r$
+    \FOR{5 epochs} Train with confidence-weighted loss \ENDFOR
+    \STATE $\theta_{\text{ema}} \leftarrow 0.999 \cdot \theta_{\text{ema}} + 0.001 \cdot \theta$; \quad $\tau_{r+1} \leftarrow \tau_r + 0.05$
+\ENDFOR
+\RETURN $\theta$
+\end{algorithmic}
+\end{algorithm}
+
+
+\subsection{Algorithm 2: Multi-Cue Stuff-Things Classification}
+
+\begin{algorithm}[H]
+\caption{Multi-Cue Stuff-Things Classifier (MC-STC)}
+\label{alg:stc}
+\begin{algorithmic}[1]
+\REQUIRE Depth map $D$, DINO features $\mathbf{F}$, semantic clusters $\{c_1, \ldots, c_K\}$, instance masks $\{m_1, \ldots, m_M\}$
+\ENSURE Stuff classes $\mathcal{S}$, Thing classes $\mathcal{T}$
+\STATE $G_d \leftarrow \text{SobelFilter}(D)$ \COMMENT{Depth gradient magnitude}
+\FOR{each cluster $c_k$}
+    \STATE $R_k \leftarrow \{(x,y) : \text{sem}(x,y) = k\}$
+    \STATE $\text{DBD}[k] \leftarrow |\{(x,y) \in R_k : G_d(x,y) > \tau_d\}| / |R_k|$
+    \STATE $\Sigma_k \leftarrow \text{Cov}(\mathbf{F}[R_k])$; \quad $\text{FCC}[k] \leftarrow 1 - \text{tr}(\Sigma_k) / \text{tr}(\Sigma_{\text{total}})$
+    \STATE $\text{IDF}[k] \leftarrow |\{m_j : |m_j \cap R_k| / |m_j| > 0.5\}| / (|R_k| / HW)$
+\ENDFOR
+\STATE Normalize DBD, FCC, IDF to $[0, 1]$
+\FOR{each cluster $c_k$}
+    \STATE $p_k \leftarrow \sigma(\text{MLP}([\text{DBD}[k]; \text{FCC}[k]; \text{IDF}[k]]))$
+    \IF{$p_k > 0.5$}
+        \STATE $\mathcal{T} \leftarrow \mathcal{T} \cup \{k\}$
+    \ELSE
+        \STATE $\mathcal{S} \leftarrow \mathcal{S} \cup \{k\}$
+    \ENDIF
+\ENDFOR
+\RETURN $\mathcal{S}, \mathcal{T}$
+\end{algorithmic}
+\end{algorithm}
+
+
+\section{Hyperparameter Details}
+\label{sec:appendix_hyperparams}
+
+\begin{table}[h]
+\centering
+\caption{Complete hyperparameter specification.}
+\label{tab:hyperparams}
+\begin{tabular}{llc}
+\toprule
+\textbf{Category} & \textbf{Parameter} & \textbf{Value} \\
+\midrule
+\multirow{6}{*}{Architecture} & Backbone & DINO ViT-S/8 (frozen) \\
+& Backbone dim ($D_f$) & 384 \\
+& Semantic code dim ($D_s$) & 90 \\
+& Bridge dim ($D_b$) & 192 \\
+& Mamba2 layers & 4 \\
+& Mamba2 state dim ($N$) & 64 \\
+& Mamba2 chunk size ($P$) & 128 \\
+& STC MLP dims & [3, 16, 8, 1] \\
+\midrule
+\multirow{5}{*}{Training} & Total epochs & 75 (60 + 15 ST) \\
+& Optimizer & AdamW \\
+& Learning rate & $10^{-4}$ \\
+& LR schedule & Cosine decay \\
+& Batch size (per core) & 8 \\
+& Gradient clip norm & 1.0 \\
+& EMA momentum ($\mu$) & 0.999 \\
+\midrule
+\multirow{5}{*}{Loss weights} & $\alpha$ (semantic) & 0.8 \\
+& $\beta$ (instance) & 1.0 \\
+& $\gamma$ (bridge) & 0.1 \\
+& $\delta$ (consistency) & 0.3 \\
+& $\epsilon$ (PQ proxy) & 0.2 \\
+\midrule
+\multirow{6}{*}{Sub-loss weights} & $\lambda_d$ (DepthG) & 0.3 \\
+& $\lambda_{\text{drop}}$ (DropLoss) & 0.5 \\
+& $\lambda_{\text{box}}$ (box reg.) & 1.0 \\
+& $\lambda_r$ (recon.) & 0.5 \\
+& $\lambda_{\text{cka}}$ (CKA) & 0.1 \\
+& $\lambda_h$ (state reg.) & 0.01 \\
+& $\lambda_u$ (uniformity) & 0.3 \\
+& $\lambda_b$ (boundary) & 0.2 \\
+& $\lambda_{\text{dbc}}$ (DBC) & 0.2 \\
+\midrule
+\multirow{3}{*}{Self-training} & Rounds ($R$) & 3 \\
+& Init. threshold ($\tau_1$) & 0.7 \\
+& Threshold increment & 0.05 \\
+& Epochs per round & 5 \\
+\midrule
+\multirow{2}{*}{CRF post-proc.} & Iterations & 10 \\
+& $\sigma_{\text{bilateral}}$ & 60, 6 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+\section{Experiment Matrix}
+\label{sec:appendix_experiment}
+
+Our complete experiment matrix consists of 36 runs organized in 3 waves:
+\begin{itemize}
+    \item \textbf{2 datasets}: Cityscapes, COCO-Stuff-27
+    \item \textbf{6 configurations}: Full model + 5 ablations
+    \item \textbf{3 seeds}: 42, 123, 456
+    \item \textbf{Training}: 60 epochs (Phases A/B/C) + 15 self-training epochs (Phase D)
+\end{itemize}
+
+All experiments are conducted on Google Cloud TPU v4-8 VMs (4 chips, 32GB HBM per chip) with JAX 0.6.2 and Flax 0.10.7. The orchestrator script manages 16 VMs simultaneously across 3 waves, with automatic spot VM recovery.
+
+
+\end{document}

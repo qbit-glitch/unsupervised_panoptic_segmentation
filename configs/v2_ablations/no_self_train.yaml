@@ -1,0 +1,4 @@
+# Ablation: No self-training (bootstrap only)
+training:
+  total_epochs: 25
+  self_training_rounds: 0

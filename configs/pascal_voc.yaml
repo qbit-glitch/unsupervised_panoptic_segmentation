@@ -1,0 +1,32 @@
+# PASCAL VOC 2012 configuration (prototype)
+# ~1,500 train images, 21 classes (20 + background)
+# Classic benchmark with semantic + instance annotations
+
+_base_: "default.yaml"
+
+architecture:
+  num_classes: 21
+
+data:
+  dataset: "pascal_voc"
+  data_dir: "data/pascal_voc/VOCdevkit/VOC2012"
+  depth_dir: "data/pascal_voc/depth_zoedepth"
+  num_classes: 21
+  num_stuff_classes: 1   # background only
+  num_thing_classes: 20  # all 20 VOC classes are "things"
+  image_size: [480, 480]
+  crop_size: [320, 320]
+  batch_size: 4
+
+training:
+  total_epochs: 40
+  phase_a_end: 10
+  phase_b_end: 25
+  warmup_epochs: 3
+  learning_rate: 1.0e-4
+
+logging:
+  eval_every_n_epochs: 5
+
+checkpointing:
+  save_every_n_epochs: 10

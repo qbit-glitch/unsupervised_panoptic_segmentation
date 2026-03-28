@@ -1,0 +1,38 @@
+## CUPS Stage 2: 100-step test run with 2 GPUs + CPU validation
+## Usage:
+##   conda activate cups
+##   cd /media/santosh/Kuldeep/panoptic_segmentation
+##   python refs/cups/train.py --experiment_config_file configs/cups_cityscapes_test100.yaml
+
+DATA:
+  ROOT: "/media/santosh/Kuldeep/panoptic_segmentation/datasets/cityscapes"
+  ROOT_VAL: "/media/santosh/Kuldeep/panoptic_segmentation/datasets/cityscapes"
+  ROOT_PSEUDO: "/media/santosh/Kuldeep/panoptic_segmentation/datasets/cityscapes/cups_pseudo_labels"
+  CROP_RESOLUTION: (640, 1280)
+  SCALE: 0.625
+  VAL_SCALE: 0.625
+  DATASET: "cityscapes"
+  IGNORE_UNKNOWN_THING_REGIONS: False
+  THING_STUFF_THRESHOLD: 0.08
+
+AUGMENTATION:
+  NUM_STEPS_STARTUP: 50
+  COPY_PASTE: True
+
+TRAINING:
+  STEPS: 100
+  BATCH_SIZE: 2
+  VAL_EVERY_N_STEPS: 100
+  DROP_LOSS: True
+  PRECISION: "16-mixed"
+  LOG_EVERT_N_STEPS: 5
+
+SYSTEM:
+  NUM_GPUS: 2
+  NUM_WORKERS: 4
+  ACCELERATOR: "gpu"
+  DISTRIBUTED_BACKEND: "ddp"
+  RUN_NAME: "mbps_cups_test100"
+
+VALIDATION:
+  CACHE_DEVICE: "cpu"

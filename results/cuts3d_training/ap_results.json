@@ -1,0 +1,38 @@
+{
+  "metrics": {
+    "AP": 0.0,
+    "AP_50": 0.0,
+    "AP_75": 0.0,
+    "per_threshold": {
+      "AP@0.50": 0.0,
+      "AP@0.55": 0.0,
+      "AP@0.60": 0.0,
+      "AP@0.65": 0.0,
+      "AP@0.70": 0.0,
+      "AP@0.75": 0.0,
+      "AP@0.80": 0.0,
+      "AP@0.85": 0.0,
+      "AP@0.90": 0.0,
+      "AP@0.95": 0.0
+    }
+  },
+  "config": {
+    "checkpoint": "checkpoints/cuts3d_cad_5pct.npz",
+    "config_file": "configs/cityscapes_5pct.yaml",
+    "score_threshold": 0.3,
+    "mask_threshold": 0.5,
+    "image_size": [
+      128,
+      256
+    ],
+    "max_instances": 5
+  },
+  "stats": {
+    "n_images": 267,
+    "n_skipped": 0,
+    "n_total_predictions": 1335,
+    "n_total_gt_instances": 2613,
+    "inference_time_s": 32.67
+  },
+  "timestamp": "2026-02-12 23:57:12"
+}

@@ -1,0 +1,7 @@
+# Ablation: No BiCMS (forward scan only)
+_base_: "../default.yaml"
+
+ablation:
+  name: "no_bicms"
+  description: "Forward-only Mamba scan, no bidirectional fusion"
+  use_bidirectional: false

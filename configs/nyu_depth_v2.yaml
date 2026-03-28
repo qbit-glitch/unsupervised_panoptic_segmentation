@@ -1,0 +1,30 @@
+# NYU Depth V2 configuration (prototype)
+# 1,449 images, 40 classes, REAL Kinect depth
+# Primary prototyping dataset — no ZoeDepth needed
+
+_base_: "default.yaml"
+
+architecture:
+  num_classes: 40
+
+data:
+  dataset: "nyu_depth_v2"
+  data_dir: "data/nyu_depth_v2"
+  depth_dir: "data/nyu_depth_v2/depth"
+  num_classes: 40
+  image_size: [240, 320]
+  crop_size: [224, 224]
+  batch_size: 2
+
+training:
+  total_epochs: 50
+  phase_a_end: 15
+  phase_b_end: 35
+  warmup_epochs: 3
+  learning_rate: 1.0e-4
+
+logging:
+  eval_every_n_epochs: 5
+
+checkpointing:
+  save_every_n_epochs: 10

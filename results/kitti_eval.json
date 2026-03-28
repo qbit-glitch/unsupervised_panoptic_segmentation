@@ -1,0 +1,155 @@
+{
+  "dataset": "kitti_panoptic",
+  "checkpoint": "checkpoints/dinov3_stage3/dinov3_official_stage3_step8000.ckpt",
+  "num_images": 3,
+  "metrics": {
+    "PQ": 0.3261,
+    "SQ": 0.41577,
+    "RQ": 0.45558,
+    "PQ_things": 0.18693,
+    "SQ_things": 0.31774,
+    "RQ_things": 0.28618,
+    "PQ_stuff": 0.40562,
+    "SQ_stuff": 0.47179,
+    "RQ_stuff": 0.55238,
+    "mIoU": 0.37875,
+    "Acc": 0.77476
+  },
+  "per_class": {
+    "road": {
+      "PQ": 0.92829,
+      "SQ": 0.92829,
+      "RQ": 1.0
+    },
+    "sidewalk": {
+      "PQ": 0.44143,
+      "SQ": 0.66215,
+      "RQ": 0.66667
+    },
+    "parking": {
+      "PQ": 0.0,
+      "SQ": 0.0,
+      "RQ": 0.0
+    },
+    "rail track": {
+      "PQ": 0.0,
+      "SQ": 0.0,
+      "RQ": 0.0
+    },
+    "building": {
+      "PQ": 0.69068,
+      "SQ": 0.69068,
+      "RQ": 1.0
+    },
+    "wall": {
+      "PQ": 0.6642,
+      "SQ": 0.6642,
+      "RQ": 1.0
+    },
+    "fence": {
+      "PQ": 0.46579,
+      "SQ": 0.69868,
+      "RQ": 0.66667
+    },
+    "guard rail": {
+      "PQ": 0.0,
+      "SQ": 0.0,
+      "RQ": 0.0
+    },
+    "bridge": {
+      "PQ": 0.0,
+      "SQ": 0.0,
+      "RQ": 0.0
+    },
+    "tunnel": {
+      "PQ": 0.0,
+      "SQ": 0.0,
+      "RQ": 0.0
+    },
+    "pole": {
+      "PQ": 0.0,
+      "SQ": 0.0,
+      "RQ": 0.0
+    },
+    "polegroup": {
+      "PQ": 0.0,
+      "SQ": 0.0,
+      "RQ": 0.0
+    },
+    "traffic light": {
+      "PQ": 0.0,
+      "SQ": 0.0,
+      "RQ": 0.0
+    },
+    "traffic sign": {
+      "PQ": 0.54046,
+      "SQ": 0.54046,
+      "RQ": 1.0
+    },
+    "vegetation": {
+      "PQ": 0.69244,
+      "SQ": 0.69244,
+      "RQ": 1.0
+    },
+    "terrain": {
+      "PQ": 0.31511,
+      "SQ": 0.78779,
+      "RQ": 0.4
+    },
+    "sky": {
+      "PQ": 0.94033,
+      "SQ": 0.94033,
+      "RQ": 1.0
+    },
+    "person": {
+      "PQ": 0.23176,
+      "SQ": 0.57941,
+      "RQ": 0.4
+    },
+    "rider": {
+      "PQ": 0.6542,
+      "SQ": 0.6542,
+      "RQ": 1.0
+    },
+    "car": {
+      "PQ": 0.09814,
+      "SQ": 0.60518,
+      "RQ": 0.16216
+    },
+    "truck": {
+      "PQ": 0.0,
+      "SQ": 0.0,
+      "RQ": 0.0
+    },
+    "bus": {
+      "PQ": 0.0,
+      "SQ": 0.0,
+      "RQ": 0.0
+    },
+    "caravan": {
+      "PQ": 0.0,
+      "SQ": 0.0,
+      "RQ": 0.0
+    },
+    "trailer": {
+      "PQ": 0.0,
+      "SQ": 0.0,
+      "RQ": 0.0
+    },
+    "train": {
+      "PQ": 0.0,
+      "SQ": 0.0,
+      "RQ": 0.0
+    },
+    "motorcycle": {
+      "PQ": 0.0,
+      "SQ": 0.0,
+      "RQ": 0.0
+    },
+    "bicycle": {
+      "PQ": 0.51134,
+      "SQ": 0.7031,
+      "RQ": 0.72727
+    }
+  }
+}

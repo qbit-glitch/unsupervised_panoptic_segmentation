@@ -1,0 +1,21 @@
+# MBPS v2 Cityscapes GCS Configuration
+# For training on TPU VMs with data on GCS
+
+architecture:
+  num_classes: 19
+
+data:
+  dataset: "cityscapes"
+  image_size: [512, 1024]
+  crop_size: [512, 512]
+  n_patches: 2048
+
+gcs:
+  bucket: "mbps-panoptic"
+  tfrecord_dir: "gs://mbps-panoptic/datasets/cityscapes/tfrecords_v2/train"
+  checkpoint_dir: "gs://mbps-panoptic/checkpoints"
+  results_dir: "gs://mbps-panoptic/results"
+  weights_dir: "gs://mbps-panoptic/weights"
+
+stuff_things:
+  mapping_path: "gs://mbps-panoptic/datasets/cityscapes/pseudo_semantic/stuff_things.json"

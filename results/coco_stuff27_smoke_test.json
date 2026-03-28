@@ -1,0 +1,155 @@
+{
+  "dataset": "coco_stuff27",
+  "checkpoint": "checkpoints/dinov3_stage3/dinov3_official_stage3_step8000.ckpt",
+  "num_images": 3,
+  "metrics": {
+    "PQ": 0.16768,
+    "SQ": 0.16768,
+    "RQ": 0.2,
+    "PQ_things": 0.22958,
+    "SQ_things": 0.22958,
+    "RQ_things": 0.25,
+    "PQ_stuff": 0.14517,
+    "SQ_stuff": 0.14517,
+    "RQ_stuff": 0.18182,
+    "mIoU": 0.26166,
+    "Acc": 0.51581
+  },
+  "per_class": {
+    "electronic": {
+      "PQ": 0.0,
+      "SQ": 0.0,
+      "RQ": 0.0
+    },
+    "appliance": {
+      "PQ": 0.0,
+      "SQ": 0.0,
+      "RQ": 0.0
+    },
+    "food": {
+      "PQ": 0.0,
+      "SQ": 0.0,
+      "RQ": 0.0
+    },
+    "furniture": {
+      "PQ": 0.0,
+      "SQ": 0.0,
+      "RQ": 0.0
+    },
+    "indoor": {
+      "PQ": 0.0,
+      "SQ": 0.0,
+      "RQ": 0.0
+    },
+    "kitchen": {
+      "PQ": 0.0,
+      "SQ": 0.0,
+      "RQ": 0.0
+    },
+    "accessory": {
+      "PQ": 0.0,
+      "SQ": 0.0,
+      "RQ": 0.0
+    },
+    "animal": {
+      "PQ": 0.0,
+      "SQ": 0.0,
+      "RQ": 0.0
+    },
+    "outdoor": {
+      "PQ": 0.0,
+      "SQ": 0.0,
+      "RQ": 0.0
+    },
+    "person": {
+      "PQ": 0.91832,
+      "SQ": 0.91832,
+      "RQ": 1.0
+    },
+    "sports": {
+      "PQ": 0.0,
+      "SQ": 0.0,
+      "RQ": 0.0
+    },
+    "vehicle": {
+      "PQ": 0.0,
+      "SQ": 0.0,
+      "RQ": 0.0
+    },
+    "ceiling": {
+      "PQ": 0.0,
+      "SQ": 0.0,
+      "RQ": 0.0
+    },
+    "floor": {
+      "PQ": 0.82841,
+      "SQ": 0.82841,
+      "RQ": 1.0
+    },
+    "food-stuff": {
+      "PQ": 0.0,
+      "SQ": 0.0,
+      "RQ": 0.0
+    },
+    "furniture-stuff": {
+      "PQ": 0.0,
+      "SQ": 0.0,
+      "RQ": 0.0
+    },
+    "raw-material": {
+      "PQ": 0.0,
+      "SQ": 0.0,
+      "RQ": 0.0
+    },
+    "textile": {
+      "PQ": 0.0,
+      "SQ": 0.0,
+      "RQ": 0.0
+    },
+    "wall": {
+      "PQ": 0.0,
+      "SQ": 0.0,
+      "RQ": 0.0
+    },
+    "window": {
+      "PQ": 0.0,
+      "SQ": 0.0,
+      "RQ": 0.0
+    },
+    "building": {
+      "PQ": 0.0,
+      "SQ": 0.0,
+      "RQ": 0.0
+    },
+    "ground": {
+      "PQ": 0.0,
+      "SQ": 0.0,
+      "RQ": 0.0
+    },
+    "plant": {
+      "PQ": 0.76841,
+      "SQ": 0.76841,
+      "RQ": 1.0
+    },
+    "sky": {
+      "PQ": 0.0,
+      "SQ": 0.0,
+      "RQ": 0.0
+    },
+    "solid": {
+      "PQ": 0.0,
+      "SQ": 0.0,
+      "RQ": 0.0
+    },
+    "structural": {
+      "PQ": 0.0,
+      "SQ": 0.0,
+      "RQ": 0.0
+    },
+    "water": {
+      "PQ": 0.0,
+      "SQ": 0.0,
+      "RQ": 0.0
+    }
+  }
+}

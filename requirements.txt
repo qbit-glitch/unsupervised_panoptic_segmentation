@@ -1,0 +1,38 @@
+# Core JAX/Flax
+jax[tpu]>=0.4.20
+flax>=0.8.0
+optax>=0.1.7
+orbax-checkpoint>=0.4.0
+
+# Utilities
+einops>=0.7.0
+ml_collections>=0.1.1
+absl-py>=2.0.0
+
+# Data loading (TFRecord)
+tensorflow>=2.15.0
+
+# Scientific computing
+numpy>=1.24.0
+scipy>=1.11.0
+scikit-learn>=1.3.0
+
+# Image processing
+Pillow>=10.0.0
+opencv-python>=4.8.0
+
+# Visualization & Logging
+matplotlib>=3.7.0
+wandb>=0.15.0
+tensorboard>=2.15.0
+
+# Evaluation
+panopticapi>=0.1
+
+# Depth estimation (PyTorch, for precompute only)
+# torch>=2.0.0
+# torchvision>=0.15.0
+# timm>=0.9.0
+
+# YAML config
+PyYAML>=6.0

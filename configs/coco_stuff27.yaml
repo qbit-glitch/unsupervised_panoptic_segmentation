@@ -1,0 +1,14 @@
+# COCO-Stuff-27 configuration
+# Inherits from default.yaml
+
+_base_: "default.yaml"
+
+data:
+  dataset: "coco_stuff27"
+  data_dir: "/data/coco"
+  depth_dir: "/data/coco/depth_zoedepth"
+  num_classes: 27
+  num_stuff_classes: 15
+  num_thing_classes: 12
+  image_size: [512, 512]
+  crop_size: [320, 320]

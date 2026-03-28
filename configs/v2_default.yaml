@@ -1,0 +1,136 @@
+# MBPS v2 Default Configuration
+# DINOv3 + Mamba Bridge Panoptic Segmentation
+
+architecture:
+  backbone: "dinov3_vitb"
+  backbone_dim: 768
+  patch_size: 16
+  num_classes: 19  # overridden per dataset
+  instance_embed_dim: 64
+  bridge_dim: 384
+
+  # Mamba2 SSM config
+  mamba:
+    num_layers: 4
+    state_dim: 64
+    chunk_size: 128
+    expansion: 2
+    use_bidirectional: true
+
+  # Depth conditioning
+  use_depth_conditioning: true
+  use_mamba_bridge: true
+  depth_freq_bands: [1, 2, 4, 8, 16, 32]
+  depth_encoding_dim: 12
+  depth_mlp_dims: [12, 64, 384]  # Updated for bridge_dim=384
+
+training:
+  # v2 simplified curriculum: bootstrap + self-training
+  total_epochs: 40
+  bootstrap_end: 25
+  bridge_enable_epoch: 5  # Bridge off for first 5 epochs
+  self_training_rounds: 3
+  self_training_epochs_per_round: 5
+
+  batch_size: 4  # per TPU core (768-dim backbone needs smaller batch)
+  learning_rate: 5.0e-5
+  min_learning_rate: 1.0e-6
+  lr_schedule: "cosine"
+  weight_decay: 0.05
+  warmup_epochs: 3
+
+  ema_momentum: 0.999
+  gradient_clip: 1.0
+  dropout_rate: 0.1
+
+  optimizer: "adamw"
+  adam_beta1: 0.9
+  adam_beta2: 0.999
+  adam_epsilon: 1.0e-8
+
+loss_weights:
+  lambda_semantic: 1.0
+  lambda_instance: 1.0
+  lambda_bridge: 0.1
+  label_smoothing: 0.1
+
+  # Discriminative loss margins
+  delta_v: 0.5   # pull margin
+  delta_d: 1.5   # push margin
+  disc_alpha: 1.0  # pull weight
+  disc_beta: 1.0   # push weight
+  disc_gamma: 0.001  # regularization weight
+
+  # Bridge loss sub-weights
+  lambda_cka: 0.1
+  lambda_recon: 0.5
+
+# Copy-paste augmentation (adapted from CUPS, Hahn et al. CVPR 2025)
+# Pastes random instances from the batch onto each training image,
+# increasing object diversity and preventing overfitting to fixed
+# pseudo-label configurations. See mbps/data/copy_paste.py.
+augmentation:
+  copy_paste: true
+  max_paste_objects: 5       # Random 1..N objects pasted per image
+  min_instance_tokens: 4     # Min tokens for a pasteable instance
+  flip_prob: 0.5             # Probability of horizontal flip on paste
+  scale_range: [0.5, 1.5]   # Random scale for pasted instances (CUPS default: 0.25-1.5)
+
+# Self-enhanced copy-paste (CUPS Section 3.2, Hahn et al. CVPR 2025)
+# After warmup_steps, uses EMA model predictions as paste source
+# instead of pseudo-labels. Requires augmentation.copy_paste: true.
+self_enhanced_copy_paste:
+  enabled: false             # Off by default; enable for full runs
+  warmup_steps: 500          # Use pseudo-labels for first N steps
+  confidence_threshold: 0.75 # Min softmax confidence to keep predictions
+
+self_training:
+  conf_threshold_init: 0.7
+  conf_threshold_increment: 0.05
+
+data:
+  dataset: "cityscapes"
+  image_size: [512, 1024]
+  crop_size: [512, 512]
+  batch_size: 4
+  num_workers: 8
+  prefetch_buffer: 16
+  shuffle_buffer: 1000
+
+  # v2: pseudo-label fields in TFRecords
+  has_pseudo_semantic: true
+  has_pseudo_instance: true
+  has_pseudo_masks: true
+  max_instances: 20
+  n_patches: 2048  # 32 * 64 for 512x1024 with patch_size=16
+
+  # ImageNet normalization
+  mean: [0.485, 0.456, 0.406]
+  std: [0.229, 0.224, 0.225]
+
+checkpointing:
+  save_every_n_epochs: 5
+  keep_top_k: 3
+  checkpoint_dir: "checkpoints/"
+
+logging:
+  log_every_n_steps: 50
+  eval_every_n_epochs: 5
+  use_wandb: true
+  wandb_project: "mbps-v2"
+  wandb_entity: null
+  wandb_group: null
+  wandb_tags: []
+
+gcs:
+  bucket: null
+  tfrecord_dir: null
+  checkpoint_dir: null
+  results_dir: null
+  weights_dir: null
+
+evaluation:
+  pq_iou_threshold: 0.5
+  crf_iterations: 10
+  similarity_threshold: 0.7
+  min_instance_patches: 4

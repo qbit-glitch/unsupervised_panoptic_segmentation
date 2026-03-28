@@ -1,0 +1,98 @@
+# ============================================
+# Model checkpoints & weights (25GB+)
+# ============================================
+checkpoints/
+weights/
+*.pth
+*.ckpt
+*.pt
+*.bin
+*.safetensors
+*.npz
+*.npy
+
+# ============================================
+# Reference repos (19GB) — cloned externally
+# ============================================
+refs/
+
+# ============================================
+# Experiment outputs & pseudo-labels
+# ============================================
+experiments/
+pseudo_instances_cutler/
+pseudo_instances_cuvler/
+
+# ============================================
+# External project clone
+# ============================================
+unsupervised-panoptic-segmentation/
+
+# ============================================
+# Logs
+# ============================================
+logs/
+*.log
+nohup.out
+
+# ============================================
+# Node.js (1.1GB)
+# ============================================
+node_modules/
+package-lock.json
+
+# ============================================
+# Research papers (PDFs)
+# ============================================
+research_papers/
+
+# ============================================
+# Python
+# ============================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+*.so
+.venv/
+venv/
+env/
+
+# ============================================
+# Jupyter Notebooks (checkpoints)
+# ============================================
+notebooks/.ipynb_checkpoints/
+.ipynb_checkpoints/
+
+# ============================================
+# OS & IDE
+# ============================================
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ============================================
+# Claude Code project memory (private)
+# ============================================
+.claude/
+.ccr/
+
+# ============================================
+# Eval result JSONs (root-level, generated)
+# ============================================
+eval_*.json
+postproc_results.json
+
+# ============================================
+# Debug / scratch scripts
+# ============================================
+debug_*.py
+sample.py

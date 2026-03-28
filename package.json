@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "@claude-flow/cli": "^3.5.14",
+    "@claude-flow/memory": "^3.0.0-alpha.11",
+    "@claude-flow/swarm": "^3.0.0-alpha.1"
+  }
+}

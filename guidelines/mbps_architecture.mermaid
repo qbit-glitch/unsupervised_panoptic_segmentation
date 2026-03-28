@@ -1,0 +1,360 @@
+```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#E3F2FD', 'primaryTextColor': '#1A237E', 'primaryBorderColor': '#1976D2', 'lineColor': '#37474F', 'secondaryColor': '#FFF3E0', 'tertiaryColor': '#F3E5F5'}}}%%
+
+flowchart TB
+    subgraph INPUT["📥 Input"]
+        RGB["🖼️ RGB Image<br/>H×W×3"]
+        DEPTH["📊 Depth Map<br/>ZoeDepth"]
+    end
+
+    subgraph BACKBONE["🦖 DINO ViT-S/8 (Frozen)"]
+        PATCH["Patch Embedding"]
+        TRANS["Transformer ×12"]
+        FEAT["F ∈ ℝ^(N×384)"]
+        PATCH --> TRANS --> FEAT
+    end
+
+    subgraph SEMANTIC["🟠 Semantic Branch (DepthG)"]
+        SEM_HEAD["Semantic Head"]
+        SEM_CODE["S ∈ ℝ^(N×90)"]
+        SEM_HEAD --> SEM_CODE
+    end
+
+    subgraph INSTANCE["🟣 Instance Branch (CutS3D)"]
+        NCUT["NCut + LocalCut 3D"]
+        INST_FEAT["F_inst ∈ ℝ^(N×384)"]
+        NCUT --> INST_FEAT
+    end
+
+    subgraph BRIDGE["🔵 Adaptive Projection Bridge"]
+        PROJ_S["W_s: 90 → D_b"]
+        PROJ_F["W_f: 384 → D_b"]
+        ALIGNED["S', F' ∈ ℝ^(N×192)"]
+        PROJ_S --> ALIGNED
+        PROJ_F --> ALIGNED
+    end
+
+    subgraph DEPTH_COND["⬛ Unified Depth Conditioning"]
+        DEPTH_ENC["Depth Encoder"]
+        GATES["Gated Conditioning"]
+        COND_OUT["S_d, F_d"]
+        DEPTH_ENC --> GATES --> COND_OUT
+    end
+
+    subgraph MAMBA["🔴 Mamba2 Bridge (TPU-SSD)"]
+        INTERLEAVE["Interleave<br/>[S₁,F₁,S₂,F₂,...]"]
+        FWD["Forward Scan →<br/>Y_fwd = SSM(Z)"]
+        BWD["← Backward Scan<br/>Y_bwd = SSM(rev(Z))"]
+        BICMS["BiCMS Fusion<br/>W[Y_fwd; Y_bwd] + Z"]
+        DEINTER["Deinterleave"]
+        FUSED["S_fused, F_fused"]
+        
+        INTERLEAVE --> FWD
+        INTERLEAVE --> BWD
+        FWD --> BICMS
+        BWD --> BICMS
+        BICMS --> DEINTER --> FUSED
+    end
+
+    subgraph INV_PROJ["🔄 Inverse Projections"]
+        INV_S["W_s†: D_b → 90<br/>S_out"]
+        INV_F["W_f†: D_b → 384<br/>F_out"]
+    end
+
+    subgraph HEADS["🎯 Prediction Heads"]
+        KMEANS["K-Means + CRF<br/>Sem_pred"]
+        INST_HEAD["Instance Head<br/>Masks, Scores"]
+    end
+
+    subgraph STC["🟢 Stuff-Things Classifier"]
+        DBD["DBD: Depth Boundary"]
+        FCC["FCC: Feature Compact"]
+        IDF["IDF: Instance Decomp"]
+        MLP["MLP(3→16→8→1)"]
+        ST_OUT["Things / Stuff"]
+        
+        DBD --> MLP
+        FCC --> MLP
+        IDF --> MLP
+        MLP --> ST_OUT
+    end
+
+    subgraph MERGER["🟧 Panoptic Merger"]
+        MERGE["Combine Stuff + Things"]
+        PANOPTIC["Panoptic Output<br/>P = (id, class)^(H×W)"]
+        MERGE --> PANOPTIC
+    end
+
+    subgraph LOSSES["📉 Loss Functions"]
+        L_SEM["L_semantic<br/>STEGO + DepthG"]
+        L_INST["L_instance<br/>BCE_CW + Drop"]
+        L_BRIDGE["L_bridge<br/>Recon + CKA"]
+        L_CONSIST["L_consistency<br/>Uniform + Boundary"]
+        L_PQ["L_PQ<br/>Diff. PQ Proxy"]
+        L_TOTAL["L_total = α·L_sem + β·L_inst + γ·L_bridge + δ·L_consist + ε·L_PQ"]
+        
+        L_SEM --> L_TOTAL
+        L_INST --> L_TOTAL
+        L_BRIDGE --> L_TOTAL
+        L_CONSIST --> L_TOTAL
+        L_PQ --> L_TOTAL
+    end
+
+    %% Main flow
+    RGB --> BACKBONE
+    FEAT --> SEMANTIC
+    FEAT --> INSTANCE
+    SEM_CODE --> BRIDGE
+    INST_FEAT --> BRIDGE
+    DEPTH --> DEPTH_COND
+    ALIGNED --> DEPTH_COND
+    COND_OUT --> MAMBA
+    FUSED --> INV_PROJ
+    INV_S --> KMEANS
+    INV_F --> INST_HEAD
+    KMEANS --> STC
+    INST_HEAD --> STC
+    KMEANS --> MERGER
+    INST_HEAD --> MERGER
+    ST_OUT --> MERGER
+
+    %% Depth guidance (dashed)
+    DEPTH -.->|"Depth Guidance"| SEMANTIC
+    DEPTH -.->|"3D Point Cloud"| INSTANCE
+
+    %% Loss connections
+    SEM_CODE -.-> L_SEM
+    INST_FEAT -.-> L_INST
+    FUSED -.-> L_BRIDGE
+    PANOPTIC -.-> L_CONSIST
+    PANOPTIC -.-> L_PQ
+
+    %% Styling
+    classDef input fill:#E8F5E9,stroke:#4CAF50,stroke-width:2px
+    classDef backbone fill:#E3F2FD,stroke:#1976D2,stroke-width:2px
+    classDef semantic fill:#FFF3E0,stroke:#E65100,stroke-width:2px
+    classDef instance fill:#F3E5F5,stroke:#7B1FA2,stroke-width:2px
+    classDef bridge fill:#E0F7FA,stroke:#00838F,stroke-width:2px
+    classDef mamba fill:#FFEBEE,stroke:#C62828,stroke-width:3px
+    classDef output fill:#FBE9E7,stroke:#D84315,stroke-width:2px
+    classDef loss fill:#E8EAF6,stroke:#3F51B5,stroke-width:1px
+    classDef stc fill:#E8F5E9,stroke:#2E7D32,stroke-width:2px
+
+    class RGB,DEPTH input
+    class PATCH,TRANS,FEAT backbone
+    class SEM_HEAD,SEM_CODE semantic
+    class NCUT,INST_FEAT instance
+    class PROJ_S,PROJ_F,ALIGNED bridge
+    class INTERLEAVE,FWD,BWD,BICMS,DEINTER,FUSED mamba
+    class MERGE,PANOPTIC output
+    class L_SEM,L_INST,L_BRIDGE,L_CONSIST,L_PQ,L_TOTAL loss
+    class DBD,FCC,IDF,MLP,ST_OUT stc
+```
+
+---
+
+## Simplified Data Flow Diagram
+
+```mermaid
+%%{init: {'theme': 'base'}}%%
+
+graph LR
+    subgraph Phase_A["Phase A: Semantic Foundation"]
+        A1["RGB"] --> A2["DINO"] --> A3["Semantic Head"] --> A4["L_semantic"]
+    end
+
+    subgraph Phase_B["Phase B: Instance Integration"]
+        B1["RGB"] --> B2["DINO"] --> B3["Instance Head"] --> B4["L_instance"]
+        B2 --> B5["Semantic Head"]
+        B5 --> B6["Gradient Projection"]
+        B3 --> B6
+    end
+
+    subgraph Phase_C["Phase C: Joint Training"]
+        C1["Semantic S"] --> C2["Projection"]
+        C3["Instance F"] --> C2
+        C2 --> C4["Mamba2 Bridge"]
+        C4 --> C5["Inverse Proj"]
+        C5 --> C6["Panoptic"]
+        C6 --> C7["All Losses"]
+    end
+
+    subgraph Phase_D["Phase D: Self-Training"]
+        D1["θ_teacher"] --> D2["Pseudo Labels"]
+        D2 --> D3["Confidence Filter"]
+        D3 --> D4["θ_student"]
+        D4 --> D5["EMA Update"]
+        D5 --> D1
+    end
+
+    Phase_A --> Phase_B --> Phase_C --> Phase_D
+```
+
+---
+
+## Mamba2 SSD Internal Structure (TPU-Optimized)
+
+```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#FFEBEE'}}}%%
+
+flowchart TB
+    subgraph INPUT_SEQ["Input Sequence"]
+        X["x ∈ ℝ^(B×L×D)"]
+    end
+
+    subgraph PARAMS["Input-Dependent Parameters"]
+        DELTA["Δ = Softplus(Linear(x))"]
+        B_PROJ["B = Linear(x)"]
+        C_PROJ["C = Linear(x)"]
+        A_BAR["Ā = exp(Δ ⊙ A)"]
+    end
+
+    subgraph CHUNKING["Chunked Processing (P=128)"]
+        CHUNK["Divide into L/P chunks"]
+        H_INIT["h₀ = zeros(B, D, N)"]
+    end
+
+    subgraph CHUNK_LOOP["For each chunk k"]
+        SEMI["Build Semiseparable M_k"]
+        H_CONTRIB["y_from_h = h_{k-1} · C_k^T"]
+        INTRA["y_intra = M_k · (x_k ⊙ B_k)"]
+        Y_K["y_k = y_from_h + y_intra"]
+        H_UPDATE["h_k = UpdateState(h_{k-1}, Ā_k, B_k, x_k)"]
+    end
+
+    subgraph OUTPUT["Output"]
+        CONCAT["y = Concat(y_1, ..., y_{L/P})"]
+        RESIDUAL["y = y + D · x"]
+    end
+
+    X --> PARAMS
+    DELTA --> A_BAR
+    X --> CHUNKING
+    CHUNK --> CHUNK_LOOP
+    H_INIT --> CHUNK_LOOP
+    A_BAR --> SEMI
+    B_PROJ --> SEMI
+    C_PROJ --> SEMI
+    SEMI --> INTRA
+    H_CONTRIB --> Y_K
+    INTRA --> Y_K
+    Y_K --> H_UPDATE
+    H_UPDATE -->|"next chunk"| H_CONTRIB
+    Y_K --> CONCAT
+    CONCAT --> RESIDUAL
+
+    style SEMI fill:#EF9A9A,stroke:#C62828
+    style INTRA fill:#EF9A9A,stroke:#C62828
+    style RESIDUAL fill:#FFCDD2,stroke:#E53935
+```
+
+---
+
+## Stuff-Things Classification Pipeline
+
+```mermaid
+%%{init: {'theme': 'base'}}%%
+
+flowchart LR
+    subgraph INPUTS["Inputs per Semantic Cluster c"]
+        SEM["Semantic Mask R_c"]
+        DEPTH_MAP["Depth Map D"]
+        DINO_F["DINO Features F"]
+        INST_M["Instance Masks {m_j}"]
+    end
+
+    subgraph CUE1["Cue 1: DBD"]
+        SOBEL["Sobel Filter G_d"]
+        THRESH["Threshold τ_d"]
+        COUNT["Count boundary pixels"]
+        DBD_OUT["DBD(c) = boundary/|R_c|"]
+        
+        DEPTH_MAP --> SOBEL --> THRESH --> COUNT --> DBD_OUT
+    end
+
+    subgraph CUE2["Cue 2: FCC"]
+        COV_C["Cov(F[R_c])"]
+        COV_TOT["Cov(F_total)"]
+        RATIO["trace ratio"]
+        FCC_OUT["FCC(c) = 1 - ratio"]
+        
+        DINO_F --> COV_C --> RATIO
+        DINO_F --> COV_TOT --> RATIO --> FCC_OUT
+    end
+
+    subgraph CUE3["Cue 3: IDF"]
+        OVERLAP["Count overlapping instances"]
+        AREA["Area of R_c"]
+        IDF_OUT["IDF(c) = instances/area"]
+        
+        INST_M --> OVERLAP --> IDF_OUT
+        SEM --> AREA --> IDF_OUT
+    end
+
+    subgraph CLASSIFIER["MLP Classifier"]
+        CONCAT_CUES["[DBD; FCC; IDF]"]
+        MLP["Linear(3,16)→ReLU→Linear(16,8)→ReLU→Linear(8,1)"]
+        SIGMOID["σ(·)"]
+        DECISION["p(thing|c) > 0.5?"]
+        
+        DBD_OUT --> CONCAT_CUES
+        FCC_OUT --> CONCAT_CUES
+        IDF_OUT --> CONCAT_CUES
+        CONCAT_CUES --> MLP --> SIGMOID --> DECISION
+    end
+
+    subgraph OUTPUT["Classification"]
+        THING["Thing Class ✓"]
+        STUFF["Stuff Class ✗"]
+        DECISION -->|"Yes"| THING
+        DECISION -->|"No"| STUFF
+    end
+
+    style THING fill:#E8F5E9,stroke:#4CAF50
+    style STUFF fill:#ECEFF1,stroke:#607D8B
+```
+
+---
+
+## Training Curriculum Timeline
+
+```mermaid
+%%{init: {'theme': 'base'}}%%
+
+gantt
+    title MBPS Training Curriculum (60 epochs + R self-training rounds)
+    dateFormat X
+    axisFormat %s
+
+    section Phase A
+    Semantic Foundation (L_semantic only)    :a1, 0, 20
+
+    section Phase B  
+    Instance Integration (+ L_instance)      :a2, 20, 20
+
+    section Phase C
+    Joint Training (+ L_bridge + L_consistency + L_PQ) :a3, 40, 20
+
+    section Phase D
+    Self-Training Round 1                    :a4, 60, 5
+    Self-Training Round 2                    :a5, 65, 5
+    Self-Training Round 3                    :a6, 70, 5
+```
+
+---
+
+## Loss Weight Evolution
+
+```mermaid
+%%{init: {'theme': 'base'}}%%
+
+xychart-beta
+    title "Loss Weight Schedule Across Training Phases"
+    x-axis ["0", "10", "20", "30", "40", "50", "60"]
+    y-axis "Weight" 0 --> 1.2
+    line "α (semantic)" [1.0, 1.0, 1.0, 1.0, 0.9, 0.85, 0.8]
+    line "β (instance)" [0, 0, 0.2, 0.5, 0.8, 1.0, 1.0]
+    line "γ (bridge)" [0, 0, 0, 0, 0.1, 0.1, 0.1]
+    line "δ (consistency)" [0, 0, 0, 0, 0.15, 0.25, 0.3]
+    line "ε (PQ proxy)" [0, 0, 0, 0, 0.1, 0.15, 0.2]
+```

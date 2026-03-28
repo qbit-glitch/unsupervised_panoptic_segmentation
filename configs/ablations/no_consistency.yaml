@@ -1,0 +1,12 @@
+# Ablation: No Consistency Losses
+_base_: "../default.yaml"
+
+ablation:
+  name: "no_consistency"
+  description: "Remove all cross-branch consistency losses"
+
+loss_weights:
+  delta_consistency: 0.0
+  lambda_uniform: 0.0
+  lambda_boundary: 0.0
+  lambda_dbc: 0.0

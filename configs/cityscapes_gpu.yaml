@@ -1,0 +1,37 @@
+# Cityscapes GPU extraction — 128x256, all 2975 training images
+# For santosh@172.17.254.146 (2x GTX 1080 Ti)
+
+_base_: "default.yaml"
+
+architecture:
+  num_classes: 19
+  max_instances: 100
+
+data:
+  dataset: "cityscapes"
+  data_dir: "/media/santosh/Kuldeep/panoptic_segmentation/datasets/cityscapes"
+  depth_dir: "/media/santosh/Kuldeep/panoptic_segmentation/datasets/cityscapes/depth_zoedepth"
+  num_classes: 19
+  num_stuff_classes: 11
+  num_thing_classes: 8
+  image_size: [128, 256]
+  crop_size: [128, 128]
+  batch_size: 4
+
+  stuff_classes: ["road", "sidewalk", "building", "wall", "fence",
+                   "pole", "traffic_light", "traffic_sign", "vegetation",
+                   "terrain", "sky"]
+  thing_classes: ["person", "rider", "car", "truck", "bus",
+                   "train", "motorcycle", "bicycle"]
+
+training:
+  total_epochs: 50
+  phase_a_end: 15
+  phase_b_end: 35
+  learning_rate: 1.0e-4
+  weight_decay: 0.01
+  gradient_clip: 1.0
+
+evaluation:
+  ignore_label: 255
+  pred_all_class: true
