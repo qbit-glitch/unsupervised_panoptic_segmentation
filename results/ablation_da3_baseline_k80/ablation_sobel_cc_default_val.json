@@ -1,0 +1,187 @@
+{
+  "split": "val",
+  "k": 80,
+  "eval_resolution": [
+    512,
+    1024
+  ],
+  "semantic_subdir": "pseudo_semantic_raw_k80",
+  "depth_subdir": "depth_dav3",
+  "feature_subdir": "dinov2_features",
+  "n_images": 500,
+  "total_seconds": 42.7,
+  "results": [
+    {
+      "method": "sobel_cc",
+      "config": {
+        "grad_threshold": 0.03,
+        "min_area": 1000,
+        "dilation_iters": 3,
+        "depth_blur_sigma": 1.0
+      },
+      "PQ": 27.37,
+      "PQ_stuff": 32.08,
+      "PQ_things": 20.9,
+      "SQ": 73.44,
+      "RQ": 35.66,
+      "avg_instances": 4.4,
+      "seconds_per_image": 0.035,
+      "n_images": 500,
+      "errors": 0,
+      "per_class": {
+        "road": {
+          "PQ": 77.05,
+          "SQ": 78.89,
+          "RQ": 97.66,
+          "TP": 480,
+          "FP": 20,
+          "FN": 3
+        },
+        "sidewalk": {
+          "PQ": 41.05,
+          "SQ": 68.35,
+          "RQ": 60.06,
+          "TP": 288,
+          "FP": 207,
+          "FN": 176
+        },
+        "building": {
+          "PQ": 66.69,
+          "SQ": 75.95,
+          "RQ": 87.8,
+          "TP": 432,
+          "FP": 61,
+          "FN": 59
+        },
+        "wall": {
+          "PQ": 10.91,
+          "SQ": 65.6,
+          "RQ": 16.63,
+          "TP": 39,
+          "FP": 229,
+          "FN": 162
+        },
+        "fence": {
+          "PQ": 9.22,
+          "SQ": 59.96,
+          "RQ": 15.38,
+          "TP": 31,
+          "FP": 183,
+          "FN": 158
+        },
+        "pole": {
+          "PQ": 0.0,
+          "SQ": 0.0,
+          "RQ": 0.0,
+          "TP": 0,
+          "FP": 393,
+          "FN": 489
+        },
+        "traffic light": {
+          "PQ": 0.0,
+          "SQ": 0.0,
+          "RQ": 0.0,
+          "TP": 0,
+          "FP": 0,
+          "FN": 260
+        },
+        "traffic sign": {
+          "PQ": 14.69,
+          "SQ": 61.31,
+          "RQ": 23.96,
+          "TP": 107,
+          "FP": 317,
+          "FN": 362
+        },
+        "vegetation": {
+          "PQ": 65.73,
+          "SQ": 73.53,
+          "RQ": 89.39,
+          "TP": 438,
+          "FP": 56,
+          "FN": 48
+        },
+        "terrain": {
+          "PQ": 13.08,
+          "SQ": 63.83,
+          "RQ": 20.48,
+          "TP": 55,
+          "FP": 251,
+          "FN": 176
+        },
+        "sky": {
+          "PQ": 54.41,
+          "SQ": 71.29,
+          "RQ": 76.32,
+          "TP": 348,
+          "FP": 127,
+          "FN": 89
+        },
+        "person": {
+          "PQ": 6.36,
+          "SQ": 66.03,
+          "RQ": 9.63,
+          "TP": 179,
+          "FP": 161,
+          "FN": 3197
+        },
+        "rider": {
+          "PQ": 12.12,
+          "SQ": 58.61,
+          "RQ": 20.68,
+          "TP": 70,
+          "FP": 66,
+          "FN": 471
+        },
+        "car": {
+          "PQ": 26.79,
+          "SQ": 77.22,
+          "RQ": 34.69,
+          "TP": 1029,
+          "FP": 269,
+          "FN": 3606
+        },
+        "truck": {
+          "PQ": 34.82,
+          "SQ": 79.75,
+          "RQ": 43.66,
+          "TP": 31,
+          "FP": 18,
+          "FN": 62
+        },
+        "bus": {
+          "PQ": 47.73,
+          "SQ": 80.74,
+          "RQ": 59.12,
+          "TP": 47,
+          "FP": 14,
+          "FN": 51
+        },
+        "train": {
+          "PQ": 32.69,
+          "SQ": 73.55,
+          "RQ": 44.44,
+          "TP": 10,
+          "FP": 12,
+          "FN": 13
+        },
+        "motorcycle": {
+          "PQ": 0.0,
+          "SQ": 0.0,
+          "RQ": 0.0,
+          "TP": 0,
+          "FP": 0,
+          "FN": 149
+        },
+        "bicycle": {
+          "PQ": 6.66,
+          "SQ": 60.59,
+          "RQ": 10.98,
+          "TP": 81,
+          "FP": 231,
+          "FN": 1082
+        }
+      }
+    }
+  ]
+}

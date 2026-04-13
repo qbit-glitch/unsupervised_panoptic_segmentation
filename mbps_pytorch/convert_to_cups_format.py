@@ -110,6 +110,102 @@ def build_instance_map_cc(semantic, thing_ids, min_area=100):
     return instance_map
 
 
+def build_instance_map_depth_cc(semantic, depth, thing_ids, min_area=50,
+                                 grad_threshold=0.01, depth_blur_sigma=0.0,
+                                 dilation_iters=3):
+    """Build instance map by splitting thing clusters at depth edges.
+
+    Hybrid approach: full thing-pixel coverage (like CC) but with depth-guided
+    splitting (like depth_guided_instances). Every thing pixel gets an instance ID.
+
+    Algorithm per thing cluster:
+      1. Get full cluster mask (all pixels)
+      2. Compute Sobel depth edges, remove from mask
+      3. Connected components on split mask
+      4. Assign unique instance ID to each CC (even small ones)
+      5. Reclaim edge pixels via dilation (largest CC first)
+
+    Args:
+        semantic: (H, W) uint8 array with cluster IDs (0 to k-1).
+        depth: (H, W) float32 depth map [0, 1].
+        thing_ids: Set of cluster IDs considered 'things'.
+        min_area: Minimum pixel area for an instance (default 50, low to keep coverage).
+        grad_threshold: Sobel gradient threshold for depth edges.
+        depth_blur_sigma: Gaussian blur sigma on depth before Sobel.
+        dilation_iters: Iterations for boundary pixel reclamation.
+
+    Returns:
+        instance_map: (H, W) uint16 array with instance IDs (0=background).
+    """
+    from scipy.ndimage import gaussian_filter, sobel as scipy_sobel
+
+    H, W = semantic.shape
+    instance_map = np.zeros((H, W), dtype=np.uint16)
+    instance_id = 1
+
+    # Compute depth edges once
+    if depth_blur_sigma > 0:
+        depth_smooth = gaussian_filter(depth.astype(np.float64), sigma=depth_blur_sigma)
+    else:
+        depth_smooth = depth.astype(np.float64)
+
+    gx = scipy_sobel(depth_smooth, axis=1)
+    gy = scipy_sobel(depth_smooth, axis=0)
+    grad_mag = np.sqrt(gx ** 2 + gy ** 2)
+    depth_edges = grad_mag > grad_threshold
+
+    for cluster_id in sorted(thing_ids):
+        cls_mask = semantic == cluster_id
+        if cls_mask.sum() == 0:
+            continue
+
+        # Split cluster at depth edges
+        split_mask = cls_mask & ~depth_edges
+
+        # Connected components on split mask
+        labeled, n_components = ndimage.label(split_mask)
+
+        # Collect CCs sorted by area (largest first for dilation priority)
+        cc_list = []
+        for comp_id in range(1, n_components + 1):
+            comp_mask = labeled == comp_id
+            area = int(comp_mask.sum())
+            if area >= min_area:
+                cc_list.append((comp_mask, area))
+        cc_list.sort(key=lambda x: -x[1])
+
+        # Assign instance IDs and reclaim edge pixels
+        assigned = np.zeros((H, W), dtype=bool)
+        for comp_mask, area in cc_list:
+            if dilation_iters > 0:
+                dilated = ndimage.binary_dilation(comp_mask, iterations=dilation_iters)
+                reclaimed = dilated & cls_mask & ~assigned
+                final_mask = comp_mask | reclaimed
+            else:
+                final_mask = comp_mask
+
+            if final_mask.sum() < min_area:
+                continue
+
+            instance_map[final_mask] = instance_id
+            assigned |= final_mask
+            instance_id += 1
+
+        # Assign remaining unassigned thing pixels to nearest instance
+        unassigned = cls_mask & ~assigned
+        if unassigned.sum() > 0 and assigned.sum() > 0:
+            # Find nearest assigned instance for each unassigned pixel
+            from scipy.ndimage import distance_transform_edt
+            _, nearest_idx = distance_transform_edt(~assigned, return_distances=True,
+                                                     return_indices=True)
+            for y, x in zip(*np.where(unassigned)):
+                ny, nx = nearest_idx[0, y, x], nearest_idx[1, y, x]
+                if instance_map[ny, nx] > 0:
+                    instance_map[y, x] = instance_map[ny, nx]
+
+    return instance_map
+
+
 def load_stuff_things_json(path):
     """Load stuff-things JSON and convert thing IDs from 19-class to 27-class."""
     with open(path) as f:
@@ -235,25 +331,44 @@ def main():
                              "(required when --cc_instances is set)")
     parser.add_argument("--min_instance_area", type=int, default=100,
                         help="Minimum pixel area for a CC instance (default: 100)")
+    parser.add_argument("--depth_cc_instances", action="store_true",
+                        help="Generate instances by splitting thing clusters at depth edges "
+                             "(hybrid: full coverage + depth boundaries)")
+    parser.add_argument("--depth_subdir", type=str, default="depth_depthpro",
+                        help="Subdirectory with depth .npy files (for --depth_cc_instances)")
+    parser.add_argument("--grad_threshold", type=float, default=0.01,
+                        help="Sobel gradient threshold for depth edges (default: 0.01)")
+    parser.add_argument("--depth_blur_sigma", type=float, default=0.0,
+                        help="Gaussian blur sigma on depth before Sobel (default: 0.0)")
+    parser.add_argument("--dilation_iters", type=int, default=3,
+                        help="Boundary pixel reclamation iterations (default: 3)")
 
     args = parser.parse_args()
 
     if args.cc_instances and args.centroids_path is None:
         parser.error("--centroids_path is required when --cc_instances is set")
+    if args.depth_cc_instances and args.centroids_path is None:
+        parser.error("--centroids_path is required when --depth_cc_instances is set")
 
     cs_root = Path(args.cityscapes_root)
     semantic_dir = cs_root / args.semantic_subdir
-    instance_dir = cs_root / args.instance_subdir if not args.cc_instances else None
+    instance_dir = cs_root / args.instance_subdir if not (args.cc_instances or args.depth_cc_instances) else None
+    depth_dir = cs_root / args.depth_subdir if args.depth_cc_instances else None
     output_dir = cs_root / args.output_subdir
     output_dir.mkdir(parents=True, exist_ok=True)
 
     num_classes = args.num_classes
     use_cc = args.cc_instances
+    use_depth_cc = args.depth_cc_instances
 
     # Determine thing IDs
-    if use_cc:
+    if use_cc or use_depth_cc:
         thing_ids = determine_thing_cluster_ids(args.centroids_path)
-        logger.info(f"Mode: CC instances on {num_classes} raw clusters")
+        mode = "Depth-guided CC" if use_depth_cc else "CC"
+        logger.info(f"Mode: {mode} instances on {num_classes} raw clusters")
+        if use_depth_cc:
+            logger.info(f"Depth dir: {depth_dir}")
+            logger.info(f"Depth params: tau={args.grad_threshold}, sigma={args.depth_blur_sigma}, dil={args.dilation_iters}")
     elif args.stuff_things:
         thing_ids = load_stuff_things_json(args.stuff_things)
         logger.info(f"Thing IDs (27-class): {sorted(thing_ids)}")
@@ -303,7 +418,36 @@ def main():
         if trainid_lut is not None:
             semantic = trainid_lut[semantic]
 
-        if use_cc:
+        if use_depth_cc:
+            # Depth-guided CC: split thing clusters at depth edges (full coverage)
+            depth_path = depth_dir / args.split / city / f"{stem}.npy"
+            if not depth_path.exists():
+                depth_path = depth_dir / args.split / city / f"{stem}_leftImg8bit.npy"
+            if depth_path.exists():
+                depth = np.load(str(depth_path))
+                # Resize depth to semantic resolution
+                if depth.shape != (args.target_h, args.target_w):
+                    depth = np.array(
+                        Image.fromarray(depth).resize(
+                            (args.target_w, args.target_h), Image.BILINEAR
+                        )
+                    )
+                instance_map = build_instance_map_depth_cc(
+                    semantic, depth, thing_ids,
+                    min_area=args.min_instance_area,
+                    grad_threshold=args.grad_threshold,
+                    depth_blur_sigma=args.depth_blur_sigma,
+                    dilation_iters=args.dilation_iters,
+                )
+            else:
+                # Fallback to plain CC if depth not found
+                logger.warning(f"Depth not found for {stem}, falling back to CC")
+                instance_map = build_instance_map_cc(
+                    semantic, thing_ids, min_area=args.min_instance_area
+                )
+            n_instances = int(instance_map.max())
+            total_thing_instances += n_instances
+        elif use_cc:
             # CC instances from raw cluster semantic map
             instance_map = build_instance_map_cc(
                 semantic, thing_ids, min_area=args.min_instance_area
