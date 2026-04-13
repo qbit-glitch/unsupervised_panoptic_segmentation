@@ -248,6 +248,8 @@ def find_image_pairs(semantic_dir, depth_dir):
         # Find matching depth file
         rel = sem_path.relative_to(semantic_dir)
         depth_path = depth_dir / rel.parent / f"{stem}.npy"
+        if not depth_path.exists():
+            depth_path = depth_dir / rel.parent / f"{stem}_leftImg8bit.npy"
         if depth_path.exists():
             pairs.append((sem_path, depth_path))
         else:
@@ -367,6 +369,12 @@ def main():
              "If not provided, defaults to Cityscapes GT thing IDs (11-18).",
     )
     parser.add_argument(
+        "--thing_ids", type=int, nargs="+", default=None,
+        help="Override thing class IDs directly (space-separated ints). "
+             "Takes precedence over --stuff_things and DEFAULT_THING_IDS. "
+             "Example for DINOv3 k=80: --thing_ids 15 20 33 35 43 49 70",
+    )
+    parser.add_argument(
         "--limit", type=int, default=None,
         help="Limit to first N images (for testing)",
     )
@@ -384,8 +392,11 @@ def main():
         WORK_H, WORK_W = args.work_size
         logger.info(f"Using custom work size: {WORK_H}x{WORK_W}")
 
-    # Load thing IDs from stuff_things.json or use defaults
-    if args.stuff_things:
+    # Load thing IDs: --thing_ids > --stuff_things > DEFAULT_THING_IDS
+    if args.thing_ids is not None:
+        thing_ids = set(args.thing_ids)
+        logger.info(f"Using --thing_ids override: {sorted(thing_ids)}")
+    elif args.stuff_things:
         thing_ids = load_thing_ids(args.stuff_things)
     else:
         thing_ids = DEFAULT_THING_IDS

@@ -86,10 +86,24 @@ Thumbs.db
 .ccr/
 
 # ============================================
+# Obsidian vault (local knowledge base)
+# ============================================
+.obsidian/
+Research/
+Archive/
+
+# ============================================
 # Eval result JSONs (root-level, generated)
 # ============================================
 eval_*.json
 postproc_results.json
+
+# ============================================
+# Large files (PDFs, generated graph data)
+# ============================================
+papers/**/*.pdf
+graphify-out/graph.json
+paper_bmvc2026/bmvc_template/.git/
 
 # ============================================
 # Debug / scratch scripts

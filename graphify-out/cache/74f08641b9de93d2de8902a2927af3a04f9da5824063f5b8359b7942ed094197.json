@@ -1,0 +1,1 @@
+{"nodes": [{"id": "link_coco20k", "label": "link_coco20k.py", "file_type": "code", "source_file": "refs/DiffNCuts/datasets/link_coco20k.py", "source_location": "L1"}], "edges": [{"source": "link_coco20k", "target": "os", "relation": "imports", "confidence": "EXTRACTED", "source_file": "refs/DiffNCuts/datasets/link_coco20k.py", "source_location": "L1", "weight": 1.0}]}

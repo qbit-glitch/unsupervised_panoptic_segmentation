@@ -6,8 +6,8 @@
 # Step 3: Evaluate NeCo-DINOv3 + SSD-1B + NAMR (best expected combination)
 #
 # On remote, run:
-#   nohup bash scripts/run_mmgd_round7_neco.sh > /tmp/mmgd_round7.log 2>&1 &
-#   tail -f /tmp/mmgd_round7.log
+#   mkdir -p logs && nohup bash scripts/run_mmgd_round7_neco.sh > logs/mmgd_neco_training.log 2>&1 &
+#   tail -f logs/mmgd_neco_training.log
 #
 # Note: COCO root on remote is /media/santosh/data/coco (adjust if different)
 
@@ -35,7 +35,8 @@ $PYTHON -u $SCRIPT_DIR/train_neco_dinov3.py \
     --img_size 448 \
     --patch_size 14 \
     --epochs 5 \
-    --batch_size 32 \
+    --batch_size 4 \
+    --grad_accum 8 \
     --lr 1e-5 \
     --weight_decay 1e-4 \
     --temperature 0.07 \

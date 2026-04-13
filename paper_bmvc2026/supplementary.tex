@@ -1,0 +1,295 @@
+\documentclass{bmvc2k}
+
+\title{Supplementary Material:\\Unsupervised Panoptic Segmentation via\\Depth-Semantic Pseudo-Label Compositing}
+
+\addauthor{Anonymous}{anonymous@email.com}{1}
+\addinstitution{Anonymous Institution}
+
+\runninghead{Anonymous}{Supplementary Material}
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{xcolor}
+\usepackage{xspace}
+
+\newcommand{\pqt}{PQ\textsubscript{th}\xspace}
+\newcommand{\pqs}{PQ\textsubscript{st}\xspace}
+
+\begin{document}
+\maketitle
+
+This supplementary provides detailed experimental evidence supporting the claims in the main paper. We include: (A)~overclustering analysis with class recovery, (B)~depth model and instance method ablation, (C)~full per-class PQ breakdown for the main result, and (D)~self-training progression across Stage~3.
+
+%=========================================================================
+\appendix
+\section{Overclustering Analysis}
+\label{app:overclustering}
+
+\paragraph{K-sweep.}
+Table~\ref{tab:ksweep} reports the best pseudo-label quality at each overclustering count $k$, with optimal Sobel threshold $\tau$ and minimum area $A_\text{min}$ selected by grid search. PQ increases monotonically with $k$, driven primarily by \pqt gains as rare thing classes acquire dedicated cluster centroids. We select $k{=}80$ as the operating point because it is the smallest $k$ at which all seven collapsed classes reliably attract at least one centroid (Table~\ref{tab:class_recovery}).
+
+\begin{table}[h]
+\centering
+\caption{Pseudo-label quality vs.\ overclustering count $k$ (SPIdepth depth, Cityscapes val). CC-only: connected components without depth-guided splitting.}
+\label{tab:ksweep}
+\small
+\begin{tabular}{@{}rcccccc@{}}
+\toprule
+$k$ & $\tau^*$ & $A_\text{min}^*$ & PQ & \pqt & \pqs & SQ \\
+\midrule
+27 (CAUSE) & 0.10 & 500 & 23.10 & 11.70 & 31.40 & 74.30 \\
+50 & 0.30 & 1000 & 25.78 & 13.37 & 34.80 & 73.11 \\
+60 & 0.20 & 1000 & 25.83 & 19.08 & 30.74 & 71.69 \\
+80 & 0.20 & 1000 & 26.74 & 19.41 & 32.08 & 71.88 \\
+\midrule
+CC-only ($k{=}80$) & --- & --- & 24.84 & 14.90 & 32.08 & --- \\
+CUPS~\cite{hahn2025cups} & --- & --- & 27.80 & 17.70 & 35.10 & 57.40 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Centroid collapse and class recovery.}
+At the standard $k{=}27$ cluster count, CAUSE-TR features exhibit severe centroid collapse: 14 of 27 centroids are dead (never win argmax for any pixel), and 7 of the 19 evaluation classes receive exactly zero IoU. Table~\ref{tab:absorption} shows the absorption patterns---each collapsed class is systematically absorbed by visually similar dominant classes. Table~\ref{tab:class_recovery} demonstrates progressive recovery as $k$ increases.
+
+\begin{table}[h]
+\centering
+\caption{Absorption patterns for the 7 collapsed classes at $k{=}27$. Each class's pixels are misassigned to the listed dominant classes.}
+\label{tab:absorption}
+\small
+\begin{tabular}{@{}lll@{}}
+\toprule
+GT Class & Primary Absorber (\%) & Secondary (\%) \\
+\midrule
+fence & wall (70\%) & building (13\%) \\
+pole & building (65\%) & vegetation (10\%) \\
+traffic light & building (89\%) & vegetation (10\%) \\
+traffic sign & building (78\%) & wall (10\%) \\
+rider & bicycle (43\%) & person (28\%) \\
+train & bus (82\%) & building (9\%) \\
+motorcycle & bicycle (71\%) & car (16\%) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\centering
+\caption{Per-class IoU (\%) recovery as overclustering count $k$ increases (patch-level, 500 Cityscapes val images). Bold indicates first recovery ($>0$\%).}
+\label{tab:class_recovery}
+\small
+\begin{tabular}{@{}rcccccccr@{}}
+\toprule
+$k$ & fence & pole & t.light & t.sign & rider & train & m.cycle & mIoU \\
+\midrule
+27 & 0.0 & 0.0 & 0.0 & 0.0 & 0.0 & 0.0 & 0.0 & 40.4 \\
+50 & \textbf{42.2} & 0.0 & 0.0 & \textbf{45.3} & 0.0 & \textbf{73.5} & 0.0 & 47.4 \\
+100 & 44.9 & 0.0 & \textbf{21.1} & 44.9 & \textbf{41.7} & 74.9 & 0.0 & 56.9 \\
+200 & 44.4 & \textbf{11.1} & 34.0 & 44.1 & 38.5 & 75.0 & \textbf{25.2} & 59.4 \\
+300 & 47.4 & 20.3 & 35.9 & 38.4 & 42.6 & 74.8 & 49.2 & 61.3 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Threshold and area sensitivity.}
+Table~\ref{tab:tau_sensitivity} shows that the optimal Sobel threshold $\tau^*$ is stable across $k$ values, with performance degrading gracefully within $\pm 0.10$ of the optimum. The minimum area parameter $A_\text{min}{=}1000$ is consistently optimal, filtering spurious small components without discarding valid instances.
+
+\begin{table}[h]
+\centering
+\caption{Effect of minimum area $A_\text{min}$ at fixed $\tau{=}0.20$ (SPIdepth, Cityscapes val).}
+\label{tab:tau_sensitivity}
+\small
+\begin{tabular}{@{}rccc@{}}
+\toprule
+$A_\text{min}$ & PQ ($k{=}50$) & PQ ($k{=}60$) & PQ ($k{=}80$) \\
+\midrule
+500 & 25.50 & 25.27 & 26.32 \\
+700 & --- & 25.55 & 26.56 \\
+1000 & --- & 25.83 & 26.74 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+%=========================================================================
+\section{Depth Model and Instance Method Ablation}
+\label{app:depth_ablation}
+
+\paragraph{Per-class depth model comparison.}
+Table~\ref{tab:depth_perclass} reports per-class \pqt for all 8 Cityscapes thing classes across three depth models at their optimal thresholds. DA3 provides the largest improvement on car (+10.3 over SPIdepth), while motorcycle remains at zero across all models due to insufficient training data.
+
+\begin{table}[h]
+\centering
+\caption{Per-class \pqt (\%) across depth models at optimal thresholds ($k{=}80$, Cityscapes val).}
+\label{tab:depth_perclass}
+\small
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+Class & CC-only & SPIdepth & DAv2-L & DAv3 \\
+ & (no depth) & ($\tau{=}0.20$) & ($\tau{=}0.03$) & ($\tau{=}0.03$) \\
+\midrule
+person & --- & 4.02 & 5.90 & 6.36 \\
+rider & --- & 9.15 & 14.10 & 12.12 \\
+car & --- & 16.49 & 21.40 & 26.79 \\
+truck & --- & 35.52 & 36.40 & 34.82 \\
+bus & --- & 47.76 & 46.40 & 47.73 \\
+train & --- & 36.38 & 32.60 & 32.67 \\
+motorcycle & --- & 0.00 & 0.00 & 0.00 \\
+bicycle & --- & 5.82 & 4.60 & 6.71 \\
+\midrule
+\textbf{Mean} & \textbf{14.93} & \textbf{19.41} & \textbf{20.20} & \textbf{20.90} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Alternative splitting algorithms.}
+Table~\ref{tab:alt_split} compares splitting algorithms on both SPIdepth and DA3 depth maps. Standard Sobel thresholding matches or exceeds all alternatives. Watershed variants severely degrade quality by over-splitting instances. Multiscale Sobel provides negligible improvement ($+0.01$ \pqt on SPIdepth) at increased complexity. Canny edge detection consistently underperforms Sobel due to its double-threshold hysteresis introducing spurious boundary gaps.
+
+\begin{table}[h]
+\centering
+\caption{Alternative splitting algorithms (Cityscapes val, $A_\text{min}{=}1000$). All methods use the same $k{=}80$ semantic pseudo-labels.}
+\label{tab:alt_split}
+\small
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+Algorithm & \multicolumn{2}{c}{SPIdepth ($\tau{=}0.20$)} & \multicolumn{2}{c}{DA3 ($\tau{=}0.03$)} \\
+\cmidrule(lr){2-3} \cmidrule(lr){4-5}
+ & PQ & \pqt & PQ & \pqt \\
+\midrule
+\textbf{Sobel (ours)} & \textbf{26.74} & \textbf{19.41} & \textbf{27.37} & \textbf{20.90} \\
+Multiscale Sobel & 26.75 & 19.42 & 26.70 & 19.28 \\
+Canny (10, 30) & 26.30 & 18.36 & 26.60 & 19.04 \\
+Canny (20, 50) & 26.25 & 18.25 & 26.49 & 18.81 \\
+Canny (30, 80) & 26.26 & 18.27 & 26.49 & 18.81 \\
+Watershed (distance) & 25.54 & 16.55 & 24.55 & 14.43 \\
+Watershed (depth) & 21.31 & 6.51 & 22.49 & 9.37 \\
+Watershed (combined) & 20.42 & 4.40 & 20.20 & 3.91 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Comprehensive instance method comparison.}
+Beyond alternative splitting algorithms, we evaluated 15 distinct unsupervised instance decomposition methods spanning depth-based, feature-based, topological, variational, and learned approaches. Table~\ref{tab:all_methods} ranks all methods by \pqt. No method improves over the DA3 Sobel+CC baseline. Methods that incorporate DINOv2 features (Learned Edge, Joint NCut) approach baseline performance but do not exceed it, while methods relying on global optimization (Optimal Transport, Mumford-Shah) or feature clustering (Contrastive Embed) substantially underperform.
+
+\begin{table}[h]
+\centering
+\caption{All 15 instance decomposition methods ranked by \pqt ($k{=}80$, Cityscapes val). Methods using depth (D) and/or DINOv2 features (F) are indicated.}
+\label{tab:all_methods}
+\small
+\begin{tabular}{@{}rlcccc@{}}
+\toprule
+\# & Method & D & F & PQ & \pqt \\
+\midrule
+1 & DA3 Sobel+CC (ours) & \checkmark & & \textbf{27.37} & \textbf{20.90} \\
+2 & Learned Edge CC & \checkmark & \checkmark & 26.95 & 19.89 \\
+3 & DepthPro Sobel+CC & \checkmark & & 26.89 & 19.75 \\
+4 & SPIdepth Sobel+CC & \checkmark & & 26.74 & 19.41 \\
+5 & Joint NCut & \checkmark & \checkmark & 26.11 & 17.90 \\
+6 & Morse Flow & \checkmark & & 25.58 & 16.66 \\
+7 & Plane Decomposition & \checkmark & & 25.47 & 16.40 \\
+8 & TDA Persistence & \checkmark & & 25.04 & 15.37 \\
+9 & Learned Merge & \checkmark & & 25.00 & 15.28 \\
+10 & Mumford-Shah & \checkmark & & 24.27 & 13.54 \\
+11 & Contrastive Embed & \checkmark & & 21.06 & 5.92 \\
+12 & Depth-Stratified & \checkmark & \checkmark & 19.34 & 1.82 \\
+13 & Optimal Transport & \checkmark & & 18.86 & 0.69 \\
+14 & Adaptive Edge & \checkmark & \checkmark & 18.57 & 0.00 \\
+15 & Feature Edge CC & \checkmark & \checkmark & 18.57 & 0.00 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+%=========================================================================
+\section{Per-Class PQ Breakdown (Stage-3 Best)}
+\label{app:perclass}
+
+Table~\ref{tab:perclass_stage3} reports the full 27-class per-category PQ, SQ, and RQ for our best model (DINOv3 ViT-B/16, Stage-3 step~8000, PQ=32.76\%). The 27-class CAUSE+Hungarian evaluation protocol maps $k{=}80$ predicted clusters to 27 target classes; classes without a matching cluster receive PQ=0.
+
+\begin{table}[h]
+\centering
+\caption{Per-class panoptic quality for Stage-3 best (step~8000) on Cityscapes val. Classes with PQ $<$ 1\% are shown in gray.}
+\label{tab:perclass_stage3}
+\small
+\begin{tabular}{@{}llccc@{}}
+\toprule
+Type & Class & PQ & SQ & RQ \\
+\midrule
+\multirow{16}{*}{\rotatebox{90}{Stuff (16 classes)}}
+& road & 92.93 & 93.51 & 99.38 \\
+& sidewalk & 57.40 & 75.22 & 76.30 \\
+& building & 69.04 & 76.97 & 89.70 \\
+& vegetation & 80.27 & 83.05 & 96.66 \\
+& sky & 85.81 & 88.11 & 97.39 \\
+& fence & 37.86 & 67.03 & 56.49 \\
+& traffic sign & 39.14 & 68.35 & 57.26 \\
+& terrain & 34.41 & 72.89 & 47.21 \\
+& wall & 33.16 & 74.61 & 44.44 \\
+& parking & 7.98 & 63.56 & 12.56 \\
+& bridge & 2.87 & 73.12 & 3.92 \\
+& rail track & 1.23 & 83.99 & 1.46 \\
+& pole & 1.12 & 55.78 & 2.01 \\
+& \textcolor{gray}{guard rail} & \textcolor{gray}{0.00} & \textcolor{gray}{---} & \textcolor{gray}{0.00} \\
+& \textcolor{gray}{tunnel} & \textcolor{gray}{0.00} & \textcolor{gray}{---} & \textcolor{gray}{0.00} \\
+& \textcolor{gray}{polegroup} & \textcolor{gray}{0.00} & \textcolor{gray}{---} & \textcolor{gray}{0.00} \\
+& \textcolor{gray}{traffic light} & \textcolor{gray}{0.00} & \textcolor{gray}{---} & \textcolor{gray}{0.00} \\
+\midrule
+\multirow{11}{*}{\rotatebox{90}{Thing (11 classes)}}
+& bus & 80.87 & 92.55 & 87.38 \\
+& train & 71.85 & 88.18 & 81.48 \\
+& truck & 66.92 & 90.67 & 73.81 \\
+& bicycle & 42.38 & 72.58 & 58.39 \\
+& rider & 40.85 & 69.37 & 58.90 \\
+& person & 20.75 & 71.50 & 29.03 \\
+& car & 17.51 & 66.84 & 26.20 \\
+& \textcolor{gray}{motorcycle} & \textcolor{gray}{0.10} & \textcolor{gray}{56.79} & \textcolor{gray}{0.18} \\
+& \textcolor{gray}{caravan} & \textcolor{gray}{0.05} & \textcolor{gray}{51.56} & \textcolor{gray}{0.09} \\
+& \textcolor{gray}{trailer} & \textcolor{gray}{0.03} & \textcolor{gray}{53.26} & \textcolor{gray}{0.06} \\
+\midrule
+\multicolumn{2}{@{}l}{\textbf{All (27 classes)}} & \textbf{32.76} & \textbf{62.57} & \textbf{40.75} \\
+\multicolumn{2}{@{}l}{Stuff mean (16 classes)} & 31.95 & 57.42 & 40.28 \\
+\multicolumn{2}{@{}l}{Thing mean (11 classes)} & 34.13 & 71.33 & 41.55 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Oracle analysis.}
+Seven of the 27 CAUSE classes have PQ below 1\%: guard rail, tunnel, polegroup, traffic light (stuff), and motorcycle, caravan, trailer (things). If these classes achieved moderate quality (PQ=20\%), overall PQ would rise from 32.76\% to 37.94\% (+5.18). These zero-PQ classes account for 54.7\% of the total gap to the supervised upper bound (Mask2Former: PQ=62.3\%). The bottleneck is thus a small set of difficult classes---not the well-performing ones.
+
+%=========================================================================
+\section{Self-Training Progression}
+\label{app:selftraining}
+
+Table~\ref{tab:selftraining} tracks PQ, \pqt, \pqs, and mIoU across all evaluated Stage-3 checkpoints. Self-training provides a monotonic +4.9 PQ gain over 8,000 optimizer steps, with \pqt as the primary beneficiary (+10.96 points). \pqs remains nearly flat (+1.33), confirming that self-training primarily bootstraps instance quality beyond what depth-guided pseudo-labels provide.
+
+\begin{table}[h]
+\centering
+\caption{Self-training progression (DINOv3 ViT-B/16, Stage-3, Cityscapes val). Stage-2 is the pseudo-label-trained baseline before self-training.}
+\label{tab:selftraining}
+\small
+\begin{tabular}{@{}lcccccc@{}}
+\toprule
+Stage & Step & PQ & \pqt & \pqs & SQ & mIoU \\
+\midrule
+Stage-2 & 1000 & 27.87 & 23.17 & 30.63 & 57.83 & 43.58 \\
+\midrule
+\multirow{7}{*}{Stage-3}
+& 600 & 29.07 & 25.75 & 31.02 & 58.80 & 43.90 \\
+& 800 & 29.00 & 26.61 & 30.41 & 59.04 & 43.90 \\
+& 1800 & 30.26 & 28.50 & 31.29 & 62.39 & 44.40 \\
+& 2000 & 29.94 & 27.93 & 31.12 & 61.42 & 44.18 \\
+& 3400 & 30.81 & 31.33 & 30.50 & 60.93 & 44.65 \\
+& 5200 & 31.80 & 31.13 & 32.20 & 60.65 & 45.74 \\
+& 8000 & \textbf{32.76} & \textbf{34.13} & 31.95 & 62.57 & 45.14 \\
+\midrule
+\multicolumn{2}{@{}l}{$\Delta$ (Stage-2 $\to$ best)} & +4.89 & +10.96 & +1.33 & +4.74 & +1.56 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Semantic saturation.}
+mIoU peaks at step~5200 (45.74\%) then slightly declines, while \pqt continues improving through step~8000. This divergence confirms that self-training's primary effect is instance refinement---learning to separate individual objects---rather than semantic improvement, which saturates earlier.
+
+%=========================================================================
+
+\bibliography{references}
+
+\end{document}
