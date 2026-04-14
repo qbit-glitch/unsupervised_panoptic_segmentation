@@ -61,7 +61,7 @@ def main():
     ))
     total_checks.append(check(
         "GPU memory",
-        lambda: f"{__import__('torch').cuda.get_device_properties(0).total_mem / 1e9:.1f} GB"
+        lambda: f"{__import__('torch').cuda.get_device_properties(0).total_memory / 1e9:.1f} GB"
     ))
     total_checks.append(check(
         "torch.compile available",
@@ -74,15 +74,15 @@ def main():
         "detectron2 import",
         lambda: __import__("detectron2").__version__
     ))
-    total_checks.append(check(
-        "detectron2 CUDA ops",
-        lambda: (lambda d2: "OK" if hasattr(d2, "_C") else (_ for _ in ()).throw(
-            RuntimeError("_C extension not built")))(__import__("detectron2"))
-    ))
-    total_checks.append(check(
-        "detectron2.model_zoo",
-        lambda: "OK" if __import__("detectron2.model_zoo") else "OK"
-    ))
+    def _check_d2_cuda_ops():
+        from detectron2 import _C  # noqa: F401
+        return "OK"
+    total_checks.append(check("detectron2 CUDA ops", _check_d2_cuda_ops))
+
+    def _check_d2_model_zoo():
+        from detectron2 import model_zoo  # noqa: F401
+        return "OK"
+    total_checks.append(check("detectron2.model_zoo", _check_d2_model_zoo))
 
     # ── Section 4: DINOv3 ──
     print("\n=== DINOv3 ===")
