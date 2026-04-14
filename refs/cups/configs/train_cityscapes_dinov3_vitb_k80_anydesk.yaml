@@ -17,9 +17,9 @@ DATA:
   DATASET: "cityscapes"
   IGNORE_UNKNOWN_THING_REGIONS: False
   THING_STUFF_THRESHOLD: 0.05
-  ROOT: "/media/santosh/Kuldeep/panoptic_segmentation/datasets/cityscapes/"
-  ROOT_VAL: "/media/santosh/Kuldeep/panoptic_segmentation/datasets/cityscapes/"
-  ROOT_PSEUDO: "/media/santosh/Kuldeep/panoptic_segmentation/datasets/cityscapes/cups_pseudo_labels_dinov3_k80/"
+  ROOT: "/home/cvpr_ug_5/umesh/datasets/cityscapes/"
+  ROOT_VAL: "/home/cvpr_ug_5/umesh/datasets/cityscapes/"
+  ROOT_PSEUDO: "/home/cvpr_ug_5/umesh/datasets/cityscapes/cups_pseudo_labels_depthpro/"
 MODEL:
   BACKBONE_TYPE: "dinov3_vitb"
   DINOV2_FREEZE: True
@@ -47,7 +47,7 @@ SYSTEM:
   NUM_GPUS: 1
   NUM_NODES: 1
   NUM_WORKERS: 4
-  LOG_PATH: "/media/santosh/Kuldeep/panoptic_segmentation/experiments"
+  LOG_PATH: "/home/cvpr_ug_5/umesh/experiments"
   RUN_NAME: "cups_dinov3_vitb_k80_anydesk"
 TRAINING:
   STEPS: 8000
