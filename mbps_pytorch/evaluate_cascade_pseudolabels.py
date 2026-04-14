@@ -70,6 +70,58 @@ def _resize_nearest(arr, target_hw):
     )
 
 
+def _compute_hungarian_mapping(pairs, num_clusters, eval_hw, cause27=False):
+    """Build cluster-to-trainID mapping via Hungarian algorithm over all images.
+
+    Args:
+        pairs: List of (sem_path, gt_label_path, ...) tuples.
+        num_clusters: Number of overclusters (e.g. 80).
+        eval_hw: (H, W) evaluation resolution.
+        cause27: Whether to remap CAUSE 27-class labels first.
+
+    Returns:
+        np.ndarray of shape (256,) mapping cluster_id -> trainID (unmapped -> IGNORE_LABEL).
+    """
+    print(f"\n  Computing Hungarian matching ({num_clusters} clusters -> {NUM_CLASSES} classes)...")
+    cost_matrix = np.zeros((num_clusters, NUM_CLASSES), dtype=np.int64)
+
+    for sem_path, gt_label_path, _, _ in tqdm(pairs, desc="Hungarian cost"):
+        pred = np.array(Image.open(sem_path))
+        if cause27:
+            pred = _CAUSE27_TO_TRAINID[pred]
+        gt_raw = np.array(Image.open(gt_label_path))
+        gt = _remap_to_trainids(gt_raw)
+
+        H, W = eval_hw
+        if pred.shape != (H, W):
+            pred = _resize_nearest(pred, eval_hw)
+        if gt.shape != (H, W):
+            gt = _resize_nearest(gt, eval_hw)
+
+        valid = (gt != IGNORE_LABEL) & (pred < num_clusters)
+        p, g = pred[valid], gt[valid]
+        # Accumulate intersection counts
+        for pc in range(num_clusters):
+            mask_p = p == pc
+            if not mask_p.any():
+                continue
+            g_masked = g[mask_p]
+            for gc in range(NUM_CLASSES):
+                cost_matrix[pc, gc] -= np.sum(g_masked == gc)
+
+    row_ind, col_ind = linear_sum_assignment(cost_matrix)
+
+    # Build LUT: cluster_id -> trainID
+    lut = np.full(256, IGNORE_LABEL, dtype=np.uint8)
+    for r, c in zip(row_ind, col_ind):
+        # Only assign if there's actual overlap
+        if cost_matrix[r, c] < 0:
+            lut[r] = c
+    matched = np.sum(lut[:num_clusters] != IGNORE_LABEL)
+    print(f"  Matched {matched}/{num_clusters} clusters to {NUM_CLASSES} GT classes")
+    return lut
+
+
 def _load_gt_instances(inst_path, target_hw=None):
     """Load GT thing instances from Cityscapes instanceIds.png."""
     inst_map = np.array(Image.open(inst_path), dtype=np.int32)
@@ -176,12 +228,14 @@ def _batch_iou(pred_masks, gt_masks):
 
 # ─── Semantic Evaluation ───
 
-def evaluate_semantic(pairs, eval_hw, cause27=False):
+def evaluate_semantic(pairs, eval_hw, cause27=False, cluster_lut=None):
     """Compute mIoU and pixel accuracy."""
     print(f"\n{'='*60}")
     print(f"SEMANTIC EVALUATION ({len(pairs)} images)")
     if cause27:
         print(f"  (remapping CAUSE 27-class → 19 trainIDs)")
+    if cluster_lut is not None:
+        print(f"  (applying Hungarian cluster → trainID mapping)")
     print(f"{'='*60}")
 
     conf_matrix = np.zeros((NUM_CLASSES, NUM_CLASSES), dtype=np.int64)
@@ -192,6 +246,8 @@ def evaluate_semantic(pairs, eval_hw, cause27=False):
         pred = np.array(Image.open(sem_path))
         if cause27:
             pred = _CAUSE27_TO_TRAINID[pred]
+        if cluster_lut is not None:
+            pred = cluster_lut[pred]
         gt_raw = np.array(Image.open(gt_label_path))
         gt = _remap_to_trainids(gt_raw)
 
@@ -368,7 +424,7 @@ def _connected_components_things(pred_sem, thing_ids, min_area=10):
 
 def evaluate_panoptic(pairs, eval_hw, thing_mode="connected_components",
                       pred_stuff_ids=None, pred_thing_ids=None, cause27=False,
-                      cc_min_area=10):
+                      cc_min_area=10, cluster_lut=None):
     """Compute PQ, SQ, RQ with standard Cityscapes stuff/things split.
 
     Args:
@@ -378,6 +434,7 @@ def evaluate_panoptic(pairs, eval_hw, thing_mode="connected_components",
         pred_thing_ids: Optional unsupervised thing IDs for predicted panoptic map.
                         If None, uses standard Cityscapes split.
         cause27: If True, remap CAUSE 27-class predictions to 19 trainIDs.
+        cluster_lut: If not None, LUT mapping cluster IDs to trainIDs (from Hungarian).
     """
     # Predicted side can use unsupervised split; GT always uses standard
     p_stuff = pred_stuff_ids if pred_stuff_ids is not None else _STUFF_IDS
@@ -388,6 +445,8 @@ def evaluate_panoptic(pairs, eval_hw, thing_mode="connected_components",
     print(f"\n{'='*60}")
     print(f"PANOPTIC EVALUATION ({split_info})")
     print(f"  Thing instance mode: {thing_mode}")
+    if cluster_lut is not None:
+        print(f"  Using Hungarian cluster mapping")
     print(f"{'='*60}")
 
     tp = np.zeros(NUM_CLASSES)
@@ -406,6 +465,8 @@ def evaluate_panoptic(pairs, eval_hw, thing_mode="connected_components",
         pred_sem = np.array(Image.open(sem_path))
         if cause27:
             pred_sem = _CAUSE27_TO_TRAINID[pred_sem]
+        if cluster_lut is not None:
+            pred_sem = cluster_lut[pred_sem]
         if pred_sem.shape != (H, W):
             pred_sem = _resize_nearest(pred_sem, eval_hw)
 
@@ -715,6 +776,9 @@ def main():
     parser.add_argument("--cause27", action="store_true",
                         help="Semantic pseudo-labels are in CAUSE 27-class format. "
                              "Remap to standard 19 trainIDs before evaluation.")
+    parser.add_argument("--num_clusters", type=int, default=0,
+                        help="If > 0, apply Hungarian matching from N clusters to 19 classes. "
+                             "Required for evaluating overclustered (k=80) pseudo-labels.")
     args = parser.parse_args()
 
     eval_hw = tuple(args.eval_size)
@@ -756,10 +820,20 @@ def main():
     has_semantic = any(p[0] is not None for p in pairs)
     has_instance = any(p[2] is not None for p in pairs)
 
+    # Compute Hungarian cluster-to-class mapping if overclustered
+    cluster_lut = None
+    if args.num_clusters > 0 and has_semantic:
+        sem_pairs = [(s, gl, i, gi) for s, gl, i, gi in pairs if s is not None]
+        cluster_lut = _compute_hungarian_mapping(
+            sem_pairs, args.num_clusters, eval_hw, cause27=args.cause27
+        )
+
     # 1. Semantic evaluation
     if has_semantic and not args.skip_semantic:
         sem_pairs = [(s, gl, i, gi) for s, gl, i, gi in pairs if s is not None]
-        results["semantic"] = evaluate_semantic(sem_pairs, eval_hw, cause27=args.cause27)
+        results["semantic"] = evaluate_semantic(
+            sem_pairs, eval_hw, cause27=args.cause27, cluster_lut=cluster_lut
+        )
     elif not has_semantic:
         print(f"\n  [SKIP] No semantic pseudo-labels found for {args.split}")
 
@@ -780,6 +854,7 @@ def main():
             pred_stuff_ids=pred_stuff_ids, pred_thing_ids=pred_thing_ids,
             cause27=args.cause27,
             cc_min_area=args.cc_min_area,
+            cluster_lut=cluster_lut,
         )
     elif not can_panoptic:
         print(f"\n  [SKIP] Panoptic eval requires semantic pseudo-labels"

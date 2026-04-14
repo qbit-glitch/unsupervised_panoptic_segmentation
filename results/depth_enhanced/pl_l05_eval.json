@@ -1,0 +1,214 @@
+{
+  "split": "val",
+  "eval_resolution": [
+    512,
+    1024
+  ],
+  "semantic": {
+    "miou": 10.26,
+    "pixel_accuracy": 24.3,
+    "per_class_iou": {
+      "road": 29.08,
+      "sidewalk": 8.3,
+      "building": 15.58,
+      "wall": 1.54,
+      "fence": 2.12,
+      "pole": 2.91,
+      "traffic light": 0.41,
+      "traffic sign": 1.45,
+      "vegetation": 25.95,
+      "terrain": 2.3,
+      "sky": 87.43,
+      "person": 2.6,
+      "rider": 0.8,
+      "car": 6.19,
+      "truck": 3.07,
+      "bus": 1.73,
+      "train": 1.25,
+      "motorcycle": 0.23,
+      "bicycle": 2.05
+    },
+    "num_images": 500
+  },
+  "panoptic": {
+    "PQ": 2.31,
+    "PQ_stuff": 3.86,
+    "PQ_things": 0.17,
+    "SQ": 65.93,
+    "RQ": 1.63,
+    "per_class": {
+      "road": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 494,
+        "FN": 483,
+        "type": "stuff"
+      },
+      "sidewalk": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 473,
+        "FN": 464,
+        "type": "stuff"
+      },
+      "building": {
+        "PQ": 0.37,
+        "SQ": 61.03,
+        "RQ": 0.61,
+        "TP": 3,
+        "FP": 488,
+        "FN": 488,
+        "type": "stuff"
+      },
+      "wall": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 496,
+        "FN": 201,
+        "type": "stuff"
+      },
+      "fence": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 490,
+        "FN": 189,
+        "type": "stuff"
+      },
+      "pole": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 496,
+        "FN": 489,
+        "type": "stuff"
+      },
+      "traffic light": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 486,
+        "FN": 260,
+        "type": "stuff"
+      },
+      "traffic sign": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 496,
+        "FN": 469,
+        "type": "stuff"
+      },
+      "vegetation": {
+        "PQ": 0.51,
+        "SQ": 57.76,
+        "RQ": 0.87,
+        "TP": 4,
+        "FP": 425,
+        "FN": 482,
+        "type": "stuff"
+      },
+      "terrain": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 472,
+        "FN": 231,
+        "type": "stuff"
+      },
+      "sky": {
+        "PQ": 41.57,
+        "SQ": 67.98,
+        "RQ": 61.15,
+        "TP": 255,
+        "FP": 142,
+        "FN": 182,
+        "type": "stuff"
+      },
+      "person": {
+        "PQ": 0.1,
+        "SQ": 54.98,
+        "RQ": 0.18,
+        "TP": 6,
+        "FP": 3125,
+        "FN": 3370,
+        "type": "thing"
+      },
+      "rider": {
+        "PQ": 0.03,
+        "SQ": 52.04,
+        "RQ": 0.06,
+        "TP": 1,
+        "FP": 2781,
+        "FN": 540,
+        "type": "thing"
+      },
+      "car": {
+        "PQ": 0.75,
+        "SQ": 59.04,
+        "RQ": 1.27,
+        "TP": 57,
+        "FP": 4294,
+        "FN": 4578,
+        "type": "thing"
+      },
+      "truck": {
+        "PQ": 0.17,
+        "SQ": 72.61,
+        "RQ": 0.24,
+        "TP": 3,
+        "FP": 2424,
+        "FN": 90,
+        "type": "thing"
+      },
+      "bus": {
+        "PQ": 0.2,
+        "SQ": 69.57,
+        "RQ": 0.28,
+        "TP": 4,
+        "FP": 2736,
+        "FN": 94,
+        "type": "thing"
+      },
+      "train": {
+        "PQ": 0.06,
+        "SQ": 61.78,
+        "RQ": 0.1,
+        "TP": 1,
+        "FP": 1893,
+        "FN": 22,
+        "type": "thing"
+      },
+      "motorcycle": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 1622,
+        "FN": 149,
+        "type": "thing"
+      },
+      "bicycle": {
+        "PQ": 0.08,
+        "SQ": 54.26,
+        "RQ": 0.15,
+        "TP": 3,
+        "FP": 2786,
+        "FN": 1160,
+        "type": "thing"
+      }
+    },
+    "num_images": 500
+  }
+}

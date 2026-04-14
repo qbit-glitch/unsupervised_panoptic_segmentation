@@ -1,0 +1,214 @@
+{
+  "split": "val",
+  "eval_resolution": [
+    512,
+    1024
+  ],
+  "semantic": {
+    "miou": 24.22,
+    "pixel_accuracy": 44.65,
+    "per_class_iou": {
+      "road": 78.05,
+      "sidewalk": 43.7,
+      "building": 40.01,
+      "wall": 7.67,
+      "fence": 8.77,
+      "pole": 11.06,
+      "traffic light": 0.83,
+      "traffic sign": 26.62,
+      "vegetation": 42.78,
+      "terrain": 9.45,
+      "sky": 89.42,
+      "person": 50.79,
+      "rider": 1.62,
+      "car": 22.65,
+      "truck": 1.91,
+      "bus": 18.76,
+      "train": 0.64,
+      "motorcycle": 1.34,
+      "bicycle": 4.18
+    },
+    "num_images": 500
+  },
+  "panoptic": {
+    "PQ": 1.2,
+    "PQ_stuff": 1.14,
+    "PQ_things": 1.29,
+    "SQ": 60.96,
+    "RQ": 2.42,
+    "per_class": {
+      "road": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 442,
+        "FN": 483,
+        "type": "stuff"
+      },
+      "sidewalk": {
+        "PQ": 0.13,
+        "SQ": 57.12,
+        "RQ": 0.22,
+        "TP": 1,
+        "FP": 435,
+        "FN": 463,
+        "type": "stuff"
+      },
+      "building": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 398,
+        "FN": 491,
+        "type": "stuff"
+      },
+      "wall": {
+        "PQ": 0.5,
+        "SQ": 55.07,
+        "RQ": 0.9,
+        "TP": 3,
+        "FP": 460,
+        "FN": 198,
+        "type": "stuff"
+      },
+      "fence": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 449,
+        "FN": 189,
+        "type": "stuff"
+      },
+      "pole": {
+        "PQ": 0.11,
+        "SQ": 52.27,
+        "RQ": 0.22,
+        "TP": 1,
+        "FP": 424,
+        "FN": 488,
+        "type": "stuff"
+      },
+      "traffic light": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 449,
+        "FN": 260,
+        "type": "stuff"
+      },
+      "traffic sign": {
+        "PQ": 4.4,
+        "SQ": 61.14,
+        "RQ": 7.19,
+        "TP": 33,
+        "FP": 416,
+        "FN": 436,
+        "type": "stuff"
+      },
+      "vegetation": {
+        "PQ": 0.13,
+        "SQ": 52.87,
+        "RQ": 0.24,
+        "TP": 1,
+        "FP": 350,
+        "FN": 485,
+        "type": "stuff"
+      },
+      "terrain": {
+        "PQ": 0.62,
+        "SQ": 62.62,
+        "RQ": 0.99,
+        "TP": 3,
+        "FP": 373,
+        "FN": 228,
+        "type": "stuff"
+      },
+      "sky": {
+        "PQ": 6.61,
+        "SQ": 58.95,
+        "RQ": 11.22,
+        "TP": 46,
+        "FP": 337,
+        "FN": 391,
+        "type": "stuff"
+      },
+      "person": {
+        "PQ": 3.59,
+        "SQ": 61.87,
+        "RQ": 5.8,
+        "TP": 119,
+        "FP": 609,
+        "FN": 3257,
+        "type": "thing"
+      },
+      "rider": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 1885,
+        "FN": 541,
+        "type": "thing"
+      },
+      "car": {
+        "PQ": 1.17,
+        "SQ": 56.15,
+        "RQ": 2.09,
+        "TP": 51,
+        "FP": 198,
+        "FN": 4584,
+        "type": "thing"
+      },
+      "truck": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 335,
+        "FN": 93,
+        "type": "thing"
+      },
+      "bus": {
+        "PQ": 4.5,
+        "SQ": 69.84,
+        "RQ": 6.45,
+        "TP": 33,
+        "FP": 893,
+        "FN": 65,
+        "type": "thing"
+      },
+      "train": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 670,
+        "FN": 23,
+        "type": "thing"
+      },
+      "motorcycle": {
+        "PQ": 0.37,
+        "SQ": 57.57,
+        "RQ": 0.65,
+        "TP": 4,
+        "FP": 1079,
+        "FN": 145,
+        "type": "thing"
+      },
+      "bicycle": {
+        "PQ": 0.68,
+        "SQ": 58.25,
+        "RQ": 1.16,
+        "TP": 9,
+        "FP": 381,
+        "FN": 1154,
+        "type": "thing"
+      }
+    },
+    "num_images": 500
+  }
+}
