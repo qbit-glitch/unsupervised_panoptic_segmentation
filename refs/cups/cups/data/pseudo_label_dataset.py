@@ -208,10 +208,11 @@ class PseudoLabelDataset(Dataset):
                 d_min, d_max = depth_t.min(), depth_t.max()
                 if d_max > d_min:
                     depth_t = (depth_t - d_min) / (d_max - d_min)
-                # Match spatial size to image via scale + crop
+                # Resize to match crop resolution, then center-crop
+                crop_h, crop_w = self.crop_module.size
                 depth_t = F.interpolate(
                     depth_t.unsqueeze(0),
-                    scale_factor=self.ground_truth_scale,
+                    size=(crop_h, crop_w),
                     mode="bilinear",
                     align_corners=False,
                 ).squeeze(0)
@@ -219,12 +220,13 @@ class PseudoLabelDataset(Dataset):
                 output["depth"] = depth_t
 
         if self.load_pseudo_onehot:
-            sem_labels = output["sem_seg"]  # (H, W), values 0..K-1 or 255
-            valid_mask = sem_labels < self.num_pseudo_classes
+            sem_labels = output["sem_seg"]  # (H, W), values 0=thing, 1..S=stuff, 255=void
+            num_classes = len(self.stuff_classes) + 1  # match model output channels
+            valid_mask = sem_labels < num_classes
             clamped = sem_labels.clone()
             clamped[~valid_mask] = 0
             onehot = F.one_hot(
-                clamped.long(), num_classes=self.num_pseudo_classes
+                clamped.long(), num_classes=num_classes
             ).permute(2, 0, 1).float()  # (C, H, W)
             onehot[:, ~valid_mask] = 0.0
             output["pseudo_onehot"] = onehot

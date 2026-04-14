@@ -262,8 +262,8 @@ class CustomSemSegFPNHead(nn.Module):
         Returns:
             Scalar KD loss tensor.
         """
-        num_stuff_classes = 11
         t = self.kd_temperature
+        num_classes = predictions.shape[1]
 
         # Resize pseudo_onehot to match predictions spatial size if needed
         if pseudo_onehot.shape[-2:] != predictions.shape[-2:]:
@@ -273,9 +273,16 @@ class CustomSemSegFPNHead(nn.Module):
                 mode="bilinear",
                 align_corners=False,
             )
+        # Align channel count (pseudo_onehot may differ from prediction head)
+        if pseudo_onehot.shape[1] != num_classes:
+            c_oh = pseudo_onehot.shape[1]
+            if c_oh < num_classes:
+                pseudo_onehot = F.pad(pseudo_onehot, (0, 0, 0, 0, 0, num_classes - c_oh))
+            else:
+                pseudo_onehot = pseudo_onehot[:, :num_classes]
 
-        # Stuff mask: target < num_stuff_classes and not ignored
-        stuff_mask = (targets < num_stuff_classes) & (targets != self.ignore_value)
+        # Stuff mask: class > 0 (things=0, void=255), not ignored
+        stuff_mask = (targets > 0) & (targets != self.ignore_value)
         if stuff_mask.sum() == 0:
             return predictions.sum() * 0.0  # zero loss, preserves grad graph
 
