@@ -1,0 +1,40 @@
+DATA:
+  CROP_RESOLUTION: (640, 1280)
+  SCALE: 0.625
+  DATASET: "cityscapes"
+  IGNORE_UNKNOWN_THING_REGIONS: False
+  ROOT: "/media/santosh/Kuldeep/panoptic_segmentation/datasets/cityscapes/"
+  ROOT_VAL: "/media/santosh/Kuldeep/panoptic_segmentation/datasets/cityscapes/"
+  ROOT_PSEUDO: "/media/santosh/Kuldeep/panoptic_segmentation/datasets/cityscapes/cups_pseudo_labels_k50/"
+MODEL:
+  BACKBONE_TYPE: "resnet50"
+  USE_DINO: True
+AUGMENTATION:
+  NUM_STEPS_STARTUP: 1000
+  COPY_PASTE: True
+  MAX_NUM_PASTED_OBJECTS: 8
+  RESOLUTIONS:
+    - [384, 768]
+    - [416, 832]
+    - [448, 896]
+    - [480, 960]
+    - [512, 1024]
+SYSTEM:
+  ACCELERATOR: "gpu"
+  NUM_GPUS: 2
+  NUM_WORKERS: 4
+  LOG_PATH: "/media/santosh/Kuldeep/panoptic_segmentation/experiments"
+  RUN_NAME: "cups_resnet50_k50_stage2"
+TRAINING:
+  STEPS: 8000
+  BATCH_SIZE: 1
+  PRECISION: "16-mixed"
+  OPTIMIZER: "adamw"
+  ADAMW:
+    LEARNING_RATE: 0.0001
+    WEIGHT_DECAY: 0.00001
+  VAL_EVERY_N_STEPS: 500
+  DROP_LOSS: True
+  DROP_LOSS_IOU_THRESHOLD: 0.4
+VALIDATION:
+  CACHE_DEVICE: "cpu"

@@ -1,0 +1,66 @@
+# Stage-2: DINOv3 ViT-L/16 Cascade Mask R-CNN — k=80 pseudo-labels (CAUSE STEGO DINOv2)
+# Purpose: ViT-B-matched config — isolate backbone as only variable vs ViT-B (27.9% PQ)
+# Matches train_cityscapes_dinov3_vitb_k80_2gpu.yaml exactly except backbone=vitl:
+#   - MAX_NUM_PASTED_OBJECTS: 3  (was 8)
+#   - RESOLUTIONS: 5 levels 384–512  (was 9 levels 384–640)
+#   - ACCUMULATE_GRAD_BATCHES: 8, eff_bs=16  (was 16, eff_bs=32)
+#   - LEARNING_RATE: 0.0001  (was 0.0002)
+#   - STEPS: 8000  (was 16000)
+#   - GRADIENT_CLIP_VAL: 0.1, PRECISION: 32-true  (same as ViT-B)
+# RUN_NAME updated to reflect matched config
+
+DATA:
+  CROP_RESOLUTION: (640, 1280)
+  SCALE: 0.625
+  DATASET: "cityscapes"
+  IGNORE_UNKNOWN_THING_REGIONS: False
+  THING_STUFF_THRESHOLD: 0.05
+  ROOT: "/media/santosh/Kuldeep/panoptic_segmentation/datasets/cityscapes/"
+  ROOT_VAL: "/media/santosh/Kuldeep/panoptic_segmentation/datasets/cityscapes/"
+  ROOT_PSEUDO: "/media/santosh/Kuldeep/panoptic_segmentation/datasets/cityscapes/cups_pseudo_labels_k80/"
+MODEL:
+  BACKBONE_TYPE: "dinov3_vitl"
+  USE_DINO: True
+  DINOV2_FREEZE: True
+AUGMENTATION:
+  NUM_STEPS_STARTUP: 500
+  COPY_PASTE: True
+  MAX_NUM_PASTED_OBJECTS: 3
+  RESOLUTIONS:
+    - [384, 768]
+    - [416, 832]
+    - [448, 896]
+    - [480, 960]
+    - [512, 1024]
+SYSTEM:
+  ACCELERATOR: "gpu"
+  NUM_GPUS: 2
+  NUM_NODES: 1
+  NUM_WORKERS: 4
+  LOG_PATH: "/media/santosh/Kuldeep/panoptic_segmentation/experiments"
+  RUN_NAME: "cups_dinov3_vitl_k80_8k_bs16_stage2"
+TRAINING:
+  STEPS: 8000
+  BATCH_SIZE: 1
+  ACCUMULATE_GRAD_BATCHES: 8
+  PRECISION: "32-true"
+  OPTIMIZER: "adamw"
+  ADAMW:
+    LEARNING_RATE: 0.0001
+    WEIGHT_DECAY: 0.00001
+  VAL_EVERY_N_STEPS: 500
+  LOG_EVERT_N_STEPS: 50
+  DROP_LOSS: True
+  DROP_LOSS_IOU_THRESHOLD: 0.4
+  LOG_MEDIA_N_STEPS: 1000
+  GRADIENT_CLIP_ALGORITHM: "norm"
+  GRADIENT_CLIP_VAL: 0.1
+SELF_TRAINING:
+  ROUND_STEPS: 500
+  ROUNDS: 3
+  CONFIDENCE_STEP: 0.05
+  USE_DROP_LOSS: False
+  SEMANTIC_SEGMENTATION_THRESHOLD: 0.5
+VALIDATION:
+  CACHE_DEVICE: "cpu"
+  USE_TTA: False

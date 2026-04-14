@@ -1,0 +1,68 @@
+# Stage-3: Self-training with DINOv3 ViT-B/16 Cascade Mask R-CNN — DA3+CAUSE-TR.
+# Loads Stage-2 best checkpoint and refines via EMA self-training.
+# Based on ViT-B k80 Stage-3 config (PQ 27.865% → 30.255%). Only diff: pseudo-labels + checkpoint.
+# DA3 pseudo-labels have stronger instances (PQ_things=20.90 vs 19.41 SPIdepth).
+# Expected: Stage-3 gain ≥ +2.35 PQ (same as k80 run), targeting PQ > 30.5%.
+#
+# ⚠️  UPDATE MODEL.CHECKPOINT after Stage-2 completes.
+#     Path pattern: experiments/experiments/cups_dinov3_vitb_da3_causetr_8k_bs16_stage2/
+#                   Unsupervised Panoptic Segmentation/<wandb_run_id>/checkpoints/best_pq_step=XXXXXX.ckpt
+
+DATA:
+  CROP_RESOLUTION: (640, 1280)
+  SCALE: 0.625
+  DATASET: "cityscapes"
+  IGNORE_UNKNOWN_THING_REGIONS: False
+  THING_STUFF_THRESHOLD: 0.05
+  ROOT: "/media/santosh/Kuldeep/panoptic_segmentation/datasets/cityscapes/"
+  ROOT_VAL: "/media/santosh/Kuldeep/panoptic_segmentation/datasets/cityscapes/"
+  ROOT_PSEUDO: "/media/santosh/Kuldeep/panoptic_segmentation/datasets/cityscapes/cups_pseudo_labels_da3_causetr/"
+MODEL:
+  BACKBONE_TYPE: "dinov3_vitb"
+  DINOV2_FREEZE: True
+  USE_DINO: False
+  CHECKPOINT: "/media/santosh/Kuldeep/panoptic_segmentation/experiments/experiments/cups_dinov3_vitb_da3_causetr_8k_bs16_stage2/Unsupervised Panoptic Segmentation/wzunghs2/checkpoints/best_pq_step=005394.ckpt"
+  TTA_SCALES:
+    - 0.5
+    - 0.75
+    - 1.0
+AUGMENTATION:
+  NUM_STEPS_STARTUP: 0
+  COPY_PASTE: True
+  CONFIDENCE: 0.75
+  MAX_NUM_PASTED_OBJECTS: 3
+  RESOLUTIONS:
+    - [384, 768]
+    - [416, 832]
+    - [448, 896]
+SYSTEM:
+  ACCELERATOR: "gpu"
+  NUM_GPUS: 2
+  NUM_NODES: 1
+  NUM_WORKERS: 4
+  LOG_PATH: "/media/santosh/Kuldeep/panoptic_segmentation/experiments"
+  RUN_NAME: "cups_dinov3_vitb_da3_causetr_stage3"
+TRAINING:
+  BATCH_SIZE: 1
+  ACCUMULATE_GRAD_BATCHES: 8
+  PRECISION: "32-true"
+  OPTIMIZER: "adamw"
+  ADAMW:
+    LEARNING_RATE: 0.0001
+    WEIGHT_DECAY: 0.00001
+  VAL_EVERY_N_STEPS: 200
+  LOG_EVERT_N_STEPS: 50
+  DROP_LOSS: True
+  DROP_LOSS_IOU_THRESHOLD: 0.4
+  LOG_MEDIA_N_STEPS: 500
+  GRADIENT_CLIP_ALGORITHM: "norm"
+  GRADIENT_CLIP_VAL: 1.0
+SELF_TRAINING:
+  ROUND_STEPS: 4000
+  ROUNDS: 3
+  CONFIDENCE_STEP: 0.05
+  USE_DROP_LOSS: False
+  SEMANTIC_SEGMENTATION_THRESHOLD: 0.5
+VALIDATION:
+  CACHE_DEVICE: "cpu"
+  USE_TTA: False
