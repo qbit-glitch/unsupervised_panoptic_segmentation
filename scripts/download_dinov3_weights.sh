@@ -1,9 +1,16 @@
 #!/bin/bash
-# Download DINOv3 ViT-B/16 weights to torch hub cache
+# Download DINOv3 ViT-B/16 weights via HuggingFace Hub (requires: hf auth login)
 DEST=/home/cvpr_ug_5/.cache/torch/hub/checkpoints
 mkdir -p "$DEST"
-URL=https://huggingface.co/facebook/dinov3-base/resolve/main/model.safetensors
 OUTFILE="$DEST/dinov3_vitb16_pretrain_lvd1689m-73cec8be.pth"
-wget -O "$OUTFILE" "$URL"
-echo "Downloaded to: $OUTFILE"
+rm -f "$OUTFILE"
+python -c "
+from huggingface_hub import hf_hub_download
+import shutil
+f = hf_hub_download('facebook/dinov3-vitb16-pretrain-lvd1689m', 'model.safetensors')
+print('Downloaded to:', f)
+shutil.copy(f, '$OUTFILE')
+print('Copied to torch cache')
+"
+echo "Result:"
 ls -lh "$OUTFILE"
