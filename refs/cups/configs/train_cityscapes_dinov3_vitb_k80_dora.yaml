@@ -1,0 +1,87 @@
+# Stage-2: DINOv3 ViT-B/16 + DoRA (r=4, tiered block injection)
+# Target machine: Anydesk RTX A6000 48GB, conda env "ups"
+#
+# DoRA (Liu et al., ICML 2024 Oral) with LoRA+ differential LR
+# (Hayou et al., ICML 2024) for task-adapting frozen DINOv3 backbone.
+#
+# Tiered injection:
+#   Blocks 0-5 (early): qkv-only DoRA  (~6 layers)
+#   Blocks 6-11 (late): qkv+proj+fc1+fc2 DoRA (~24 layers)
+#   Total: ~30 adapted layers, ~331K trainable params (0.37% of backbone)
+#
+# Expected: PQ 29-30 (vs 27.9 frozen baseline)
+
+DATA:
+  CROP_RESOLUTION: (640, 1280)
+  SCALE: 0.625
+  DATASET: "cityscapes"
+  IGNORE_UNKNOWN_THING_REGIONS: False
+  THING_STUFF_THRESHOLD: 0.05
+  ROOT: "/media/santosh/Kuldeep/panoptic_segmentation/datasets/cityscapes/"
+  ROOT_VAL: "/media/santosh/Kuldeep/panoptic_segmentation/datasets/cityscapes/"
+  ROOT_PSEUDO: "/media/santosh/Kuldeep/panoptic_segmentation/datasets/cityscapes/cups_pseudo_labels_dinov3_k80/"
+MODEL:
+  BACKBONE_TYPE: "dinov3_vitb"
+  DINOV2_FREEZE: True
+  USE_DINO: False
+  TTA_SCALES:
+    - 0.75
+    - 1.0
+    - 1.25
+  LORA:
+    ENABLED: True
+    VARIANT: "dora"
+    RANK: 4
+    ALPHA: 4.0
+    DROPOUT: 0.05
+    LATE_BLOCK_START: 6
+    LR_A: 0.00001
+    LR_B: 0.00005
+    MAGNITUDE_WD: 0.001
+    DELAYED_START_STEPS: 500
+AUGMENTATION:
+  NUM_STEPS_STARTUP: 500
+  COPY_PASTE: True
+  MAX_NUM_PASTED_OBJECTS: 3
+  RESOLUTIONS:
+    - [384, 768]
+    - [416, 832]
+    - [448, 896]
+    - [480, 960]
+    - [512, 1024]
+    - [544, 1088]
+    - [576, 1152]
+    - [608, 1216]
+    - [640, 1280]
+SYSTEM:
+  ACCELERATOR: "gpu"
+  NUM_GPUS: 1
+  NUM_NODES: 1
+  NUM_WORKERS: 4
+  LOG_PATH: "/media/santosh/Kuldeep/panoptic_segmentation/experiments"
+  RUN_NAME: "cups_dinov3_vitb_k80_dora_r4"
+TRAINING:
+  STEPS: 8000
+  BATCH_SIZE: 2
+  ACCUMULATE_GRAD_BATCHES: 4
+  PRECISION: "16-mixed"
+  OPTIMIZER: "adamw"
+  ADAMW:
+    LEARNING_RATE: 0.0001
+    WEIGHT_DECAY: 0.00001
+  VAL_EVERY_N_STEPS: 500
+  LOG_EVERT_N_STEPS: 50
+  DROP_LOSS: True
+  DROP_LOSS_IOU_THRESHOLD: 0.4
+  LOG_MEDIA_N_STEPS: 1000
+  GRADIENT_CLIP_ALGORITHM: "norm"
+  GRADIENT_CLIP_VAL: 0.1
+SELF_TRAINING:
+  ROUND_STEPS: 500
+  ROUNDS: 3
+  CONFIDENCE_STEP: 0.05
+  USE_DROP_LOSS: False
+  SEMANTIC_SEGMENTATION_THRESHOLD: 0.5
+VALIDATION:
+  CACHE_DEVICE: "cpu"
+  USE_TTA: False
