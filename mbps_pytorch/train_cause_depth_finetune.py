@@ -557,7 +557,7 @@ def main() -> None:
     base_dataset = ContrastiveSegDataset(
         pytorch_data_dir=args.data_dir,
         dataset_name="cityscapes",
-        crop_type="five",
+        crop_type=None,  # Use full images with resize+centercrop (no pre-computed crops needed)
         image_set="train",
         transform=img_transform,
         target_transform=label_transform,
