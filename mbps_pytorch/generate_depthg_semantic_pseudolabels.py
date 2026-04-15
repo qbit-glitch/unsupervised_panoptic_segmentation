@@ -316,6 +316,12 @@ def main() -> None:
         raise RuntimeError("No images found")
 
     # Load DepthG model
+    # PyTorch 2.6+ defaults weights_only=True, but DepthG checkpoint uses
+    # OmegaConf + Hydra internals. Monkey-patch torch.load for this load only.
+    _orig_torch_load = torch.load
+    torch.load = lambda *a, **kw: _orig_torch_load(
+        *a, **{**kw, "weights_only": False},
+    )
     logger.info("Loading DepthG from %s ...", args.depthg_ckpt)
     model = DepthG(
         device=str(device),
@@ -324,6 +330,7 @@ def main() -> None:
         stride=(int(img_shape[0] // 4), int(img_shape[0] // 4)),
         crop=(int(img_shape[0] // 2), int(img_shape[0] // 2)),
     )
+    torch.load = _orig_torch_load  # Restore original
     n_clusters = model.model.cluster_probe.n_classes
     logger.info(
         "DepthG loaded: %d output clusters, device=%s",
