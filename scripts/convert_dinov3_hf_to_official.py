@@ -1,17 +1,26 @@
 #!/usr/bin/env python3
 """Convert DINOv3 weights from HuggingFace key format to official repo format.
 
-HF keys use: embeddings.*, layer.{i}.attention.{q,k,v}_proj.*, layer.{i}.mlp.*
-Official keys use: cls_token, blocks.{i}.attn.qkv.*, blocks.{i}.mlp.*
-
-The critical difference: HF has separate Q, K, V projections while official
-fuses them into a single QKV linear layer.
+Key mapping differences discovered:
+  HF                                    -> Official
+  embeddings.cls_token                  -> cls_token
+  embeddings.mask_token [1,1,768]       -> mask_token [1,768] (squeeze)
+  embeddings.register_tokens            -> storage_tokens
+  embeddings.patch_embeddings.*         -> patch_embed.proj.*
+  norm.weight/bias                      -> norm.weight/bias (same)
+  layer.{i}.attention.q/k/v_proj.*      -> blocks.{i}.attn.qkv.* (fuse)
+  layer.{i}.attention.o_proj.*          -> blocks.{i}.attn.proj.*
+  layer.{i}.mlp.up_proj.*              -> blocks.{i}.mlp.fc1.*
+  layer.{i}.mlp.down_proj.*            -> blocks.{i}.mlp.fc2.*
+  layer.{i}.layer_scale1.lambda1        -> blocks.{i}.ls1.gamma
+  layer.{i}.layer_scale2.lambda1        -> blocks.{i}.ls2.gamma
+  layer.{i}.norm1/2.*                   -> blocks.{i}.norm1/2.*
+  (no equivalent)                       -> rope_embed.periods (use default init)
 
 Run on A6000: python scripts/convert_dinov3_hf_to_official.py
 """
 import sys
 import os
-import re
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 DINOV3_ROOT = os.path.join(PROJECT_ROOT, "refs", "dinov3")
@@ -23,223 +32,202 @@ HF_PATH = os.path.join(PROJECT_ROOT, "weights", "dinov3_vitb16_official.pth")
 OUT_PATH = os.path.join(PROJECT_ROOT, "weights", "dinov3_vitb16_official.pth")
 BACKUP_PATH = os.path.join(PROJECT_ROOT, "weights", "dinov3_vitb16_hf_original.pth")
 
+# Check if backup already exists (script was run before partially)
+if os.path.exists(BACKUP_PATH) and not os.path.exists(HF_PATH):
+    HF_PATH = BACKUP_PATH
+elif os.path.exists(BACKUP_PATH):
+    # Previous partial run — load from backup (the original HF weights)
+    HF_PATH = BACKUP_PATH
+
 print(f"Loading HF weights from: {HF_PATH}")
 hf_sd = torch.load(HF_PATH, map_location="cpu", weights_only=True)
 print(f"HF keys: {len(hf_sd)}")
 
-# Print all HF keys for debugging
-print("\nAll HF keys:")
-for k in sorted(hf_sd.keys()):
-    print(f"  {k}: {hf_sd[k].shape}")
+# Verify these are HF-format keys (not already converted)
+if "blocks.0.attn.qkv.weight" in hf_sd:
+    print("Weights are already in official format! Nothing to do.")
+    sys.exit(0)
 
 # Create model to get target keys
-print("\nCreating DINOv3 ViT-B/16 model...")
+print("Creating DINOv3 ViT-B/16 model...")
 from dinov3.hub.backbones import dinov3_vitb16
 model = dinov3_vitb16(pretrained=False)
 model_sd = model.state_dict()
+print(f"Model keys: {len(model_sd)}")
 
-print("\nAll model keys:")
-for k in sorted(model_sd.keys()):
-    print(f"  {k}: {model_sd[k].shape}")
-
-# Build the converted state dict
 new_sd = {}
-
-# --- Simple renames ---
-simple_map = {
-    "embeddings.cls_token": "cls_token",
-    "embeddings.mask_token": "mask_token",
-    "embeddings.register_tokens": "register_tokens",
-    "embeddings.position_embeddings": "pos_embed",
-    "embeddings.patch_embeddings.weight": "patch_embed.proj.weight",
-    "embeddings.patch_embeddings.bias": "patch_embed.proj.bias",
-    "layernorm.weight": "norm.weight",
-    "layernorm.bias": "norm.bias",
-}
-
-for hf_key, official_key in simple_map.items():
-    if hf_key in hf_sd:
-        if official_key in model_sd:
-            if hf_sd[hf_key].shape == model_sd[official_key].shape:
-                new_sd[official_key] = hf_sd[hf_key]
-                print(f"  Mapped: {hf_key} -> {official_key}")
-            else:
-                print(f"  SHAPE MISMATCH: {hf_key} {hf_sd[hf_key].shape} vs {official_key} {model_sd[official_key].shape}")
-        else:
-            print(f"  Target key not found in model: {official_key}")
-    else:
-        print(f"  Source key not found in HF: {hf_key}")
-
-# --- Per-block mappings ---
 num_blocks = 12
+
+# --- Global keys ---
+
+# cls_token
+if "embeddings.cls_token" in hf_sd:
+    new_sd["cls_token"] = hf_sd["embeddings.cls_token"]
+    print("  cls_token: mapped")
+
+# mask_token: HF [1,1,768] -> official [1,768]
+if "embeddings.mask_token" in hf_sd:
+    mt = hf_sd["embeddings.mask_token"]
+    if mt.dim() == 3 and mt.shape[0] == 1 and mt.shape[1] == 1:
+        mt = mt.squeeze(1)
+    new_sd["mask_token"] = mt
+    print(f"  mask_token: {hf_sd['embeddings.mask_token'].shape} -> {mt.shape}")
+
+# register_tokens -> storage_tokens
+if "embeddings.register_tokens" in hf_sd:
+    new_sd["storage_tokens"] = hf_sd["embeddings.register_tokens"]
+    print("  register_tokens -> storage_tokens: mapped")
+
+# patch_embed
+for suffix in ["weight", "bias"]:
+    hf_k = f"embeddings.patch_embeddings.{suffix}"
+    off_k = f"patch_embed.proj.{suffix}"
+    if hf_k in hf_sd:
+        new_sd[off_k] = hf_sd[hf_k]
+        print(f"  {hf_k} -> {off_k}: mapped")
+
+# Final norm (same key names in both formats)
+for suffix in ["weight", "bias"]:
+    hf_k = f"norm.{suffix}"
+    if hf_k in hf_sd:
+        new_sd[hf_k] = hf_sd[hf_k]
+        print(f"  norm.{suffix}: direct copy")
+
+# rope_embed.periods: no HF equivalent, use model default
+if "rope_embed.periods" in model_sd:
+    new_sd["rope_embed.periods"] = model_sd["rope_embed.periods"]
+    print("  rope_embed.periods: using model default init")
+
+# --- Per-block keys ---
 for i in range(num_blocks):
-    prefix_hf = f"layer.{i}"
-    prefix_official = f"blocks.{i}"
+    hf_p = f"layer.{i}"
+    off_p = f"blocks.{i}"
 
-    # Direct renames within each block
-    block_map = {
-        f"{prefix_hf}.attention.o_proj.weight": f"{prefix_official}.attn.proj.weight",
-        f"{prefix_hf}.attention.o_proj.bias": f"{prefix_official}.attn.proj.bias",
-        f"{prefix_hf}.norm1.weight": f"{prefix_official}.norm1.weight",
-        f"{prefix_hf}.norm1.bias": f"{prefix_official}.norm1.bias",
-        f"{prefix_hf}.norm2.weight": f"{prefix_official}.norm2.weight",
-        f"{prefix_hf}.norm2.bias": f"{prefix_official}.norm2.bias",
-        f"{prefix_hf}.mlp.fc1.weight": f"{prefix_official}.mlp.fc1.weight",
-        f"{prefix_hf}.mlp.fc1.bias": f"{prefix_official}.mlp.fc1.bias",
-        f"{prefix_hf}.mlp.fc2.weight": f"{prefix_official}.mlp.fc2.weight",
-        f"{prefix_hf}.mlp.fc2.bias": f"{prefix_official}.mlp.fc2.bias",
+    # Attention output projection
+    for suffix in ["weight", "bias"]:
+        hf_k = f"{hf_p}.attention.o_proj.{suffix}"
+        off_k = f"{off_p}.attn.proj.{suffix}"
+        if hf_k in hf_sd:
+            new_sd[off_k] = hf_sd[hf_k]
+
+    # Norms
+    for norm_name in ["norm1", "norm2"]:
+        for suffix in ["weight", "bias"]:
+            hf_k = f"{hf_p}.{norm_name}.{suffix}"
+            off_k = f"{off_p}.{norm_name}.{suffix}"
+            if hf_k in hf_sd:
+                new_sd[off_k] = hf_sd[hf_k]
+
+    # MLP: up_proj -> fc1, down_proj -> fc2
+    mlp_map = {
+        f"{hf_p}.mlp.up_proj.weight": f"{off_p}.mlp.fc1.weight",
+        f"{hf_p}.mlp.up_proj.bias": f"{off_p}.mlp.fc1.bias",
+        f"{hf_p}.mlp.down_proj.weight": f"{off_p}.mlp.fc2.weight",
+        f"{hf_p}.mlp.down_proj.bias": f"{off_p}.mlp.fc2.bias",
     }
+    for hf_k, off_k in mlp_map.items():
+        if hf_k in hf_sd:
+            new_sd[off_k] = hf_sd[hf_k]
 
-    # LayerScale: HF might use layer.{i}.ls1 (scalar or vector) -> blocks.{i}.ls1.gamma
-    for ls_name in ["ls1", "ls2"]:
-        hf_key = f"{prefix_hf}.{ls_name}"
-        official_key = f"{prefix_official}.{ls_name}.gamma"
-        if hf_key in hf_sd and official_key in model_sd:
-            block_map[hf_key] = official_key
+    # LayerScale: layer_scale1.lambda1 -> ls1.gamma
+    ls_map = {
+        f"{hf_p}.layer_scale1.lambda1": f"{off_p}.ls1.gamma",
+        f"{hf_p}.layer_scale2.lambda1": f"{off_p}.ls2.gamma",
+    }
+    for hf_k, off_k in ls_map.items():
+        if hf_k in hf_sd:
+            new_sd[off_k] = hf_sd[hf_k]
 
-    for hf_key, official_key in block_map.items():
-        if hf_key in hf_sd:
-            if official_key in model_sd:
-                if hf_sd[hf_key].shape == model_sd[official_key].shape:
-                    new_sd[official_key] = hf_sd[hf_key]
-                else:
-                    print(f"  SHAPE MISMATCH block {i}: {hf_key} {hf_sd[hf_key].shape} vs {official_key} {model_sd[official_key].shape}")
-            else:
-                print(f"  Target key not found: {official_key}")
-
-    # --- QKV fusion ---
-    q_w_key = f"{prefix_hf}.attention.q_proj.weight"
-    k_w_key = f"{prefix_hf}.attention.k_proj.weight"
-    v_w_key = f"{prefix_hf}.attention.v_proj.weight"
-    qkv_w_key = f"{prefix_official}.attn.qkv.weight"
-
-    if all(k in hf_sd for k in [q_w_key, k_w_key, v_w_key]) and qkv_w_key in model_sd:
-        q_w = hf_sd[q_w_key]
-        k_w = hf_sd[k_w_key]
-        v_w = hf_sd[v_w_key]
-        qkv_w = torch.cat([q_w, k_w, v_w], dim=0)
-        if qkv_w.shape == model_sd[qkv_w_key].shape:
-            new_sd[qkv_w_key] = qkv_w
-            print(f"  Fused QKV weight block {i}: {q_w.shape} x3 -> {qkv_w.shape}")
-        else:
-            print(f"  QKV SHAPE MISMATCH block {i}: {qkv_w.shape} vs {model_sd[qkv_w_key].shape}")
+    # QKV fusion: separate q/k/v -> fused qkv
+    q_w = hf_sd.get(f"{hf_p}.attention.q_proj.weight")
+    k_w = hf_sd.get(f"{hf_p}.attention.k_proj.weight")
+    v_w = hf_sd.get(f"{hf_p}.attention.v_proj.weight")
+    if q_w is not None and k_w is not None and v_w is not None:
+        new_sd[f"{off_p}.attn.qkv.weight"] = torch.cat([q_w, k_w, v_w], dim=0)
 
     # QKV bias fusion
-    q_b_key = f"{prefix_hf}.attention.q_proj.bias"
-    k_b_key = f"{prefix_hf}.attention.k_proj.bias"
-    v_b_key = f"{prefix_hf}.attention.v_proj.bias"
-    qkv_b_key = f"{prefix_official}.attn.qkv.bias"
+    dim = 768
+    q_b = hf_sd.get(f"{hf_p}.attention.q_proj.bias", torch.zeros(dim))
+    k_b = hf_sd.get(f"{hf_p}.attention.k_proj.bias", torch.zeros(dim))
+    v_b = hf_sd.get(f"{hf_p}.attention.v_proj.bias", torch.zeros(dim))
+    new_sd[f"{off_p}.attn.qkv.bias"] = torch.cat([q_b, k_b, v_b], dim=0)
 
-    if qkv_b_key in model_sd:
-        dim = model_sd[qkv_b_key].shape[0] // 3
-        q_b = hf_sd.get(q_b_key, torch.zeros(dim))
-        k_b = hf_sd.get(k_b_key, torch.zeros(dim))
-        v_b = hf_sd.get(v_b_key, torch.zeros(dim))
-        qkv_b = torch.cat([q_b, k_b, v_b], dim=0)
-        if qkv_b.shape == model_sd[qkv_b_key].shape:
-            new_sd[qkv_b_key] = qkv_b
-            has_q = q_b_key in hf_sd
-            has_k = k_b_key in hf_sd
-            has_v = v_b_key in hf_sd
-            print(f"  Fused QKV bias block {i}: q={has_q} k={has_k} v={has_v}")
+    # QKV bias_mask
+    has_q_b = f"{hf_p}.attention.q_proj.bias" in hf_sd
+    has_k_b = f"{hf_p}.attention.k_proj.bias" in hf_sd
+    has_v_b = f"{hf_p}.attention.v_proj.bias" in hf_sd
+    q_mask = torch.ones(dim) if has_q_b else torch.zeros(dim)
+    k_mask = torch.ones(dim) if has_k_b else torch.zeros(dim)
+    v_mask = torch.ones(dim) if has_v_b else torch.zeros(dim)
+    new_sd[f"{off_p}.attn.qkv.bias_mask"] = torch.cat([q_mask, k_mask, v_mask], dim=0)
 
-    # QKV bias_mask: indicates which biases are active
-    # DINOv3 typically has bias on Q and V but not K
-    bm_key = f"{prefix_official}.attn.qkv.bias_mask"
-    if bm_key in model_sd:
-        dim = model_sd[bm_key].shape[0] // 3
-        has_q = q_b_key in hf_sd
-        has_k = k_b_key in hf_sd
-        has_v = v_b_key in hf_sd
-        q_mask = torch.ones(dim) if has_q else torch.zeros(dim)
-        k_mask = torch.ones(dim) if has_k else torch.zeros(dim)
-        v_mask = torch.ones(dim) if has_v else torch.zeros(dim)
-        bias_mask = torch.cat([q_mask, k_mask, v_mask], dim=0)
-        new_sd[bm_key] = bias_mask
-        print(f"  Created bias_mask block {i}: q={has_q} k={has_k} v={has_v}")
+    print(f"  Block {i}: attn(qkv fused, q_b={has_q_b} k_b={has_k_b} v_b={has_v_b}), "
+          f"mlp(up->fc1, down->fc2), ls(lambda1->gamma), norms")
 
-# --- Verify coverage ---
+# --- Verify ---
 print(f"\n--- Conversion summary ---")
-print(f"Converted keys: {len(new_sd)} / {len(model_sd)} model keys")
+print(f"Converted: {len(new_sd)} / {len(model_sd)} model keys")
 
 missing = set(model_sd.keys()) - set(new_sd.keys())
 if missing:
-    print(f"\nMissing {len(missing)} keys (will use random init):")
+    print(f"\nStill missing {len(missing)} keys:")
     for k in sorted(missing):
         print(f"  {k}: {model_sd[k].shape}")
 
-extra_hf = set(hf_sd.keys()) - set()  # keys we didn't use
-used_hf_keys = set()
-for hf_key in simple_map:
-    if hf_key in hf_sd:
-        used_hf_keys.add(hf_key)
-for i in range(num_blocks):
-    for suffix in ["attention.q_proj.weight", "attention.q_proj.bias",
-                    "attention.k_proj.weight", "attention.k_proj.bias",
-                    "attention.v_proj.weight", "attention.v_proj.bias",
-                    "attention.o_proj.weight", "attention.o_proj.bias",
-                    "norm1.weight", "norm1.bias", "norm2.weight", "norm2.bias",
-                    "mlp.fc1.weight", "mlp.fc1.bias", "mlp.fc2.weight", "mlp.fc2.bias",
-                    "ls1", "ls2"]:
-        k = f"layer.{i}.{suffix}"
-        if k in hf_sd:
-            used_hf_keys.add(k)
-
-unused_hf = set(hf_sd.keys()) - used_hf_keys
-if unused_hf:
-    print(f"\nUnused HF keys ({len(unused_hf)}):")
-    for k in sorted(unused_hf):
-        print(f"  {k}: {hf_sd[k].shape}")
-
-# Verify shapes match
-shape_ok = True
+# Shape verification
+shape_errors = []
 for k in new_sd:
-    if new_sd[k].shape != model_sd[k].shape:
-        print(f"  SHAPE ERROR: {k}: converted {new_sd[k].shape} vs model {model_sd[k].shape}")
-        shape_ok = False
+    if k in model_sd and new_sd[k].shape != model_sd[k].shape:
+        shape_errors.append(f"  {k}: got {new_sd[k].shape}, expected {model_sd[k].shape}")
 
-if not shape_ok:
-    print("\nERROR: Shape mismatches found! Not saving.")
+if shape_errors:
+    print(f"\nSHAPE ERRORS ({len(shape_errors)}):")
+    for e in shape_errors:
+        print(e)
+    print("\nAborting — shape mismatches found.")
     sys.exit(1)
 
-# Test loading
-print("\n--- Testing load with strict=True ---")
+# Test load
+print("\n--- Testing load ---")
 result = model.load_state_dict(new_sd, strict=False)
+n_loaded = len(model_sd) - len(result.missing_keys)
+pct = n_loaded / len(model_sd) * 100
+print(f"Loaded: {n_loaded}/{len(model_sd)} ({pct:.1f}%)")
+
 if result.missing_keys:
-    print(f"Missing keys after load: {len(result.missing_keys)}")
-    for k in result.missing_keys[:5]:
+    print(f"Missing ({len(result.missing_keys)}):")
+    for k in result.missing_keys:
         print(f"  {k}")
-if result.unexpected_keys:
-    print(f"Unexpected keys: {len(result.unexpected_keys)}")
 
-match_pct = (len(model_sd) - len(result.missing_keys)) / len(model_sd) * 100
-print(f"\nMatch rate: {match_pct:.1f}%")
-
-if match_pct < 90:
-    print(f"\nERROR: Only {match_pct:.1f}% matched. Conversion incomplete.")
-    print("Saving partial conversion for inspection but DO NOT USE for training.")
-    debug_path = os.path.join(PROJECT_ROOT, "weights", "dinov3_vitb16_debug.pth")
-    torch.save(new_sd, debug_path)
-    print(f"Debug weights saved to: {debug_path}")
+if pct < 95:
+    print(f"\nERROR: Only {pct:.1f}% loaded. Aborting.")
     sys.exit(1)
 
-# Backup original and save converted
-print(f"\nBacking up original HF weights to: {BACKUP_PATH}")
-os.rename(HF_PATH, BACKUP_PATH)
+# Save
+if not os.path.exists(BACKUP_PATH):
+    # Only backup if we haven't already (from a previous partial run)
+    orig_path = os.path.join(PROJECT_ROOT, "weights", "dinov3_vitb16_official.pth")
+    if os.path.exists(orig_path) and orig_path != BACKUP_PATH:
+        print(f"\nBacking up HF weights to: {BACKUP_PATH}")
+        os.rename(orig_path, BACKUP_PATH)
 
 print(f"Saving converted weights to: {OUT_PATH}")
 torch.save(new_sd, OUT_PATH)
-print(f"Saved {len(new_sd)} keys")
 
 # Final verification
 print("\n--- Final verification ---")
-sd_verify = torch.load(OUT_PATH, map_location="cpu", weights_only=True)
+sd_check = torch.load(OUT_PATH, map_location="cpu", weights_only=True)
 model2 = dinov3_vitb16(pretrained=False)
-result2 = model2.load_state_dict(sd_verify, strict=False)
-print(f"Missing keys: {len(result2.missing_keys)}")
-print(f"Unexpected keys: {len(result2.unexpected_keys)}")
-if len(result2.missing_keys) == 0:
-    print("\n*** SUCCESS: All keys matched! Weights are now in official format. ***")
-    print("Re-run training with these weights.")
+r2 = model2.load_state_dict(sd_check, strict=False)
+n2 = len(model_sd) - len(r2.missing_keys)
+print(f"Final: {n2}/{len(model_sd)} keys loaded ({100*n2/len(model_sd):.1f}%)")
+if r2.missing_keys:
+    print(f"Still missing: {r2.missing_keys}")
+if n2 == len(model_sd):
+    print("\n*** SUCCESS: All 188/188 keys matched! Weights correctly converted. ***")
+    print("Now re-run training.")
+elif n2 >= len(model_sd) - 1:
+    print(f"\n*** NEAR-SUCCESS: {n2}/{len(model_sd)} keys. Missing keys use default init. ***")
+    print("This should work — re-run training.")
 else:
-    print(f"\n*** WARNING: {len(result2.missing_keys)} keys still missing ***")
+    print(f"\n*** WARNING: {len(r2.missing_keys)} keys still missing. ***")
