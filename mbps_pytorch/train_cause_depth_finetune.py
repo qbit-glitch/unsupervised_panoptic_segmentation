@@ -529,6 +529,18 @@ def main() -> None:
     # Build dataset
     logger.info("Building training dataset...")
     from torchvision import transforms as T
+
+    # Mock pydensecrf if not installed — CAUSE utils.py imports it at module level
+    # but we don't use CRF during training
+    if "pydensecrf" not in sys.modules:
+        import types
+        mock_crf = types.ModuleType("pydensecrf")
+        mock_crf.densecrf = types.ModuleType("pydensecrf.densecrf")
+        mock_crf.utils = types.ModuleType("pydensecrf.utils")
+        sys.modules["pydensecrf"] = mock_crf
+        sys.modules["pydensecrf.densecrf"] = mock_crf.densecrf
+        sys.modules["pydensecrf.utils"] = mock_crf.utils
+
     from loader.dataloader import ContrastiveSegDataset
 
     img_transform = T.Compose([
