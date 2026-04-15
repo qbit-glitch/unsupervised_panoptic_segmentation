@@ -554,10 +554,27 @@ def main() -> None:
         T.ToTensor(),
     ])
 
+    # crop_type="five" uses 5 pre-computed crops per image (14,875 samples)
+    # Requires: python refs/cause/generate_crops.py --data_dir $DATA_DIR
+    # If crops don't exist, fall back to crop_type=None (2,975 full images)
+    crop_dir = os.path.join(
+        args.data_dir, "cityscapes", "cropped", "cityscapes_five_crop_0.5", "img", "train",
+    )
+    if os.path.isdir(crop_dir):
+        crop_type = "five"
+        logger.info("Using CroppedDataset (5 crops/image, %d files)", len(os.listdir(crop_dir)))
+    else:
+        crop_type = None
+        logger.warning(
+            "Pre-computed crops not found at %s. Using full images. "
+            "Run: python refs/cause/generate_crops.py --data_dir %s",
+            crop_dir, args.data_dir,
+        )
+
     base_dataset = ContrastiveSegDataset(
         pytorch_data_dir=args.data_dir,
         dataset_name="cityscapes",
-        crop_type=None,  # Use full images with resize+centercrop (no pre-computed crops needed)
+        crop_type=crop_type,
         image_set="train",
         transform=img_transform,
         target_transform=label_transform,
