@@ -26,4 +26,4 @@ done
 echo "=== Starting training with correctly converted DINOv3 weights ==="
 cd ~/umesh/unsupervised_panoptic_segmentation/refs/cups
 export WANDB_MODE=disabled
-python -u train.py --experiment_config_file configs/train_cityscapes_dinov3_vitb_k80_anydesk.yaml TRAINING.BATCH_SIZE 4 TRAINING.ACCUMULATE_GRAD_BATCHES 4
+python -u train.py --experiment_config_file configs/train_cityscapes_dinov3_vitb_k80_anydesk.yaml
