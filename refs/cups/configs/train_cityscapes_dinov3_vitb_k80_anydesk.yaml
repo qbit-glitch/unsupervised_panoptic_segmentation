@@ -42,6 +42,8 @@ AUGMENTATION:
     - [576, 1152]
     - [608, 1216]
     - [640, 1280]
+    - [672, 1344]
+    - [704, 1408]
 SYSTEM:
   ACCELERATOR: "gpu"
   NUM_GPUS: 1
