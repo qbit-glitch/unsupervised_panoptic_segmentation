@@ -15,12 +15,13 @@ sleep 3
 echo "=== Verify killed ==="
 ps aux | grep -E "train\.py|run_cups_train" | grep -v grep && echo "WARNING: process still alive!" || echo "All killed."
 
-echo "=== Cleaning broken checkpoints (trained with random backbone) ==="
-OLD_CKPT_DIR="$HOME/umesh/experiments/cups_dinov3_vitb_k80_anydesk"
-if [ -d "$OLD_CKPT_DIR" ]; then
-    echo "Removing: $OLD_CKPT_DIR"
-    rm -rf "$OLD_CKPT_DIR"
-fi
+echo "=== Cleaning old checkpoints ==="
+for d in "$HOME/umesh/experiments/cups_dinov3_vitb_k80_anydesk"*; do
+    if [ -d "$d" ]; then
+        echo "Removing: $d"
+        rm -rf "$d"
+    fi
+done
 
 echo "=== Starting training with correctly converted DINOv3 weights ==="
 cd ~/umesh/unsupervised_panoptic_segmentation/refs/cups
