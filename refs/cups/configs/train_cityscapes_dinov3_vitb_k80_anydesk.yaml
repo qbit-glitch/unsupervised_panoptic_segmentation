@@ -1,15 +1,6 @@
 # Stage-2: Panoptic Cascade Mask R-CNN with DINOv3 ViT-B/16 backbone.
 # Target machine: Anydesk RTX A6000 48GB, conda env "ups"
-#
-# Prerequisites:
-#   1. Extract DINOv3 features:
-#      python mbps_pytorch/extract_dinov3_features.py \
-#          --cityscapes_root /path/to/cityscapes --split train val --device cuda
-#   2. Re-run k=80 k-means on DINOv3 features (shape 3200x768 vs DINOv2's 2048x768):
-#      python mbps_pytorch/generate_semantic_pseudolabels_dinov3.py \
-#          --cityscapes_root /path/to/cityscapes --k 80
-#      Output: cups_pseudo_labels_dinov3_k80/{train,val}/
-#   3. Then run this training config.
+# Matches santosh depthpro_tau020 config exactly (PQ=28.4 at step 26500).
 
 DATA:
   CROP_RESOLUTION: (640, 1280)
@@ -19,7 +10,7 @@ DATA:
   THING_STUFF_THRESHOLD: 0.05
   ROOT: "/home/cvpr_ug_5/umesh/datasets/cityscapes/"
   ROOT_VAL: "/home/cvpr_ug_5/umesh/datasets/cityscapes/"
-  ROOT_PSEUDO: "/home/cvpr_ug_5/umesh/datasets/cityscapes/cups_pseudo_labels_depthpro/"
+  ROOT_PSEUDO: "/home/cvpr_ug_5/umesh/datasets/cityscapes/cups_pseudo_labels_depthpro_tau020/"
 MODEL:
   BACKBONE_TYPE: "dinov3_vitb"
   DINOV2_FREEZE: True
@@ -31,30 +22,24 @@ MODEL:
 AUGMENTATION:
   NUM_STEPS_STARTUP: 500
   COPY_PASTE: True
-  MAX_NUM_PASTED_OBJECTS: 8
+  MAX_NUM_PASTED_OBJECTS: 3
   RESOLUTIONS:
     - [384, 768]
     - [416, 832]
     - [448, 896]
     - [480, 960]
     - [512, 1024]
-    - [544, 1088]
-    - [576, 1152]
-    - [608, 1216]
-    - [640, 1280]
-    - [672, 1344]
-    - [704, 1408]
 SYSTEM:
   ACCELERATOR: "gpu"
   NUM_GPUS: 1
   NUM_NODES: 1
   NUM_WORKERS: 4
   LOG_PATH: "/home/cvpr_ug_5/umesh/experiments"
-  RUN_NAME: "cups_dinov3_vitb_k80_anydesk"
+  RUN_NAME: "cups_dinov3_vitb_depthpro_tau020_anydesk"
 TRAINING:
   STEPS: 8000
-  BATCH_SIZE: 2
-  ACCUMULATE_GRAD_BATCHES: 8
+  BATCH_SIZE: 1
+  ACCUMULATE_GRAD_BATCHES: 16
   PRECISION: "32-true"
   OPTIMIZER: "adamw"
   ADAMW:
