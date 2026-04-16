@@ -190,7 +190,10 @@ def get_cityscapes_images(cityscapes_root: str, split: str):
     return images
 
 
-def load_cause_models(checkpoint_dir: str, device: torch.device):
+def load_cause_models(
+    checkpoint_dir: str, device: torch.device,
+    finetune_dir: Optional[str] = None,
+):
     from types import SimpleNamespace
     cause_args = SimpleNamespace(
         dim=768, reduced_dim=90, projection_dim=2048,
@@ -205,10 +208,15 @@ def load_cause_models(checkpoint_dir: str, device: torch.device):
     for p in net.parameters():
         p.requires_grad = False
 
-    seg_path = os.path.join(
-        checkpoint_dir, "CAUSE", "cityscapes",
-        "dinov2_vit_base_14", "2048", "segment_tr.pth",
-    )
+    # Load Segment_TR: from finetune_dir if provided, else from checkpoint_dir
+    if finetune_dir and os.path.isfile(os.path.join(finetune_dir, "segment_tr.pth")):
+        seg_path = os.path.join(finetune_dir, "segment_tr.pth")
+        logger.info("Loading fine-tuned Segment_TR from %s", seg_path)
+    else:
+        seg_path = os.path.join(
+            checkpoint_dir, "CAUSE", "cityscapes",
+            "dinov2_vit_base_14", "2048", "segment_tr.pth",
+        )
     segment = Segment_TR(cause_args).to(device)
     seg_state = torch.load(seg_path, map_location="cpu", weights_only=True)
     segment.load_state_dict(seg_state, strict=False)
@@ -529,7 +537,10 @@ def main() -> None:
     )
     parser.add_argument("--cityscapes_root", type=str, required=True)
     parser.add_argument("--split", type=str, default="val")
-    parser.add_argument("--checkpoint_dir", type=str, default=None)
+    parser.add_argument("--checkpoint_dir", type=str, default=None,
+                        help="CAUSE pretrained dir (backbone + codebook)")
+    parser.add_argument("--finetune_dir", type=str, default=None,
+                        help="Fine-tuned Segment_TR dir (contains segment_tr.pth)")
     parser.add_argument("--k", type=int, default=300)
     parser.add_argument("--depth_subdir", type=str, default="depth_depthpro")
     parser.add_argument(
@@ -574,7 +585,9 @@ def main() -> None:
     logger.info("Variant: %s, alpha: %.2f, k: %d", args.variant, args.alpha, args.k)
     logger.info("Output: %s", output_dir)
 
-    net, segment, cause_args = load_cause_models(args.checkpoint_dir, device)
+    net, segment, cause_args = load_cause_models(
+        args.checkpoint_dir, device, finetune_dir=args.finetune_dir,
+    )
 
     if args.load_centroids:
         logger.info("Loading centroids from %s", args.load_centroids)
