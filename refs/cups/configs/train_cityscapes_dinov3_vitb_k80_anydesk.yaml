@@ -33,13 +33,13 @@ SYSTEM:
   ACCELERATOR: "gpu"
   NUM_GPUS: 1
   NUM_NODES: 1
-  NUM_WORKERS: 4
+  NUM_WORKERS: 2
   LOG_PATH: "/home/cvpr_ug_5/umesh/experiments"
   RUN_NAME: "cups_dinov3_vitb_depthpro_tau020_anydesk"
 TRAINING:
   STEPS: 8000
-  BATCH_SIZE: 16
-  ACCUMULATE_GRAD_BATCHES: 1
+  BATCH_SIZE: 1
+  ACCUMULATE_GRAD_BATCHES: 16
   PRECISION: "32-true"
   OPTIMIZER: "adamw"
   ADAMW:
