@@ -68,6 +68,7 @@ for LAMBDA in $LAMBDAS; do
         --data_dir "$DATA_DIR" \
         --output_dir "$OUT_DIR" \
         --lambda_depth "$LAMBDA" \
+        --lambda_contrastive 0.0 \
         --epochs "$EPOCHS" \
         --lr 1e-5 \
         --batch_size "$BATCH_SIZE" \

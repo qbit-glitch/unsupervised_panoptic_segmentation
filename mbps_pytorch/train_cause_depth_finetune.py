@@ -324,6 +324,7 @@ def train_depth_finetune(
     device: torch.device,
     output_dir: str,
     lambda_depth: float = 0.05,
+    lambda_contrastive: float = 0.0,
     lr: float = 1e-5,
     epochs: int = 20,
     val_every: int = 2,
@@ -331,17 +332,27 @@ def train_depth_finetune(
     depth_shift: float = 0.0,
     feature_samples: int = 11,
 ) -> None:
-    """Fine-tune Segment_TR with CAUSE losses + depth correlation.
+    """Fine-tune Segment_TR with cluster + depth correlation losses.
+
+    IMPORTANT: lambda_contrastive defaults to 0.0 because the contrastive loss
+    starts at ~5.5 (near-random) due to empty bank, while cluster loss is ~0.13.
+    This 98:2 gradient ratio destroys pretrained features. Use cluster-only for
+    stable fine-tuning.
 
     Args:
-        lambda_depth: Weight for depth correlation loss. 0.0 = baseline.
+        lambda_depth: Weight for depth correlation loss. 0.0 = no depth.
+        lambda_contrastive: Weight for contrastive loss. 0.0 = disabled (recommended).
         lr: Learning rate (lower than CAUSE's 5e-5 for fine-tuning).
         depth_shift: Shift parameter in depth correlation loss.
         feature_samples: Grid size for spatial sampling (11 -> 121 pairs).
     """
     logger.info("=== Depth Fine-Tuning ===")
-    logger.info("  lambda_depth=%.3f, lr=%.1e, epochs=%d", lambda_depth, lr, epochs)
+    logger.info("  lambda_depth=%.3f, lambda_contrastive=%.3f, lr=%.1e, epochs=%d",
+                lambda_depth, lambda_contrastive, lr, epochs)
     logger.info("  depth_shift=%.2f, feature_samples=%d", depth_shift, feature_samples)
+    if lambda_contrastive > 0:
+        logger.warning("  Contrastive loss enabled (%.3f) — may destabilize pretrained features!",
+                       lambda_contrastive)
 
     params = (
         list(segment.head.parameters())
@@ -373,30 +384,31 @@ def train_depth_finetune(
 
             # Student forward
             seg_feat = segment.head(feat, drop=segment.dropout)
-            proj_feat = segment.projection_head(seg_feat)
 
-            # Teacher (EMA) forward
+            # Teacher (EMA) forward for cluster loss
             with torch.no_grad():
                 seg_feat_ema = segment.head_ema(feat)
-                proj_feat_ema = segment.projection_head_ema(seg_feat_ema)
 
-            cluster.bank_compute()
-
-            # CAUSE contrastive loss
-            loss_contrastive = cluster.contrastive_ema_with_codebook_bank(
-                feat, proj_feat, proj_feat_ema,
-                temp=CONTRASTIVE_TEMP,
-                pos_thresh=POS_THRESH,
-                neg_thresh=NEG_THRESH,
-            )
-
-            # CAUSE cluster loss
+            # CAUSE cluster loss (always active, stable for fine-tuning)
             loss_cluster, _ = cluster.forward_centroid(seg_feat_ema)
+
+            # Contrastive loss (disabled by default — destroys pretrained features)
+            loss_contrastive = torch.tensor(0.0, device=device)
+            if lambda_contrastive > 0:
+                proj_feat = segment.projection_head(seg_feat)
+                with torch.no_grad():
+                    proj_feat_ema = segment.projection_head_ema(seg_feat_ema)
+                cluster.bank_compute()
+                loss_contrastive = cluster.contrastive_ema_with_codebook_bank(
+                    feat, proj_feat, proj_feat_ema,
+                    temp=CONTRASTIVE_TEMP,
+                    pos_thresh=POS_THRESH,
+                    neg_thresh=NEG_THRESH,
+                )
 
             # Depth correlation loss
             loss_depth = torch.tensor(0.0, device=device)
             if lambda_depth > 0 and depth is not None:
-                # Transform 90D features to spatial: (B, 90, 23, 23)
                 code_spatial = transform(seg_feat_ema)
                 loss_depth = depth_correlation_loss(
                     code_spatial, depth,
@@ -404,7 +416,9 @@ def train_depth_finetune(
                     shift=depth_shift,
                 )
 
-            loss = loss_contrastive + loss_cluster + lambda_depth * loss_depth
+            loss = (loss_cluster
+                    + lambda_contrastive * loss_contrastive
+                    + lambda_depth * loss_depth)
 
             optimizer.zero_grad()
             loss.backward()
@@ -412,12 +426,11 @@ def train_depth_finetune(
 
             # EMA update
             ema_update(segment.head, segment.head_ema, lamb=EMA_MOMENTUM)
-            ema_update(segment.projection_head, segment.projection_head_ema,
-                       lamb=EMA_MOMENTUM)
-
-            # Bank update
-            with torch.no_grad():
-                cluster.bank_update(feat, proj_feat_ema, max_num=BANK_MAX_SIZE)
+            if lambda_contrastive > 0:
+                ema_update(segment.projection_head, segment.projection_head_ema,
+                           lamb=EMA_MOMENTUM)
+                with torch.no_grad():
+                    cluster.bank_update(feat, proj_feat_ema, max_num=BANK_MAX_SIZE)
 
             total_nce += loss_contrastive.item()
             total_clust += loss_cluster.item()
@@ -465,6 +478,8 @@ def main() -> None:
     parser.add_argument("--epochs", type=int, default=20)
     parser.add_argument("--lr", type=float, default=1e-5)
     parser.add_argument("--lambda_depth", type=float, default=0.05)
+    parser.add_argument("--lambda_contrastive", type=float, default=0.0,
+                        help="Weight for contrastive loss. 0.0 = disabled (recommended for fine-tuning)")
     parser.add_argument("--depth_shift", type=float, default=0.0)
     parser.add_argument("--feature_samples", type=int, default=11)
     parser.add_argument("--val_every", type=int, default=2)
@@ -518,9 +533,9 @@ def main() -> None:
     segment.head.codebook = cb
     segment.head_ema.codebook = cb
 
-    # Init EMA from student
-    ema_init(segment.head, segment.head_ema)
-    ema_init(segment.projection_head, segment.projection_head_ema)
+    # NOTE: Do NOT call ema_init — the pretrained checkpoint already contains
+    # both head and head_ema weights. Re-initializing would discard the
+    # pretrained EMA teacher. load_state_dict above loads both.
 
     # Patch cluster for device
     patch_cluster_for_device(cluster, device)
@@ -603,6 +618,7 @@ def main() -> None:
     train_depth_finetune(
         net, segment, cluster, train_loader, device, args.output_dir,
         lambda_depth=args.lambda_depth,
+        lambda_contrastive=args.lambda_contrastive,
         lr=args.lr,
         epochs=args.epochs,
         val_every=args.val_every,
