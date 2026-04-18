@@ -64,10 +64,16 @@ class HungarianMatcher(nn.Module):
                     )
                 )
                 continue
-            # Sample K' points per mask for tractable matching.
+            # Align pred to target resolution, then sample K' shared points.
+            # (Mirrors SetCriterion.loss_masks — GT masks are at image resolution
+            # while pred_masks are at mask_feat stride, so they must be resized
+            # to share a common pixel index space before point-sampling.)
             _, H, W = tgt_masks.shape
+            src_b = F.interpolate(
+                pred_masks[b].unsqueeze(1), size=(H, W), mode="bilinear", align_corners=False
+            ).squeeze(1)
             pnts = torch.randint(0, H * W, (self.num_points,), device=pred_masks.device)
-            out_mask = pred_masks[b].flatten(1)[:, pnts]        # Q, P
+            out_mask = src_b.flatten(1)[:, pnts]                # Q, P
             tgt_mask = tgt_masks.flatten(1)[:, pnts]            # N, P
             # Class cost: -softmax[c_gt] (Mask2Former uses raw prob, not log-prob).
             prob = pred_logits[b].softmax(-1)                   # Q, K
