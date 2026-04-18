@@ -21,12 +21,16 @@ source ~/umesh/ups_env/bin/activate 2>/dev/null || true
 
 export WANDB_MODE=disabled
 export PYTHONPATH="$PROJ_ROOT/refs/cups:${PYTHONPATH:-}"
+# ViT-Adapter c2 cross-attention at stride-4 fragments CUDA allocator; this
+# env var lets the allocator grow segments on demand instead of failing on
+# a contiguous 1.5 GiB request inside a 44 GiB working set.
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 echo "=== Stage-2 M2F+ViTAdapter M0 baseline (anydesk A6000) ==="
 echo "Config:   $CFG"
 echo "Log:      $LOGFILE"
-echo "Expected: 20k optimizer steps, bs=8 x accum=2 = eff 16, bf16-mixed (A6000 48GB)"
-echo "OOM fallback: edit config to BATCH_SIZE=4 ACCUMULATE_GRAD_BATCHES=4 (or 2 and 8)"
+echo "Expected: 20k optimizer steps, bs=4 x accum=4 = eff 16, bf16-mixed (A6000 48GB)"
+echo "OOM fallback: edit config to BATCH_SIZE=2 ACCUMULATE_GRAD_BATCHES=8"
 
 nohup python -u refs/cups/train.py \
   --experiment_config_file "$CFG" \
