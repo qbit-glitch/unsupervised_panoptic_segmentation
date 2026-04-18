@@ -61,3 +61,27 @@ def test_decoder_uses_depth_bias_pool() -> None:
         out_a = decoder(mask_feat=mask_feat, multi_scale=multi_scale, depth=depth_a)
         out_b = decoder(mask_feat=mask_feat, multi_scale=multi_scale, depth=depth_b)
     assert not torch.allclose(out_a["pred_masks"], out_b["pred_masks"])
+
+
+def test_decoder_gradients_flow_to_class_and_mask_embed() -> None:
+    """Training-mode backward must populate gradients on the prediction heads.
+
+    Guards against accidental broadening of the no_grad/detach block around
+    the attn_mask gating — gradients must still reach class_embed and mask_embed
+    via the cross-/self-attention path.
+    """
+    torch.manual_seed(3)
+    B, C, Q = 2, 64, 16
+    multi_scale = [torch.randn(B, C, 4, 8), torch.randn(B, C, 2, 4)]
+    mask_feat = torch.randn(B, C, 8, 16)
+    pool = build_query_pool(kind="standard", num_queries=Q, embed_dim=C)
+    decoder = MaskedAttentionDecoder(
+        hidden_dim=C, num_queries=Q, num_classes=4, num_layers=2, num_heads=4, query_pool=pool,
+    ).train()
+    out = decoder(mask_feat=mask_feat, multi_scale=multi_scale)
+    loss = out["pred_logits"].pow(2).mean() + out["pred_masks"].pow(2).mean()
+    loss.backward()
+    assert decoder.class_embed.weight.grad is not None
+    assert decoder.class_embed.weight.grad.abs().sum().item() > 0.0
+    assert decoder.mask_embed[0].weight.grad is not None
+    assert decoder.mask_embed[0].weight.grad.abs().sum().item() > 0.0

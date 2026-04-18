@@ -104,15 +104,26 @@ class MaskedAttentionDecoder(nn.Module):
             memory = _flatten(level)                         # B, N, C
             # Mask-attention: compute binary mask from current prediction
             # at this level's resolution to gate cross-attention.
+            # no_grad + .detach() is intentional: attn_mask is a stop-gradient
+            # gate (Mask2Former paper); gradients flow through logits/masks
+            # via self._pred only, not back through the gating path.
             with torch.no_grad():
                 pred_at_level = F.interpolate(init_masks, size=level.shape[-2:], mode="bilinear", align_corners=False)
                 attn_mask = (pred_at_level.sigmoid() < 0.5)
                 attn_mask = attn_mask.flatten(2).detach()
                 attn_mask = attn_mask.repeat_interleave(layer.cross_attn.num_heads, dim=0)
+                # If a row is fully masked, softmax would produce NaN.
+                # .where keeps `self` when condition is True; here the
+                # condition is "row NOT fully masked", so fully-masked rows
+                # get replaced with zeros (unblock all tokens for that query).
                 attn_mask = attn_mask.where(attn_mask.sum(-1, keepdim=True) != attn_mask.shape[-1], torch.zeros_like(attn_mask))
             q = layer(q, memory, attn_mask=attn_mask)
             logits, masks, _ = self._pred(q, mask_feat)
-            # DropPath during training (simple stochastic depth).
+            # Stochastic-depth layer skip (disabled by default: droppath=0.0).
+            # When enabled, drops the layer's aux supervision and keeps
+            # `init_masks` pinned to its pre-layer value — downstream layers
+            # see the prior prediction, matching the paper's "skip layer
+            # entirely" semantics rather than residual-scale DropPath.
             if self.training and self.droppath > 0.0 and torch.rand(1).item() < self.droppath:
                 continue
             if i < self.num_layers - 1:
