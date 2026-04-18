@@ -41,27 +41,67 @@ def _minimal_config(num_stuff: int = 12, num_thing: int = 8) -> CfgNode:
     return c
 
 
-def test_builder_returns_frozen_backbone(monkeypatch) -> None:
-    # Monkey-patch DINOv3 loading to avoid network calls.
-    from cups.model.modeling.mask2former import vit_adapter as va
-
-    class _Dummy(torch.nn.Module):
-        def __init__(self) -> None:
-            super().__init__()
-            self.conv = torch.nn.Conv2d(3, 768, kernel_size=16, stride=16, bias=False)
+class _Dummy(torch.nn.Module):
+    def __init__(self, freeze: bool = True) -> None:
+        super().__init__()
+        self.conv = torch.nn.Conv2d(3, 768, kernel_size=16, stride=16, bias=False)
+        if freeze:
             for p in self.parameters():
                 p.requires_grad_(False)
-        def forward(self, x: torch.Tensor) -> torch.Tensor:
-            return self.conv(x)
 
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.conv(x)
+
+
+def _install_fake_backbone(monkeypatch) -> None:
+    """Patch the dino-loading helper with a config-driven dummy.
+
+    Critically, the dummy MUST respect ``cfg.MODEL.DINOV2_FREEZE`` so that
+    flipping the flag actually exercises the freeze branch of the builder.
+    """
     def _fake_build(cfg):
-        return _Dummy()
+        return _Dummy(freeze=bool(cfg.MODEL.DINOV2_FREEZE))
 
     import cups.model.model_mask2former as mm
+
+    monkeypatch.setattr(mm, "_build_dinov3_backbone", _fake_build)
+
+
+def test_builder_returns_frozen_backbone(monkeypatch) -> None:
+    _install_fake_backbone(monkeypatch)
+    cfg = _minimal_config()
+    cfg.MODEL.DINOV2_FREEZE = True
+    model = build_mask2former_vitb(cfg)
+    # ViTAdapter wraps the backbone as `self.backbone`; hence the double attr.
+    for p in model.backbone.backbone.parameters():
+        assert p.requires_grad is False
+
+
+def test_builder_propagates_freeze_flag(monkeypatch) -> None:
+    """Regression guard: the builder must forward cfg.MODEL.DINOV2_FREEZE.
+
+    Note: the ViTAdapter wrapper re-freezes its backbone unconditionally
+    (by design, because Phase 0 treats DINOv3 as frozen). We therefore
+    validate propagation at the _build_dinov3_backbone call site rather
+    than at post-adapter params, so a regression that drops the flag is
+    still caught.
+    """
+    captured: dict = {}
+
+    def _fake_build(cfg):
+        captured["freeze"] = bool(cfg.MODEL.DINOV2_FREEZE)
+        return _Dummy(freeze=bool(cfg.MODEL.DINOV2_FREEZE))
+
+    import cups.model.model_mask2former as mm
+
     monkeypatch.setattr(mm, "_build_dinov3_backbone", _fake_build)
 
     cfg = _minimal_config()
-    model = build_mask2former_vitb(cfg)
-    # Backbone params must be frozen.
-    for p in model.backbone.backbone.parameters():
-        assert p.requires_grad is False
+    cfg.MODEL.DINOV2_FREEZE = False
+    build_mask2former_vitb(cfg)
+    assert captured["freeze"] is False
+
+    captured.clear()
+    cfg.MODEL.DINOV2_FREEZE = True
+    build_mask2former_vitb(cfg)
+    assert captured["freeze"] is True

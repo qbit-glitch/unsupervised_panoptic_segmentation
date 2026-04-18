@@ -22,8 +22,17 @@ __all__ = ["build_mask2former_vitb"]
 
 
 def _build_dinov3_backbone(cfg: CfgNode) -> nn.Module:
-    """Wrapped for monkey-patching in tests."""
-    backbone = DINOv3ViTBackbone(freeze=cfg.MODEL.DINOV2_FREEZE)
+    """Wrapped for monkey-patching in tests.
+
+    Reads LoRA config via ``getattr`` so the M2F path stays symmetric with
+    the cascade builder in ``model_vitb.py``. Future LoRA ablations can set
+    ``cfg.MODEL.LORA_CONFIG`` without silently being dropped here.
+    """
+    lora_config = getattr(cfg.MODEL, "LORA_CONFIG", None)
+    backbone = DINOv3ViTBackbone(
+        freeze=cfg.MODEL.DINOV2_FREEZE,
+        lora_config=lora_config,
+    )
     return backbone
 
 
@@ -64,6 +73,13 @@ def build_mask2former_vitb(cfg: CfgNode) -> Mask2FormerPanoptic:
         )
         num_queries = m.QUERIES_STUFF + m.QUERIES_THING
     elif m.QUERY_POOL == "depth_bias":
+        # The depth_bias pool silently returns un-modulated queries if the
+        # dataloader does not supply a per-sample "depth" entry. Warn loudly
+        # at build time so a misconfigured run is traceable from the log.
+        log.warning(
+            "QUERY_POOL='depth_bias' requires the dataloader to emit "
+            "batch['depth']; missing depth falls back to standard behaviour."
+        )
         pool = build_query_pool(kind="depth_bias", num_queries=m.NUM_QUERIES, embed_dim=m.HIDDEN_DIM)
         num_queries = m.NUM_QUERIES
     else:
