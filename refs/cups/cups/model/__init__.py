@@ -7,3 +7,4 @@ from .model import (
     prediction_to_standard_format,
 )
 from .model_vitb import panoptic_cascade_mask_r_cnn_vitb
+from .model_mask2former import build_mask2former_vitb
