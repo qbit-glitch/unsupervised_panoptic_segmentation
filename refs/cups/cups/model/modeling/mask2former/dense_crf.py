@@ -29,6 +29,9 @@ def dense_crf_refine(
     img_np = image.cpu().numpy()
     if img_np.ndim == 3 and img_np.shape[0] == 3:
         img_np = (img_np.transpose(1, 2, 0) * 255).astype(np.uint8)
+    elif img_np.dtype != np.uint8:
+        # HWC float in [0,1] -> uint8; pydensecrf requires uint8 rgbim
+        img_np = (img_np * 255).clip(0, 255).astype(np.uint8) if img_np.max() <= 1.0 else img_np.clip(0, 255).astype(np.uint8)
     probs_np = probs.detach().cpu().numpy().astype(np.float32)
     # Sanitize tiny values for numerical stability.
     probs_np = np.maximum(probs_np, 1e-8)

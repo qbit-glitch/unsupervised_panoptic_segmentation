@@ -13,6 +13,7 @@ def test_lsj_scales_output_within_range() -> None:
     out_img, out_lbl = lsj(img, lbl)
     assert out_img.shape == (3, 64, 128)
     assert out_lbl.shape == (1, 64, 128)
+    assert out_img.abs().sum() > 0.0, "LSJ returned all-zeros image (forgot to copy content)"
 
 
 def test_color_jitter_is_identity_when_all_zero() -> None:
