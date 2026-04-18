@@ -3,6 +3,16 @@
 Fuses multi-scale pyramid levels via a stack of transformer encoder
 layers operating on concatenated flattened tokens, then up-samples a
 mask feature map at stride 4.
+
+p2 is NOT included in self-attention (stride-4 token count is
+prohibitive). It participates only via a 1x1 lateral projection into
+the final mask feature.
+
+TODO(oom): dense self-attention over concatenated p3+p4+p5 tokens
+scales as O(N^2). At 640x1280 crops N~16k, so per-layer attention
+matrix is ~1-2 GB per head-batch. Switch to
+F.scaled_dot_product_attention (flash backend) or window/local
+attention before full-scale training.
 """
 from __future__ import annotations
 
@@ -46,6 +56,8 @@ class _MSALayer(nn.Module):
 class MSDeformAttnPixelDecoder(nn.Module):
     def __init__(self, in_channels: int = 256, hidden_dim: int = 256, mask_dim: int = 256, num_layers: int = 6, num_heads: int = 8) -> None:
         super().__init__()
+        # mask_conv uses GroupNorm(32, mask_dim); guard divisibility up-front.
+        assert mask_dim % 32 == 0, f"mask_dim={mask_dim} must be divisible by 32 for GroupNorm"
         self.hidden_dim = hidden_dim
         self.mask_dim = mask_dim
         # Project each pyramid level (already hidden_dim) + add level embedding.
