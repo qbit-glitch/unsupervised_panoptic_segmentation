@@ -127,6 +127,52 @@ _C.MODEL.SEM_SEG_HEAD.GATED_CRF_RGB_SIGMA = 0.1
 _C.MODEL.SEM_SEG_HEAD.NECO_WEIGHT = 0.0
 _C.MODEL.SEM_SEG_HEAD.NECO_K = 5
 
+# -------- Stage-2 M2F meta-arch ---------------------------------------------
+_C.MODEL.META_ARCH = "Cascade"  # "Cascade" (default) or "Mask2FormerPanoptic"
+
+_C.MODEL.MASK2FORMER = CfgNode()
+_C.MODEL.MASK2FORMER.NUM_QUERIES = 100
+_C.MODEL.MASK2FORMER.QUERIES_STUFF = 150           # used when QUERY_POOL=decoupled
+_C.MODEL.MASK2FORMER.QUERIES_THING = 50
+_C.MODEL.MASK2FORMER.QUERY_POOL = "standard"       # "standard" / "decoupled" / "depth_bias"
+_C.MODEL.MASK2FORMER.NUM_DECODER_LAYERS = 9
+_C.MODEL.MASK2FORMER.PIXEL_DECODER_LAYERS = 6
+_C.MODEL.MASK2FORMER.HIDDEN_DIM = 256
+_C.MODEL.MASK2FORMER.NUM_HEADS = 8
+_C.MODEL.MASK2FORMER.MASK_WEIGHT = 5.0
+_C.MODEL.MASK2FORMER.DICE_WEIGHT = 5.0
+_C.MODEL.MASK2FORMER.CLASS_WEIGHT = 2.0
+_C.MODEL.MASK2FORMER.NO_OBJECT_WEIGHT = 0.1
+_C.MODEL.MASK2FORMER.NUM_POINTS = 12544
+_C.MODEL.MASK2FORMER.OBJECT_MASK_THRESHOLD = 0.4
+_C.MODEL.MASK2FORMER.OVERLAP_THRESHOLD = 0.8
+_C.MODEL.MASK2FORMER.PYRAMID_CHANNELS = 256
+_C.MODEL.MASK2FORMER.ADAPTER_BLOCKS = 4
+_C.MODEL.MASK2FORMER.ADAPTER_EMBED_DIM = 768
+_C.MODEL.MASK2FORMER.DROPPATH = 0.0                # G5 lever
+
+# N3 XQuery (cross-image query correspondence) loss weight (0.0 = off).
+_C.MODEL.MASK2FORMER.XQUERY_WEIGHT = 0.0
+_C.MODEL.MASK2FORMER.XQUERY_TEMPERATURE = 0.1
+
+# N4 Query-consistency (teacher-student) loss weight (0.0 = off).
+_C.MODEL.MASK2FORMER.QUERY_CONSISTENCY_WEIGHT = 0.0
+_C.MODEL.MASK2FORMER.QUERY_CONSISTENCY_TEMPERATURE = 0.1
+
+# N5 self-training confidence threshold.
+_C.MODEL.MASK2FORMER.SELF_TRAIN_THRESHOLD = 0.95
+
+# -------- EMA teacher (G1) --------------------------------------------------
+_C.MODEL.EMA = CfgNode()
+_C.MODEL.EMA.ENABLED = False
+_C.MODEL.EMA.DECAY = 0.9998
+
+# -------- SWA (G2) ----------------------------------------------------------
+_C.MODEL.SWA = CfgNode()
+_C.MODEL.SWA.ENABLED = False
+_C.MODEL.SWA.NUM_CKPTS = 5
+_C.MODEL.SWA.START_FRACTION = 0.75                 # average ckpts from last 25 pct
+
 # Dataset configurations
 _C.DATA = CfgNode()
 # Subdirectory under DATA.ROOT containing precomputed depth maps (empty = disabled)
@@ -236,6 +282,12 @@ _C.VALIDATION.USE_CRF = False
 # Smaller image side for center crop
 _C.VALIDATION.SEMSEG_CENTER_CROP_SIZE = None
 
+# -------- G6 Dense-CRF post-processing at val ------------------------------
+_C.VALIDATION.USE_DENSE_CRF = False
+_C.VALIDATION.DENSE_CRF_ITER = 5
+_C.VALIDATION.DENSE_CRF_BI_W = 4.0
+_C.VALIDATION.DENSE_CRF_POS_W = 3.0
+
 # Augmentation specific config
 _C.AUGMENTATION = CfgNode()
 # Set if copy-paste augmentation should be used
@@ -260,6 +312,20 @@ _C.AUGMENTATION.RESOLUTIONS = (
     (672, 1344),
     (704, 1408),
 )
+
+# -------- LSJ (G3) ----------------------------------------------------------
+_C.AUGMENTATION.LSJ = CfgNode()
+_C.AUGMENTATION.LSJ.ENABLED = False
+_C.AUGMENTATION.LSJ.MIN_SCALE = 0.1
+_C.AUGMENTATION.LSJ.MAX_SCALE = 2.0
+
+# -------- ColorJitter (G4) --------------------------------------------------
+_C.AUGMENTATION.COLOR_JITTER = CfgNode()
+_C.AUGMENTATION.COLOR_JITTER.ENABLED = False
+_C.AUGMENTATION.COLOR_JITTER.BRIGHTNESS = 0.4
+_C.AUGMENTATION.COLOR_JITTER.CONTRAST = 0.4
+_C.AUGMENTATION.COLOR_JITTER.SATURATION = 0.4
+_C.AUGMENTATION.COLOR_JITTER.HUE = 0.1
 
 # Pseudo label generation specific config
 _C.PSEUDOS = CfgNode()
