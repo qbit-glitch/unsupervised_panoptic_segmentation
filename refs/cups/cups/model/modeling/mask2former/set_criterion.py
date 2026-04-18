@@ -63,11 +63,11 @@ class SetCriterion(nn.Module):
 
     def loss_labels(self, outputs: Dict[str, torch.Tensor], targets: List[Dict[str, torch.Tensor]], indices: List[Tuple[torch.Tensor, torch.Tensor]]) -> Dict[str, torch.Tensor]:
         src_logits = outputs["pred_logits"]                    # B, Q, K+1 (we let last be "no-object")
-        B, Q, K1 = src_logits.shape
+        B, Q, _ = src_logits.shape
         target_classes = torch.full((B, Q), self.num_classes, dtype=torch.long, device=src_logits.device)
         for b, (src, tgt) in enumerate(indices):
             target_classes[b, src] = targets[b]["labels"][tgt]
-        loss_ce = F.cross_entropy(src_logits.transpose(1, 2), target_classes, self.empty_weight)
+        loss_ce = F.cross_entropy(src_logits.transpose(1, 2), target_classes, self.empty_weight.to(src_logits.dtype))
         return {"loss_ce": loss_ce}
 
     def loss_masks(self, outputs: Dict[str, torch.Tensor], targets: List[Dict[str, torch.Tensor]], indices: List[Tuple[torch.Tensor, torch.Tensor]]) -> Dict[str, torch.Tensor]:
