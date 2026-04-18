@@ -21,6 +21,9 @@ def query_consistency_loss(dec_out: Dict[str, torch.Tensor], targets: List[Dict[
     q_t = ctx.get("teacher_query_embeds", None)
     if q_t is None:
         return q_s.sum() * 0.0  # silently zero if no teacher yet
+    # Defensive: teacher must not receive gradient; move to student's device/dtype
+    # so callers can stash the EMA buffer on CPU without surprising the loss.
+    q_t = q_t.detach().to(device=q_s.device, dtype=q_s.dtype)
     B, Q, C = q_s.shape
     q_s_n = F.normalize(q_s.reshape(-1, C), dim=-1)
     q_t_n = F.normalize(q_t.reshape(-1, C), dim=-1)
