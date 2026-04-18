@@ -39,11 +39,33 @@ def _build_dinov3_backbone(cfg: CfgNode) -> nn.Module:
     return backbone
 
 
-def build_mask2former_vitb(cfg: CfgNode) -> Mask2FormerPanoptic:
-    """Build M2F + ViT-Adapter from a yacs config."""
+def build_mask2former_vitb(
+    cfg: CfgNode,
+    num_stuff_classes: int | None = None,
+    num_thing_classes: int | None = None,
+) -> Mask2FormerPanoptic:
+    """Build M2F + ViT-Adapter from a yacs config.
+
+    ``num_stuff_classes`` / ``num_thing_classes`` come from the dataloader
+    (``training_dataset.stuff_classes`` / ``things_classes``) and are passed
+    by ``build_model_pseudo``. The legacy ``cfg._NUM_STUFF_CLASSES`` /
+    ``cfg._NUM_THING_CLASSES`` attributes remain as a fallback for callers
+    that still inject those underscore-prefixed runtime keys.
+    """
     m = cfg.MODEL.MASK2FORMER
-    num_stuff = int(cfg._NUM_STUFF_CLASSES)
-    num_thing = int(cfg._NUM_THING_CLASSES)
+    if num_stuff_classes is None:
+        num_stuff_classes = int(getattr(cfg, "_NUM_STUFF_CLASSES", 0))
+    if num_thing_classes is None:
+        num_thing_classes = int(getattr(cfg, "_NUM_THING_CLASSES", 0))
+    if num_stuff_classes <= 0 or num_thing_classes <= 0:
+        raise ValueError(
+            f"build_mask2former_vitb requires positive num_stuff_classes and "
+            f"num_thing_classes; got num_stuff={num_stuff_classes}, "
+            f"num_thing={num_thing_classes}. Pass them explicitly or set "
+            f"cfg._NUM_STUFF_CLASSES / cfg._NUM_THING_CLASSES before calling."
+        )
+    num_stuff = int(num_stuff_classes)
+    num_thing = int(num_thing_classes)
     num_classes = num_stuff + num_thing
 
     # Frozen backbone.

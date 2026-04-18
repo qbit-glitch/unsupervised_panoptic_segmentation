@@ -493,7 +493,11 @@ class UnsupervisedModel(LightningModule):
         return optimizer
 
 
-def _build_mask2former_model(config: CfgNode):
+def _build_mask2former_model(
+    config: CfgNode,
+    num_stuff_classes: int | None = None,
+    num_thing_classes: int | None = None,
+):
     """Build Mask2Former panoptic model (Stage-2 M2F meta-arch).
 
     Deferred import avoids circular deps between ``pl_model_pseudo`` and
@@ -501,12 +505,18 @@ def _build_mask2former_model(config: CfgNode):
 
     Args:
         config: Full CUPS config node.
+        num_stuff_classes: Number of pseudo stuff classes (from dataloader).
+        num_thing_classes: Number of pseudo thing classes (from dataloader).
 
     Returns:
         Constructed ``Mask2FormerPanoptic`` ``nn.Module``.
     """
     from cups.model.model_mask2former import build_mask2former_vitb
-    return build_mask2former_vitb(config)
+    return build_mask2former_vitb(
+        config,
+        num_stuff_classes=num_stuff_classes,
+        num_thing_classes=num_thing_classes,
+    )
 
 
 def build_model_pseudo(
@@ -542,7 +552,31 @@ def build_model_pseudo(
     # Use bare-name ``_build_mask2former_model`` so ``monkeypatch.setattr`` on
     # the ``cups.pl_model_pseudo`` module attribute intercepts the call.
     if getattr(config.MODEL, "META_ARCH", "Cascade") == "Mask2FormerPanoptic":
-        return _build_mask2former_model(config)
+        if thing_pseudo_classes is None or stuff_pseudo_classes is None:
+            raise ValueError(
+                "Mask2FormerPanoptic meta-arch requires thing_pseudo_classes "
+                "and stuff_pseudo_classes from the training dataloader."
+            )
+        num_clusters_things = len(thing_pseudo_classes)
+        num_clusters_stuffs = len(stuff_pseudo_classes)
+        m2f_model = _build_mask2former_model(
+            config,
+            num_stuff_classes=num_clusters_stuffs,
+            num_thing_classes=num_clusters_things,
+        )
+        return UnsupervisedModel(
+            model=m2f_model,
+            num_thing_pseudo_classes=num_clusters_things,
+            num_stuff_pseudo_classes=num_clusters_stuffs,
+            config=config,
+            thing_classes=thing_classes,
+            stuff_classes=stuff_classes,
+            copy_paste_augmentation=copy_paste_augmentation,
+            photometric_augmentation=photometric_augmentation,
+            resolution_jitter_augmentation=resolution_jitter_augmentation,
+            class_names=class_names,
+            classes_mask=classes_mask,
+        )
     # Check parameters
     if thing_pseudo_classes is None or stuff_pseudo_classes is None:
         assert config.MODEL.CHECKPOINT is not None, "If thing stuff split is not given checkpoint needs the be given."
