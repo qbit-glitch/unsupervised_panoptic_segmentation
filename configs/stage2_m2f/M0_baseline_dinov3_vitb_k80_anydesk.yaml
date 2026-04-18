@@ -16,5 +16,5 @@ SYSTEM:
   NUM_WORKERS: 4
 
 TRAINING:
-  BATCH_SIZE: 4               # exploit 48 GB VRAM on A6000
-  ACCUMULATE_GRAD_BATCHES: 4  # effective batch = 16 (same as M0 spec)
+  BATCH_SIZE: 8               # 48 GB A6000 with bf16-mixed + frozen backbone
+  ACCUMULATE_GRAD_BATCHES: 2  # effective batch = 16 (same as M0 spec)

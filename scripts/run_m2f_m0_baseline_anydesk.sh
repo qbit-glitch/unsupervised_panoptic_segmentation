@@ -25,8 +25,8 @@ export PYTHONPATH="$PROJ_ROOT/refs/cups:${PYTHONPATH:-}"
 echo "=== Stage-2 M2F+ViTAdapter M0 baseline (anydesk A6000) ==="
 echo "Config:   $CFG"
 echo "Log:      $LOGFILE"
-echo "Expected: 20k optimizer steps, bs=4 x accum=4 = eff 16, bf16-mixed (A6000 48GB)"
-echo "OOM fallback: edit config to BATCH_SIZE=2 ACCUMULATE_GRAD_BATCHES=8"
+echo "Expected: 20k optimizer steps, bs=8 x accum=2 = eff 16, bf16-mixed (A6000 48GB)"
+echo "OOM fallback: edit config to BATCH_SIZE=4 ACCUMULATE_GRAD_BATCHES=4 (or 2 and 8)"
 
 nohup python -u refs/cups/train.py \
   --experiment_config_file "$CFG" \
