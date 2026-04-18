@@ -1,0 +1,77 @@
+# Stage-2 Conv-DoRA on DINOv3 ViT-B/16 + DepthPro tau=0.20 instance PLs + k=80 semantic PLs
+# 2x GTX 1080 Ti, bs=1, accum=8 → effective batch 16, fp16-mixed
+# This is the Stage-2 feeder for the Stage-3 M5 run
+# (configs/train_self_dinov3_vitb_depthpro_m5_2gpu.yaml)
+# Baseline (frozen DINOv3 on this label set): PQ = 28.40
+# Previous Conv-DoRA best on k=80: PQ = 28.28 — we expect similar here.
+
+DATA:
+  CROP_RESOLUTION: (640, 1280)
+  SCALE: 0.625
+  DATASET: "cityscapes"
+  IGNORE_UNKNOWN_THING_REGIONS: False
+  THING_STUFF_THRESHOLD: 0.05
+  ROOT: "/home/santosh/datasets/cityscapes/"
+  ROOT_VAL: "/home/santosh/datasets/cityscapes/"
+  ROOT_PSEUDO: "/home/santosh/datasets/cityscapes/cups_pseudo_labels_depthpro_tau020/"
+MODEL:
+  BACKBONE_TYPE: "dinov3_vitb"
+  DINOV2_FREEZE: True
+  USE_DINO: False
+  TTA_SCALES:
+    - 0.75
+    - 1.0
+    - 1.25
+  LORA:
+    ENABLED: True
+    VARIANT: "conv_dora"
+    RANK: 4
+    ALPHA: 4.0
+    DROPOUT: 0.05
+    LATE_BLOCK_START: 6
+    LR_A: 0.00001
+    LR_B: 0.00005
+    MAGNITUDE_WD: 0.001
+    DELAYED_START_STEPS: 500
+AUGMENTATION:
+  NUM_STEPS_STARTUP: 500
+  COPY_PASTE: True
+  MAX_NUM_PASTED_OBJECTS: 3
+  RESOLUTIONS:
+    - [384, 768]
+    - [416, 832]
+    - [448, 896]
+    - [480, 960]
+    - [512, 1024]
+SYSTEM:
+  ACCELERATOR: "gpu"
+  NUM_GPUS: 2
+  NUM_NODES: 1
+  NUM_WORKERS: 2
+  LOG_PATH: "/home/santosh/cups/experiments"
+  RUN_NAME: "e2_depthpro_conv_dora_r4_2gpu"
+TRAINING:
+  STEPS: 8000
+  BATCH_SIZE: 1
+  ACCUMULATE_GRAD_BATCHES: 8
+  PRECISION: "16-mixed"
+  OPTIMIZER: "adamw"
+  ADAMW:
+    LEARNING_RATE: 0.0001
+    WEIGHT_DECAY: 0.00001
+  VAL_EVERY_N_STEPS: 500
+  LOG_EVERT_N_STEPS: 50
+  DROP_LOSS: True
+  DROP_LOSS_IOU_THRESHOLD: 0.4
+  LOG_MEDIA_N_STEPS: 1000
+  GRADIENT_CLIP_ALGORITHM: "norm"
+  GRADIENT_CLIP_VAL: 0.1
+SELF_TRAINING:
+  ROUND_STEPS: 500
+  ROUNDS: 3
+  CONFIDENCE_STEP: 0.05
+  USE_DROP_LOSS: False
+  SEMANTIC_SEGMENTATION_THRESHOLD: 0.5
+VALIDATION:
+  CACHE_DEVICE: "cpu"
+  USE_TTA: False

@@ -1,0 +1,90 @@
+# Stage-3 Conv-DoRA + Progressive LoRA + M5 (Confidence-Weighted Semantic Loss)
+# on DINOv3 ViT-B/16 + DepthPro tau=0.20 instance PLs + k=80 semantic PLs.
+# 2x GTX 1080 Ti, bs=2 x accum=2 → effective batch 8 across both GPUs.
+# Progressive ranks (2, 4, 8), coverages late→all blocks.
+# Resumes from Stage-2 best checkpoint (set via --ckpt_path CLI flag).
+# Baseline to beat (Stage-2 frozen): PQ = 28.40. Gate: PQ >= 28.9 (+0.5).
+
+DATA:
+  CROP_RESOLUTION: (640, 1280)
+  SCALE: 0.625
+  DATASET: "cityscapes"
+  IGNORE_UNKNOWN_THING_REGIONS: False
+  THING_STUFF_THRESHOLD: 0.05
+  ROOT: "/home/santosh/datasets/cityscapes/"
+  ROOT_VAL: "/home/santosh/datasets/cityscapes/"
+  ROOT_PSEUDO: "/home/santosh/datasets/cityscapes/cups_pseudo_labels_depthpro_tau020/"
+MODEL:
+  BACKBONE_TYPE: "dinov3_vitb"
+  DINOV2_FREEZE: True
+  USE_DINO: False
+  CHECKPOINT: null
+  TTA_SCALES: [0.75, 1.0, 1.25]
+  LORA:
+    ENABLED: True
+    VARIANT: "conv_dora"
+    RANK: 4
+    ALPHA: 4.0
+    DROPOUT: 0.05
+    LATE_BLOCK_START: 6
+    LR_A: 0.00001
+    LR_B: 0.00005
+    MAGNITUDE_WD: 0.001
+    DELAYED_START_STEPS: 0
+    PROGRESSIVE:
+      ENABLED: True
+      RANKS: [2, 4, 8]
+      ALPHAS: [2.0, 4.0, 8.0]
+      COVERAGES: [6, 6, 0]
+    MITIGATIONS:
+      CONFIDENCE_WEIGHTED_LOSS:
+        ENABLED: True
+        TEMPERATURE: 1.0
+        MIN_WEIGHT: 0.1
+AUGMENTATION:
+  NUM_STEPS_STARTUP: 0
+  COPY_PASTE: True
+  MAX_NUM_PASTED_OBJECTS: 3
+  RESOLUTIONS:
+    - [384, 768]
+    - [416, 832]
+    - [448, 896]
+    - [480, 960]
+    - [512, 1024]
+    - [544, 1088]
+    - [576, 1152]
+    - [608, 1216]
+    - [640, 1280]
+SYSTEM:
+  ACCELERATOR: "gpu"
+  NUM_GPUS: 2
+  NUM_NODES: 1
+  NUM_WORKERS: 4
+  LOG_PATH: "/home/santosh/cups/experiments"
+  RUN_NAME: "stage3_depthpro_m5_conv_dora_progressive_2gpu"
+TRAINING:
+  STEPS: 1500
+  BATCH_SIZE: 2
+  ACCUMULATE_GRAD_BATCHES: 2
+  PRECISION: "16-mixed"
+  OPTIMIZER: "adamw"
+  ADAMW:
+    LEARNING_RATE: 0.0001
+    WEIGHT_DECAY: 0.00001
+  VAL_EVERY_N_STEPS: 500
+  LOG_EVERT_N_STEPS: 50
+  DROP_LOSS: True
+  DROP_LOSS_IOU_THRESHOLD: 0.4
+  LOG_MEDIA_N_STEPS: 500
+  GRADIENT_CLIP_ALGORITHM: "norm"
+  GRADIENT_CLIP_VAL: 0.1
+SELF_TRAINING:
+  ROUND_STEPS: 500
+  ROUNDS: 3
+  CONFIDENCE_STEP: 0.05
+  USE_DROP_LOSS: False
+  SEMANTIC_SEGMENTATION_THRESHOLD: 0.5
+  DISABLE_EMA: False
+VALIDATION:
+  CACHE_DEVICE: "cpu"
+  USE_TTA: False
