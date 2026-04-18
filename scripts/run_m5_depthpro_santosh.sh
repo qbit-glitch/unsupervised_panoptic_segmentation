@@ -38,22 +38,22 @@ verify() {
     pts=$(find "${PSEUDO_LABELS}" -maxdepth 1 -name "*.pt" 2>/dev/null | wc -l)
     echo "[labels] semantic=${sem} instance=${inst} pt=${pts}"
     if [ "${sem}" -ge 2900 ] && [ "${inst}" -ge 2900 ] && [ "${pts}" -ge 2900 ]; then
-        ((ok++))
+        ok=$((ok+1))
     else
-        echo "  FAIL: expected ~2975 of each"; ((fail++))
+        echo "  FAIL: expected ~2975 of each"; fail=$((fail+1))
     fi
 
     if [ -f "${WEIGHTS}" ]; then
-        echo "[weights] ${WEIGHTS}"; ((ok++))
+        echo "[weights] ${WEIGHTS}"; ok=$((ok+1))
     else
-        echo "  FAIL: weights missing"; ((fail++))
+        echo "  FAIL: weights missing"; fail=$((fail+1))
     fi
 
     for cfg in "${STAGE2_CONFIG}" "${STAGE3_CONFIG}"; do
         if [ -f "${cfg}" ]; then
-            echo "[cfg] ${cfg}"; ((ok++))
+            echo "[cfg] ${cfg}"; ok=$((ok+1))
         else
-            echo "  FAIL: ${cfg} missing"; ((fail++))
+            echo "  FAIL: ${cfg} missing"; fail=$((fail+1))
         fi
     done
 
@@ -61,7 +61,7 @@ verify() {
     gpus=$(nvidia-smi --query-gpu=count --format=csv,noheader | head -1)
     echo "[gpu] ${gpus} GPUs"
     nvidia-smi --query-gpu=index,name,memory.total,memory.free --format=csv,noheader
-    if [ "${gpus}" -ge 2 ]; then ((ok++)); else echo "  FAIL: need 2 GPUs"; ((fail++)); fi
+    if [ "${gpus}" -ge 2 ]; then ok=$((ok+1)); else echo "  FAIL: need 2 GPUs"; fail=$((fail+1)); fi
 
     echo "=== ${ok} ok, ${fail} fail ==="
     [ "${fail}" -eq 0 ] || return 1
