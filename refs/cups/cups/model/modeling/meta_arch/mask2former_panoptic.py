@@ -9,7 +9,7 @@ Eval path (panoptic merge):
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import torch
 import torch.nn as nn
@@ -18,6 +18,10 @@ import torch.nn.functional as F
 from detectron2.modeling import META_ARCH_REGISTRY
 
 __all__ = ["Mask2FormerPanoptic"]
+
+# Label values treated as "ignore" / void when building per-sample targets.
+# -1 is the internal unlabeled marker; 255 is the detectron2/Cityscapes convention.
+_IGNORE_LABELS: frozenset = frozenset({-1, 255})
 
 
 @META_ARCH_REGISTRY.register()
@@ -81,10 +85,14 @@ class Mask2FormerPanoptic(nn.Module):
                 inst = s["instances"].to(self.device)
                 labels.extend(inst.gt_classes.tolist())
                 masks.extend([m.bool() for m in inst.gt_masks.tensor])
+            # TODO(task-0.17): when both "instances" and "sem_seg" are present,
+            # thing classes can enter targets twice (once per-instance, once as a
+            # union sem_seg mask). Task 0.17 resolves this at wiring time by
+            # choosing a single target source per dataset.
             if "sem_seg" in s:
                 sem = s["sem_seg"].to(self.device)
                 for c in sem.unique():
-                    if int(c) in {-1, 255}:
+                    if int(c) in _IGNORE_LABELS:
                         continue
                     labels.append(int(c))
                     masks.append((sem == c))
@@ -126,7 +134,9 @@ class Mask2FormerPanoptic(nn.Module):
                 sem_seg[cls] = torch.maximum(sem_seg[cls], cur_masks[k])
         return {"sem_seg": sem_seg, "panoptic_seg": (panoptic_seg, segments_info)}
 
-    def forward(self, batch: List[Dict[str, Any]]) -> Any:
+    def forward(
+        self, batch: List[Dict[str, Any]]
+    ) -> Union[Dict[str, torch.Tensor], List[Dict[str, torch.Tensor]]]:
         images = self._stack_images(batch)
         depth = self._maybe_depth(batch)
         feats = self.backbone(images)
@@ -141,6 +151,10 @@ class Mask2FormerPanoptic(nn.Module):
                     loss_dict[f"loss_{loss_key}"] = hook(dec_out, targets, {"images": images, "depth": depth})
             return loss_dict
         outputs: List[Dict[str, torch.Tensor]] = []
+        # TODO(task-0.17): `images` is the padded batch tensor, so H, W are the
+        # max image dims in the batch, not the per-sample original dims. The
+        # plan assumes uniform LSJ crops at train/eval time, so this matches;
+        # relax when evaluating on native-resolution images.
         H, W = images.shape[-2:]
         for b in range(images.shape[0]):
             outputs.append(self._panoptic_merge(dec_out["pred_logits"][b], dec_out["pred_masks"][b], H, W))
