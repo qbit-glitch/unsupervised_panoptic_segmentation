@@ -214,6 +214,46 @@ class DINOv3ViTBackbone(Backbone):
         return self
 
 
+def _make_vit_patch_pyramid_cls():
+    """Build a SimpleFeaturePyramid subclass lazily.
+
+    Subclassing is done at call time so detectron2 can be imported only
+    when a DINOv3 backbone is actually constructed (keeps unit tests that
+    stub out the full FPN lightweight).
+    """
+    from detectron2.modeling.backbone.vit import SimpleFeaturePyramid
+
+    class DINOv3FeaturePyramid(SimpleFeaturePyramid):
+        """SimpleFeaturePyramid that also emits pre-FPN DINOv3 patch tokens.
+
+        Downstream aux losses (STEGO correspondence, NeCo) need stride-16
+        patch-level features that still carry the self-supervised DINOv3
+        structure. The FPN-P2 output is heavily transformed and at stride-4
+        — useful for Cascade RoI heads but lossy for correspondence.
+        """
+
+        def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+            bottom_up_features = self.net(x)
+            features = bottom_up_features[self.in_feature]
+            results = []
+            for stage in self.stages:
+                results.append(stage(features))
+            if self.top_block is not None:
+                if self.top_block.in_feature in bottom_up_features:
+                    top_block_in_feature = bottom_up_features[self.top_block.in_feature]
+                else:
+                    top_block_in_feature = results[
+                        self._out_features.index(self.top_block.in_feature)
+                    ]
+                results.extend(self.top_block(top_block_in_feature))
+            assert len(self._out_features) == len(results)
+            out = {f: res for f, res in zip(self._out_features, results)}
+            out["vit_patch"] = features
+            return out
+
+    return DINOv3FeaturePyramid
+
+
 def build_dinov3_vitb_fpn_backbone(
     out_channels: int = 256,
     freeze: bool = True,
@@ -232,16 +272,19 @@ def build_dinov3_vitb_fpn_backbone(
             LATE_BLOCK_START, VARIANT. None means no adaptation.
 
     Returns:
-        SimpleFeaturePyramid wrapping DINOv3ViTBackbone.
+        SimpleFeaturePyramid subclass wrapping DINOv3ViTBackbone that
+        exposes both FPN levels (p2-p5) and the pre-FPN ``vit_patch``
+        tensor at stride-16.
     """
-    from detectron2.modeling.backbone.vit import SimpleFeaturePyramid
     from detectron2.modeling.backbone.fpn import LastLevelMaxPool
+
+    Pyramid = _make_vit_patch_pyramid_cls()
 
     backbone = DINOv3ViTBackbone(
         model_name=model_name, freeze=freeze, lora_config=lora_config,
     )
 
-    fpn = SimpleFeaturePyramid(
+    fpn = Pyramid(
         net=backbone,
         in_feature="dinov3",
         out_channels=out_channels,
@@ -420,16 +463,19 @@ def build_dinov3_vitl_fpn_backbone(
         lora_config: DoRA/LoRA config dict. None means no adaptation.
 
     Returns:
-        SimpleFeaturePyramid wrapping DINOv3ViTLBackbone.
+        SimpleFeaturePyramid subclass wrapping DINOv3ViTLBackbone that
+        exposes both FPN levels (p2-p5) and the pre-FPN ``vit_patch``
+        tensor at stride-16.
     """
-    from detectron2.modeling.backbone.vit import SimpleFeaturePyramid
     from detectron2.modeling.backbone.fpn import LastLevelMaxPool
+
+    Pyramid = _make_vit_patch_pyramid_cls()
 
     backbone = DINOv3ViTLBackbone(
         model_name=model_name, freeze=freeze, lora_config=lora_config,
     )
 
-    fpn = SimpleFeaturePyramid(
+    fpn = Pyramid(
         net=backbone,
         in_feature="dinov3",
         out_channels=out_channels,

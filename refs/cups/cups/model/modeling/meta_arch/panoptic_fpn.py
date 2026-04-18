@@ -159,12 +159,32 @@ class PanopticFPN(GeneralizedRCNN):
                 self.backbone.padding_constraints,
             ).tensor
 
+        # Assemble aux-loss context: the semantic head consumes these only
+        # when a P1-P4 weight is non-zero. Missing keys surface as KeyError
+        # inside the specific loss that needs them. ``dino_features`` is
+        # chosen per ``STEGO_FEATURE_SOURCE``: ``vit_patch`` (stride-16
+        # pre-FPN DINOv3 tokens, strongest unsupervised structure) or
+        # ``fpn_p2`` (stride-4 FPN output, cheaper but semantically diluted).
+        stego_source = getattr(
+            self.sem_seg_head, "aux_params", {}
+        ).get("stego_feature_source", "fpn_p2")
+        if stego_source == "vit_patch" and "vit_patch" in features:
+            dino_feat = features["vit_patch"]
+        else:
+            dino_feat = features.get("p2", None)
+        aux_ctx = {
+            "rgb": images.tensor,
+            "depth": depth_tensor,
+            "dino_features": dino_feat,
+        }
+
         sem_seg_results, sem_seg_losses = self.sem_seg_head(
             features,
             gt_sem_seg,
             pixel_weights=pixel_weights,
             depth=depth_tensor,
             pseudo_onehot=pseudo_onehot_tensor,
+            ctx=aux_ctx,
         )
 
         gt_instances = [x["instances"].to(self.device) for x in batched_inputs]

@@ -58,6 +58,8 @@ class CustomSemSegFPNHead(nn.Module):
         ignore_value: int = -1,
         stuff_kd_weight: float = 0.0,
         kd_temperature: float = 2.0,
+        aux_weights: Optional[Dict[str, float]] = None,
+        aux_params: Optional[Dict[str, float]] = None,
     ):
         """
         NOTE: this interface is experimental.
@@ -73,6 +75,11 @@ class CustomSemSegFPNHead(nn.Module):
             ignore_value: category id to be ignored during training.
             stuff_kd_weight: weight for stuff-preservation KD loss. 0.0 disables.
             kd_temperature: temperature for softening pseudo-label targets in KD.
+            aux_weights: optional dict of P1-P4 aux-loss weights keyed by
+                {"lovasz","boundary","stego","depth_smooth","gated_crf","neco"}.
+                Missing keys default to 0.0 (disabled).
+            aux_params: optional dict of hyperparameters consumed by aux losses
+                (boundary_dilate_px, stego_temperature, etc.).
         """
         super().__init__()
         input_shape = sorted(input_shape.items(), key=lambda x: x[1].stride)
@@ -88,6 +95,15 @@ class CustomSemSegFPNHead(nn.Module):
         self.class_weight = class_weight
         self.stuff_kd_weight = stuff_kd_weight
         self.kd_temperature = kd_temperature
+        self.aux_weights: Dict[str, float] = dict(aux_weights or {})
+        self.aux_params: Dict[str, float] = dict(aux_params or {})
+        # Registry of aux-loss callables. Imported lazily here (not at module
+        # load) so test fixtures that do not need aux losses stay lightweight.
+        self._aux_fns: Dict[str, Callable[[torch.Tensor, torch.Tensor, dict], torch.Tensor]] = {}
+        if any(w > 0.0 for w in self.aux_weights.values()):
+            from cups.losses import build_aux_losses
+
+            self._aux_fns = build_aux_losses()
 
         self.scale_heads = []
         for in_feature, stride, channels in zip(self.in_features, feature_strides, feature_channels):
@@ -116,17 +132,39 @@ class CustomSemSegFPNHead(nn.Module):
 
     @classmethod
     def from_config(cls, cfg, input_shape: Dict[str, ShapeSpec]):
+        head_cfg = cfg.MODEL.SEM_SEG_HEAD
+        aux_weights = {
+            "lovasz": getattr(head_cfg, "LOVASZ_WEIGHT", 0.0),
+            "boundary": getattr(head_cfg, "BOUNDARY_WEIGHT", 0.0),
+            "stego": getattr(head_cfg, "STEGO_WEIGHT", 0.0),
+            "depth_smooth": getattr(head_cfg, "DEPTH_SMOOTH_WEIGHT", 0.0),
+            "gated_crf": getattr(head_cfg, "GATED_CRF_WEIGHT", 0.0),
+            "neco": getattr(head_cfg, "NECO_WEIGHT", 0.0),
+        }
+        aux_params = {
+            "boundary_dilate_px": getattr(head_cfg, "BOUNDARY_DILATE_PX", 3),
+            "boundary_ce_mult": getattr(head_cfg, "BOUNDARY_CE_MULT", 2.0),
+            "stego_temperature": getattr(head_cfg, "STEGO_TEMPERATURE", 0.1),
+            "stego_knn_k": getattr(head_cfg, "STEGO_KNN_K", 7),
+            "stego_feature_source": getattr(head_cfg, "STEGO_FEATURE_SOURCE", "fpn_p2"),
+            "depth_smooth_alpha": getattr(head_cfg, "DEPTH_SMOOTH_ALPHA", 10.0),
+            "gated_crf_kernel": getattr(head_cfg, "GATED_CRF_KERNEL", 5),
+            "gated_crf_rgb_sigma": getattr(head_cfg, "GATED_CRF_RGB_SIGMA", 0.1),
+            "neco_k": getattr(head_cfg, "NECO_K", 5),
+        }
         return {
-            "input_shape": {k: v for k, v in input_shape.items() if k in cfg.MODEL.SEM_SEG_HEAD.IN_FEATURES},
-            "ignore_value": cfg.MODEL.SEM_SEG_HEAD.IGNORE_VALUE,
-            "num_classes": cfg.MODEL.SEM_SEG_HEAD.NUM_CLASSES,
-            "conv_dims": cfg.MODEL.SEM_SEG_HEAD.CONVS_DIM,
-            "common_stride": cfg.MODEL.SEM_SEG_HEAD.COMMON_STRIDE,
-            "norm": cfg.MODEL.SEM_SEG_HEAD.NORM,
-            "loss_weight": cfg.MODEL.SEM_SEG_HEAD.LOSS_WEIGHT,
-            "class_weight": cfg.MODEL.SEM_SEG_HEAD.CLASS_WEIGHT,
-            "stuff_kd_weight": getattr(cfg.MODEL.SEM_SEG_HEAD, "STUFF_KD_WEIGHT", 0.0),
-            "kd_temperature": getattr(cfg.MODEL.SEM_SEG_HEAD, "KD_TEMPERATURE", 2.0),
+            "input_shape": {k: v for k, v in input_shape.items() if k in head_cfg.IN_FEATURES},
+            "ignore_value": head_cfg.IGNORE_VALUE,
+            "num_classes": head_cfg.NUM_CLASSES,
+            "conv_dims": head_cfg.CONVS_DIM,
+            "common_stride": head_cfg.COMMON_STRIDE,
+            "norm": head_cfg.NORM,
+            "loss_weight": head_cfg.LOSS_WEIGHT,
+            "class_weight": head_cfg.CLASS_WEIGHT,
+            "stuff_kd_weight": getattr(head_cfg, "STUFF_KD_WEIGHT", 0.0),
+            "kd_temperature": getattr(head_cfg, "KD_TEMPERATURE", 2.0),
+            "aux_weights": aux_weights,
+            "aux_params": aux_params,
         }
 
     def forward(
@@ -136,6 +174,7 @@ class CustomSemSegFPNHead(nn.Module):
         pixel_weights: Optional[torch.Tensor] = None,
         depth: Optional[torch.Tensor] = None,
         pseudo_onehot: Optional[torch.Tensor] = None,
+        ctx: Optional[Dict[str, torch.Tensor]] = None,
     ):
         """Forward pass for semantic segmentation head.
 
@@ -148,6 +187,10 @@ class CustomSemSegFPNHead(nn.Module):
                 DepthFiLMSemSegHead subclass.
             pseudo_onehot: optional (B, C, H, W) one-hot pseudo-label targets
                 for stuff-preservation KD loss.
+            ctx: optional context dict with auxiliary tensors consumed by
+                Pass-1 to Pass-4 aux losses (``depth``, ``rgb``,
+                ``dino_features``). Missing keys raise KeyError only inside the
+                specific aux loss that requires them.
 
         Returns:
             In training, returns (None, dict of losses)
@@ -156,7 +199,11 @@ class CustomSemSegFPNHead(nn.Module):
         x = self.layers(features)
         if self.training:
             return None, self.losses(
-                x, targets, pixel_weights=pixel_weights, pseudo_onehot=pseudo_onehot,
+                x,
+                targets,
+                pixel_weights=pixel_weights,
+                pseudo_onehot=pseudo_onehot,
+                ctx=ctx,
             )
         else:
             x = F.interpolate(x, scale_factor=self.common_stride, mode="bilinear", align_corners=False)
@@ -177,6 +224,7 @@ class CustomSemSegFPNHead(nn.Module):
         targets: torch.Tensor,
         pixel_weights: Optional[torch.Tensor] = None,
         pseudo_onehot: Optional[torch.Tensor] = None,
+        ctx: Optional[Dict[str, torch.Tensor]] = None,
     ) -> Dict[str, torch.Tensor]:
         """Compute semantic segmentation loss with optional per-pixel weighting.
 
@@ -187,13 +235,18 @@ class CustomSemSegFPNHead(nn.Module):
                 from M5 mitigation. When None, uses standard mean reduction.
             pseudo_onehot: optional (B, C, H, W) one-hot pseudo-label targets
                 for stuff-preservation KD loss. Only used when stuff_kd_weight > 0.
+            ctx: optional context dict carrying auxiliary tensors consumed by
+                the P1-P4 aux losses (``depth``, ``rgb``, ``dino_features``).
+                Keys are only validated by the specific aux losses that need
+                them. Passing ``None`` or an empty dict disables all aux
+                terms regardless of their weights.
 
         Returns:
             Dict of loss tensors.
         """
-        predictions = predictions.float()  # https://github.com/pytorch/pytorch/issues/48163
+        predictions_low = predictions.float()  # https://github.com/pytorch/pytorch/issues/48163
         predictions = F.interpolate(
-            predictions,
+            predictions_low,
             scale_factor=self.common_stride,
             mode="bilinear",
             align_corners=False,
@@ -240,6 +293,35 @@ class CustomSemSegFPNHead(nn.Module):
         if self.stuff_kd_weight > 0.0 and pseudo_onehot is not None:
             kd_loss = self._compute_stuff_kd_loss(predictions, targets, pseudo_onehot)
             losses["loss_stuff_kd"] = kd_loss * self.stuff_kd_weight
+
+        # P1-P4 auxiliary losses (Lovász, boundary CE, STEGO, depth smoothness,
+        # Gated-CRF, NeCo). Each is controlled by a non-zero weight in
+        # ``self.aux_weights``; disabled terms are skipped entirely so the
+        # compute cost is zero when the aux head is unused.
+        if self._aux_fns and any(w > 0.0 for w in self.aux_weights.values()):
+            aux_ctx: Dict[str, object] = {
+                **(ctx or {}),
+                "logits_up": predictions,
+                "logits_low": predictions_low,
+                "targets": targets,
+                "class_weight": class_weight,
+                "ignore_index": self.ignore_value,
+                "params": self.aux_params,
+            }
+            name_map = (
+                ("lovasz", "loss_lovasz", "lovasz_softmax"),
+                ("boundary", "loss_boundary", "boundary_ce"),
+                ("stego", "loss_stego", "stego_corr"),
+                ("depth_smooth", "loss_depth_smooth", "depth_smoothness"),
+                ("gated_crf", "loss_gated_crf", "gated_crf"),
+                ("neco", "loss_neco", "neco"),
+            )
+            for weight_key, out_key, fn_key in name_map:
+                w = float(self.aux_weights.get(weight_key, 0.0))
+                if w <= 0.0:
+                    continue
+                fn = self._aux_fns[fn_key]
+                losses[out_key] = fn(predictions, targets, aux_ctx) * w
 
         return losses
 

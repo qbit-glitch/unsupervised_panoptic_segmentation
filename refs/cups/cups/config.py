@@ -105,6 +105,28 @@ _C.MODEL.SEM_SEG_HEAD.USE_DEPTH_FILM = False
 # Number of depth encoder output channels (sinusoidal + Sobel + raw)
 _C.MODEL.SEM_SEG_HEAD.DEPTH_CHANNELS = 15
 
+# Stage-2 semantic head auxiliary losses (P1-P4 of loss augmentation plan).
+# All aux weights default to 0.0 = disabled; enable per-pass via YAML overrides.
+# P1 -- LoCE (Lovasz-Softmax + boundary-weighted CE)
+_C.MODEL.SEM_SEG_HEAD.LOVASZ_WEIGHT = 0.0
+_C.MODEL.SEM_SEG_HEAD.BOUNDARY_WEIGHT = 0.0
+_C.MODEL.SEM_SEG_HEAD.BOUNDARY_DILATE_PX = 3
+_C.MODEL.SEM_SEG_HEAD.BOUNDARY_CE_MULT = 2.0
+# P2 -- FeatMirror (STEGO correspondence on DINOv3 features)
+_C.MODEL.SEM_SEG_HEAD.STEGO_WEIGHT = 0.0
+_C.MODEL.SEM_SEG_HEAD.STEGO_TEMPERATURE = 0.1
+_C.MODEL.SEM_SEG_HEAD.STEGO_KNN_K = 7
+_C.MODEL.SEM_SEG_HEAD.STEGO_FEATURE_SOURCE = "fpn_p2"  # "fpn_p2" or "vit_patch"
+# P3 -- DGLR (depth-guided logit regularizer)
+_C.MODEL.SEM_SEG_HEAD.DEPTH_SMOOTH_WEIGHT = 0.0
+_C.MODEL.SEM_SEG_HEAD.DEPTH_SMOOTH_ALPHA = 10.0
+# P4 -- DAff (Gated-CRF + NeCo dense affinity)
+_C.MODEL.SEM_SEG_HEAD.GATED_CRF_WEIGHT = 0.0
+_C.MODEL.SEM_SEG_HEAD.GATED_CRF_KERNEL = 5
+_C.MODEL.SEM_SEG_HEAD.GATED_CRF_RGB_SIGMA = 0.1
+_C.MODEL.SEM_SEG_HEAD.NECO_WEIGHT = 0.0
+_C.MODEL.SEM_SEG_HEAD.NECO_K = 5
+
 # Dataset configurations
 _C.DATA = CfgNode()
 # Subdirectory under DATA.ROOT containing precomputed depth maps (empty = disabled)
