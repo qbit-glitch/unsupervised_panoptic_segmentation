@@ -1,5 +1,7 @@
 # M0 baseline for Anydesk (cvpr_ug_5@gpunode2, RTX A6000 48GB).
-# Inherits M0 and overrides DATA paths + LOG_PATH for the anydesk filesystem.
+# Inherits M0 and overrides DATA paths + LOG_PATH + batch geometry for the
+# 48 GB VRAM budget. Effective batch stays 16 (bs=4 x accum=4) so the PQ
+# number stays comparable to a santosh bs=1 x accum=16 run.
 
 _BASE_: "M0_baseline_dinov3_vitb_k80.yaml"
 
@@ -11,3 +13,8 @@ DATA:
 SYSTEM:
   LOG_PATH: "/home/cvpr_ug_5/umesh/experiments/stage2_m2f/M0_baseline_anydesk"
   RUN_NAME: "M0_baseline_dinov3_vitb_k80_anydesk"
+  NUM_WORKERS: 4
+
+TRAINING:
+  BATCH_SIZE: 4               # exploit 48 GB VRAM on A6000
+  ACCUMULATE_GRAD_BATCHES: 4  # effective batch = 16 (same as M0 spec)
