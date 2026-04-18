@@ -2,11 +2,14 @@
 from __future__ import annotations
 
 import logging
+from typing import Any, Dict
 
 import torch
 import torch.nn as nn
 from yacs.config import CfgNode
 
+from cups.losses.query_consistency import query_consistency_loss
+from cups.losses.xquery import xquery_loss
 from cups.model.backbone_dinov3_vit import DINOv3ViTBackbone
 from cups.model.modeling.mask2former.masked_attention_decoder import MaskedAttentionDecoder
 from cups.model.modeling.mask2former.matcher import HungarianMatcher
@@ -126,8 +129,23 @@ def build_mask2former_vitb(cfg: CfgNode) -> Mask2FormerPanoptic:
         object_mask_threshold=m.OBJECT_MASK_THRESHOLD,
         overlap_threshold=m.OVERLAP_THRESHOLD,
     )
+
+    aux_loss_hooks: Dict[str, Any] = {}
+    if m.XQUERY_WEIGHT > 0.0:
+        def _xquery_hook(dec_out, targets, ctx, _w=m.XQUERY_WEIGHT, _t=m.XQUERY_TEMPERATURE):
+            return _w * xquery_loss(dec_out, targets, {"temperature": _t})
+        aux_loss_hooks["xquery"] = _xquery_hook
+    if m.QUERY_CONSISTENCY_WEIGHT > 0.0:
+        def _qc_hook(dec_out, targets, ctx, _w=m.QUERY_CONSISTENCY_WEIGHT, _t=m.QUERY_CONSISTENCY_TEMPERATURE):
+            return _w * query_consistency_loss(dec_out, targets, {**ctx, "temperature": _t})
+        aux_loss_hooks["query_consistency"] = _qc_hook
+    if aux_loss_hooks:
+        aux_loss_hooks["return_query_embeds"] = True
+        model.aux_loss_hooks = aux_loss_hooks
+
     log.info(
-        "Built Mask2FormerPanoptic: queries=%d stuff=%d thing=%d adapter_blocks=%d dec_layers=%d",
+        "Built Mask2FormerPanoptic: queries=%d stuff=%d thing=%d adapter_blocks=%d dec_layers=%d aux_hooks=%s",
         num_queries, num_stuff, num_thing, m.ADAPTER_BLOCKS, m.NUM_DECODER_LAYERS,
+        sorted(k for k in aux_loss_hooks.keys() if k != "return_query_embeds"),
     )
     return model

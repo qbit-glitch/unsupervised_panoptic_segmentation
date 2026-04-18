@@ -33,6 +33,12 @@ def _minimal_config(num_stuff: int = 12, num_thing: int = 8) -> CfgNode:
     c.MODEL.MASK2FORMER.DROPPATH = 0.0
     c.MODEL.MASK2FORMER.QUERIES_STUFF = 150
     c.MODEL.MASK2FORMER.QUERIES_THING = 50
+    # N3/N4 aux-loss weights default to 0.0 (off); tests that exercise the
+    # hooks override these explicitly.
+    c.MODEL.MASK2FORMER.XQUERY_WEIGHT = 0.0
+    c.MODEL.MASK2FORMER.XQUERY_TEMPERATURE = 0.1
+    c.MODEL.MASK2FORMER.QUERY_CONSISTENCY_WEIGHT = 0.0
+    c.MODEL.MASK2FORMER.QUERY_CONSISTENCY_TEMPERATURE = 0.1
     c.DATA = CfgNode()
     c.DATA.NUM_PSEUDO_CLASSES = num_stuff + num_thing
     # Marker fields consumed by the builder:
@@ -105,3 +111,64 @@ def test_builder_propagates_freeze_flag(monkeypatch) -> None:
     cfg.MODEL.DINOV2_FREEZE = True
     build_mask2former_vitb(cfg)
     assert captured["freeze"] is True
+
+
+def test_builder_wires_no_hooks_when_weights_zero(monkeypatch) -> None:
+    _install_fake_backbone(monkeypatch)
+    cfg = _minimal_config()
+    cfg.MODEL.MASK2FORMER.XQUERY_WEIGHT = 0.0
+    cfg.MODEL.MASK2FORMER.XQUERY_TEMPERATURE = 0.1
+    cfg.MODEL.MASK2FORMER.QUERY_CONSISTENCY_WEIGHT = 0.0
+    cfg.MODEL.MASK2FORMER.QUERY_CONSISTENCY_TEMPERATURE = 0.1
+    model = build_mask2former_vitb(cfg)
+    assert "xquery" not in model.aux_loss_hooks
+    assert "query_consistency" not in model.aux_loss_hooks
+    assert not model.aux_loss_hooks.get("return_query_embeds", False)
+
+
+def test_builder_wires_xquery_hook_when_weight_positive(monkeypatch, tiny_gt_panoptic) -> None:
+    _install_fake_backbone(monkeypatch)
+    cfg = _minimal_config()
+    cfg.MODEL.MASK2FORMER.XQUERY_WEIGHT = 0.1
+    cfg.MODEL.MASK2FORMER.XQUERY_TEMPERATURE = 0.1
+    cfg.MODEL.MASK2FORMER.QUERY_CONSISTENCY_WEIGHT = 0.0
+    cfg.MODEL.MASK2FORMER.QUERY_CONSISTENCY_TEMPERATURE = 0.1
+    model = build_mask2former_vitb(cfg).train()
+    assert "xquery" in model.aux_loss_hooks
+    assert callable(model.aux_loss_hooks["xquery"])
+    assert model.aux_loss_hooks.get("return_query_embeds") is True
+
+    torch.manual_seed(0)
+    batch = []
+    for gt in tiny_gt_panoptic:
+        batch.append({
+            "image": torch.randn(3, 64, 128),
+            "_m2f_targets": {"labels": gt["labels"], "masks": gt["masks"]},
+        })
+    loss_dict = model(batch)
+    assert "loss_xquery" in loss_dict
+    assert torch.isfinite(loss_dict["loss_xquery"])
+
+
+def test_builder_wires_query_consistency_hook_when_weight_positive(monkeypatch, tiny_gt_panoptic) -> None:
+    _install_fake_backbone(monkeypatch)
+    cfg = _minimal_config()
+    cfg.MODEL.MASK2FORMER.XQUERY_WEIGHT = 0.0
+    cfg.MODEL.MASK2FORMER.XQUERY_TEMPERATURE = 0.1
+    cfg.MODEL.MASK2FORMER.QUERY_CONSISTENCY_WEIGHT = 0.1
+    cfg.MODEL.MASK2FORMER.QUERY_CONSISTENCY_TEMPERATURE = 0.1
+    model = build_mask2former_vitb(cfg).train()
+    assert "query_consistency" in model.aux_loss_hooks
+    assert callable(model.aux_loss_hooks["query_consistency"])
+    assert model.aux_loss_hooks.get("return_query_embeds") is True
+
+    torch.manual_seed(0)
+    batch = []
+    for gt in tiny_gt_panoptic:
+        batch.append({
+            "image": torch.randn(3, 64, 128),
+            "_m2f_targets": {"labels": gt["labels"], "masks": gt["masks"]},
+        })
+    loss_dict = model(batch)
+    assert "loss_query_consistency" in loss_dict
+    assert torch.isfinite(loss_dict["loss_query_consistency"])
