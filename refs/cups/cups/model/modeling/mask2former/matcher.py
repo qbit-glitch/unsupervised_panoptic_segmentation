@@ -58,7 +58,10 @@ class HungarianMatcher(nn.Module):
             tgt_masks = targets[b]["masks"].float()     # N, H, W
             if tgt_labels.numel() == 0:
                 indices.append(
-                    (torch.empty(0, dtype=torch.long), torch.empty(0, dtype=torch.long))
+                    (
+                        torch.empty(0, dtype=torch.long, device=pred_masks.device),
+                        torch.empty(0, dtype=torch.long, device=pred_masks.device),
+                    )
                 )
                 continue
             # Sample K' points per mask for tractable matching.
@@ -66,7 +69,7 @@ class HungarianMatcher(nn.Module):
             pnts = torch.randint(0, H * W, (self.num_points,), device=pred_masks.device)
             out_mask = pred_masks[b].flatten(1)[:, pnts]        # Q, P
             tgt_mask = tgt_masks.flatten(1)[:, pnts]            # N, P
-            # Class cost: -log(softmax[c_gt]).
+            # Class cost: -softmax[c_gt] (Mask2Former uses raw prob, not log-prob).
             prob = pred_logits[b].softmax(-1)                   # Q, K
             cost_class = -prob[:, tgt_labels]                   # Q, N
             cost_mask = _sigmoid_focal_cost(out_mask, tgt_mask) # Q, N
