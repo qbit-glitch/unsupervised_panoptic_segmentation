@@ -12,6 +12,13 @@ __all__ = ["Extractor"]
 
 
 class Extractor(nn.Module):
+    """Cross-attention block: flattened SPM features query ViT patch tokens.
+
+    Mirrors :class:`Injector`'s design (pre-LN, gated residual, parallel MLP
+    branch off ``q_norm``). The ``gate`` scalar is zero-initialised so the
+    block is identity at step 0 and learns how much ViT context to absorb.
+    """
+
     def __init__(self, embed_dim: int = 768, num_heads: int = 8, mlp_ratio: float = 0.5, dropout: float = 0.0) -> None:
         super().__init__()
         self.norm_q = nn.LayerNorm(embed_dim)

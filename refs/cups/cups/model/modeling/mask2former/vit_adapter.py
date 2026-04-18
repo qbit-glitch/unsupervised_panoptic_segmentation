@@ -10,7 +10,6 @@ from typing import Dict
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 from .extractor import Extractor
 from .injector import Injector
@@ -20,6 +19,13 @@ __all__ = ["ViTAdapter"]
 
 
 class ViTAdapter(nn.Module):
+    """Frozen ViT backbone + SPM + alternating Injector/Extractor blocks.
+
+    Emits a 4-level FPN dict ``{p2, p3, p4, p5}`` at strides (4, 8, 16, 32),
+    each with ``pyramid_channels`` channels, ready for the MSDeformAttn
+    pixel decoder.
+    """
+
     def __init__(
         self,
         backbone: nn.Module,
@@ -47,6 +53,8 @@ class ViTAdapter(nn.Module):
         c2, c3, c4 = self.spm(x)                     # strides 4/8/16
         for inj, ext in zip(self.injectors, self.extractors):
             vit = inj(vit_feat=vit, c2=c2, c3=c3, c4=c4)
+            # Extractor output overwrites c2/c3/c4 intentionally: SPM seeds
+            # the pyramid, each block refines it with ViT context.
             c2, c3, c4 = ext(c2=c2, c3=c3, c4=c4, vit_feat=vit)
         p2 = self.proj_p2(c2)
         p3 = self.proj_p3(c3)
