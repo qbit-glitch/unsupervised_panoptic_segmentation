@@ -34,7 +34,7 @@ SYSTEM:
   ACCELERATOR: "gpu"
   NUM_GPUS: 1
   NUM_NODES: 1
-  NUM_WORKERS: 8
+  NUM_WORKERS: 4
   LOG_PATH: "/home/cvpr_ug_5/umesh/experiments"
   RUN_NAME: "cups_dinov3_vitb_depthpro_tau020_anydesk_bs16"
 TRAINING:
