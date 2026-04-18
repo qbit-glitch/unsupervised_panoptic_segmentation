@@ -1,0 +1,24 @@
+# M2: M1 + (N-levers that passed the +0.5 PQ gate in Phase 3).
+# STUB — enabled flags below should be replaced with the actual Phase 3 winners
+# after N1-N5 have been run and evaluated. Currently set optimistically
+# (N1 decoupled + N4 QueryConsistency) so Phase 5 LOO configs can _BASE_ on it.
+#
+# Compatibility notes to revisit after Phase 3:
+# - N1 (decoupled) and N2 (depth_bias) are mutually exclusive (single QUERY_POOL).
+#   If both pass, keep the one with the larger delta_PQ.
+# - N3 (XQUERY) needs BATCH_SIZE>=2; if GPU OOMs, raise ACCUMULATE_GRAD_BATCHES.
+# - N4 (QueryConsistency) requires EMA.ENABLED: True (already set via M1).
+_BASE_: "M1_stacked_guaranteed.yaml"
+
+MODEL:
+  MASK2FORMER:
+    QUERY_POOL: "decoupled"          # N1 assumed winner
+    QUERIES_STUFF: 150
+    QUERIES_THING: 50
+    XQUERY_WEIGHT: 0.0               # N3: replace with 0.1 if it passed
+    QUERY_CONSISTENCY_WEIGHT: 0.1    # N4 assumed winner
+    QUERY_CONSISTENCY_TEMPERATURE: 0.1
+
+SYSTEM:
+  RUN_NAME: "M2_stacked_novel"
+  LOG_PATH: "results/stage2_m2f/M2_stacked_novel"

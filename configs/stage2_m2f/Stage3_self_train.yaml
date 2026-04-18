@@ -1,0 +1,26 @@
+# Stage-3 self-training starting from M2 checkpoint.
+# Round 0: use M2 as teacher (tau=0.95). Round r: raise tau by CONFIDENCE_STEP.
+_BASE_: "M2_stacked_novel.yaml"
+
+MODEL:
+  CHECKPOINT: "results/stage2_m2f/M2_stacked_novel/checkpoints/last.ckpt"
+  EMA:
+    ENABLED: True
+    DECAY: 0.9998
+  MASK2FORMER:
+    SELF_TRAIN_THRESHOLD: 0.95
+
+SELF_TRAINING:
+  ROUND_STEPS: 1000
+  ROUNDS: 3
+  CONFIDENCE_STEP: 0.02              # tau per round: 0.95 -> 0.97 -> 0.99
+  SEMANTIC_SEGMENTATION_THRESHOLD: 0.95
+  USE_DROP_LOSS: False
+
+TRAINING:
+  STEPS: 3000                        # 3 x ROUND_STEPS
+  VAL_EVERY_N_STEPS: 500
+
+SYSTEM:
+  RUN_NAME: "Stage3_self_train"
+  LOG_PATH: "results/stage2_m2f/Stage3_self_train"

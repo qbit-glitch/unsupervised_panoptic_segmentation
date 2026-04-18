@@ -1,0 +1,13 @@
+# Leave-one-out: disable N4 QueryConsistency loss only.
+_BASE_: "M2_stacked_novel.yaml"
+
+MODEL:
+  MASK2FORMER:
+    QUERY_CONSISTENCY_WEIGHT: 0.0
+
+TRAINING:
+  STEPS: 15000       # half schedule for LOO sweep
+
+SYSTEM:
+  RUN_NAME: "LOO_noN4"
+  LOG_PATH: "results/stage2_m2f/LOO_noN4"
