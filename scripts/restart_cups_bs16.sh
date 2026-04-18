@@ -2,8 +2,9 @@
 # Kill old training, start CUPS with bs=16 config (full batch, no accumulation).
 # Run on A6000:
 #   cd ~/umesh/unsupervised_panoptic_segmentation
-#   nohup bash scripts/restart_cups_bs16.sh > ~/cups_bs16.log 2>&1 &
-#   tail -f ~/cups_bs16.log
+#   mkdir -p logs
+#   nohup bash scripts/restart_cups_bs16.sh > logs/cups_bs16.log 2>&1 &
+#   tail -f logs/cups_bs16.log
 set -e
 
 echo "=== Killing old training ==="
