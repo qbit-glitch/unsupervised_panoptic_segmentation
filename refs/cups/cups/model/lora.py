@@ -397,14 +397,25 @@ class ConvDoRALinear(DoRALinear):
         h_p, w_p = self._spatial_dims or (None, None)
         if h_p is not None and w_p is not None:
             B_size = x.shape[0]
+            n_patches = h_p * w_p
+            seq_len = x.shape[1]
+            n_special = seq_len - n_patches  # cls + register tokens
             # Down-project: (B, N, in) → (B, N, r)
             z = F.linear(x, self.lora_A)
-            # Reshape to spatial grid: (B, N, r) → (B, r, h_p, w_p)
-            z_2d = z.transpose(1, 2).reshape(B_size, self.rank, h_p, w_p)
+            # Strip special tokens (cls + registers) before spatial reshape
+            z_patch = z[:, n_special:, :]  # (B, n_patches, r)
+            # Reshape to spatial grid: (B, n_patches, r) → (B, r, h_p, w_p)
+            z_2d = z_patch.transpose(1, 2).reshape(B_size, self.rank, h_p, w_p)
             # DWConv3x3 for local spatial context
             z_conv = self.dwconv(z_2d)
-            # Flatten back: (B, r, h_p, w_p) → (B, N, r)
+            # Flatten back: (B, r, h_p, w_p) → (B, n_patches, r)
             z_flat = z_conv.reshape(B_size, self.rank, -1).transpose(1, 2)
+            # Prepend zeros for special tokens so output shape matches input
+            if n_special > 0:
+                z_flat = torch.cat(
+                    [torch.zeros(B_size, n_special, self.rank, device=z.device, dtype=z.dtype), z_flat],
+                    dim=1,
+                )
             # Up-project: (B, N, r) → (B, N, out)
             conv_out = F.linear(z_flat, self.lora_B) * self.scaling
             dora_out = dora_out + self.conv_gate * conv_out
