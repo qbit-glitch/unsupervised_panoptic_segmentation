@@ -71,6 +71,23 @@ class Mask2FormerPanoptic(nn.Module):
         return None
 
     def _collect_targets(self, batch: List[Dict[str, Any]]) -> List[Dict[str, torch.Tensor]]:
+        """Build SetCriterion-compatible targets in the combined stuff+thing ID space.
+
+        Dataset convention (pseudo_label_dataset.py:430-491):
+          - sem_seg value 0      -> thing-region marker (when IGNORE_UNKNOWN_THING_REGIONS=False)
+          - sem_seg value [1..S] -> stuff class, 1-indexed
+          - sem_seg value 255    -> void / ignore
+          - instances.gt_classes -> thing class in [0..T), 0-indexed
+
+        Combined space expected by SetCriterion(num_classes=S+T):
+          - [0, S)     -> stuff classes         (sem_seg value c -> label c - 1)
+          - [S, S+T)   -> thing classes         (gt_classes c    -> label c + S)
+          - S+T        -> "no-object" phi       (handled internally, absent from targets)
+
+        sem_seg==0 is always skipped: thing regions are sourced from `instances`,
+        and emitting a union mask as target label 0 would both collide with stuff
+        class 0 and double-count things.
+        """
         targets: List[Dict[str, torch.Tensor]] = []
         for s in batch:
             if "_m2f_targets" in s:
@@ -83,18 +100,18 @@ class Mask2FormerPanoptic(nn.Module):
             masks: List[torch.Tensor] = []
             if "instances" in s:
                 inst = s["instances"].to(self.device)
-                labels.extend(inst.gt_classes.tolist())
+                # Thing gt_classes are local [0, T); shift into combined space [S, S+T).
+                labels.extend(int(c) + self.num_stuff_classes for c in inst.gt_classes.tolist())
                 masks.extend([m.bool() for m in inst.gt_masks.tensor])
-            # TODO(task-0.17): when both "instances" and "sem_seg" are present,
-            # thing classes can enter targets twice (once per-instance, once as a
-            # union sem_seg mask). Task 0.17 resolves this at wiring time by
-            # choosing a single target source per dataset.
             if "sem_seg" in s:
                 sem = s["sem_seg"].to(self.device)
                 for c in sem.unique():
-                    if int(c) in _IGNORE_LABELS:
+                    ci = int(c)
+                    # Skip void (255, -1) and thing-region marker (0).
+                    if ci in _IGNORE_LABELS or ci == 0:
                         continue
-                    labels.append(int(c))
+                    # Stuff sem_seg is 1-indexed [1, S]; decrement into [0, S).
+                    labels.append(ci - 1)
                     masks.append((sem == c))
             if not labels:
                 H, W = s["image"].shape[-2:]
@@ -146,9 +163,14 @@ class Mask2FormerPanoptic(nn.Module):
         if self.training:
             targets = self._collect_targets(batch)
             loss_dict = self.criterion(dec_out, targets)
+            ctx = {
+                "images": images,
+                "depth": depth,
+                "teacher_query_embeds": getattr(self, "_teacher_query_embeds", None),
+            }
             for loss_key, hook in self.aux_loss_hooks.items():
                 if loss_key in ("xquery", "query_consistency"):
-                    loss_dict[f"loss_{loss_key}"] = hook(dec_out, targets, {"images": images, "depth": depth})
+                    loss_dict[f"loss_{loss_key}"] = hook(dec_out, targets, ctx)
             return loss_dict
         outputs: List[Dict[str, torch.Tensor]] = []
         # TODO(task-0.17): `images` is the padded batch tensor, so H, W are the
