@@ -1,0 +1,9 @@
+_BASE_: "M0_baseline_dinov3_vitb_k80.yaml"
+MODEL:
+  SWA:
+    ENABLED: True
+    NUM_CKPTS: 5
+    START_FRACTION: 0.75
+SYSTEM:
+  RUN_NAME: "G2_SWA"
+  LOG_PATH: "results/stage2_m2f/G2_SWA"

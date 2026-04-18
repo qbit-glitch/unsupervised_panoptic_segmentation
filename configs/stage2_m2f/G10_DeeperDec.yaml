@@ -1,0 +1,7 @@
+_BASE_: "M0_baseline_dinov3_vitb_k80.yaml"
+MODEL:
+  MASK2FORMER:
+    NUM_DECODER_LAYERS: 9
+SYSTEM:
+  RUN_NAME: "G10_DeeperDec"
+  LOG_PATH: "results/stage2_m2f/G10_DeeperDec"

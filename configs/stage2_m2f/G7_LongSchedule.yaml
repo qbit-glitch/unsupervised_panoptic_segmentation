@@ -1,0 +1,7 @@
+_BASE_: "M0_baseline_dinov3_vitb_k80.yaml"
+TRAINING:
+  STEPS: 30000
+  VAL_EVERY_N_STEPS: 1500
+SYSTEM:
+  RUN_NAME: "G7_LongSchedule"
+  LOG_PATH: "results/stage2_m2f/G7_LongSchedule"

@@ -1,0 +1,7 @@
+_BASE_: "M0_baseline_dinov3_vitb_k80.yaml"
+MODEL:
+  MASK2FORMER:
+    DROPPATH: 0.3
+SYSTEM:
+  RUN_NAME: "G5_DropPath"
+  LOG_PATH: "results/stage2_m2f/G5_DropPath"

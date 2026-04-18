@@ -1,0 +1,9 @@
+_BASE_: "M0_baseline_dinov3_vitb_k80.yaml"
+AUGMENTATION:
+  LSJ:
+    ENABLED: True
+    MIN_SCALE: 0.1
+    MAX_SCALE: 2.0
+SYSTEM:
+  RUN_NAME: "G3_LSJ"
+  LOG_PATH: "results/stage2_m2f/G3_LSJ"

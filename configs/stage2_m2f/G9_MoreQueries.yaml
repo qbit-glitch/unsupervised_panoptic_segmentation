@@ -1,0 +1,7 @@
+_BASE_: "M0_baseline_dinov3_vitb_k80.yaml"
+MODEL:
+  MASK2FORMER:
+    NUM_QUERIES: 200
+SYSTEM:
+  RUN_NAME: "G9_MoreQueries"
+  LOG_PATH: "results/stage2_m2f/G9_MoreQueries"

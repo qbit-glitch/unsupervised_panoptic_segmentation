@@ -1,0 +1,8 @@
+_BASE_: "M0_baseline_dinov3_vitb_k80.yaml"
+MODEL:
+  EMA:
+    ENABLED: True
+    DECAY: 0.9998
+SYSTEM:
+  RUN_NAME: "G1_EMA"
+  LOG_PATH: "results/stage2_m2f/G1_EMA"

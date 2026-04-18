@@ -1,0 +1,6 @@
+_BASE_: "M0_baseline_dinov3_vitb_k80.yaml"
+DATA:
+  CROP_RESOLUTION: [768, 1536]
+SYSTEM:
+  RUN_NAME: "G8_LargerCrop"
+  LOG_PATH: "results/stage2_m2f/G8_LargerCrop"

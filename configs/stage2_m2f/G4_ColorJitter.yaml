@@ -1,0 +1,11 @@
+_BASE_: "M0_baseline_dinov3_vitb_k80.yaml"
+AUGMENTATION:
+  COLOR_JITTER:
+    ENABLED: True
+    BRIGHTNESS: 0.4
+    CONTRAST: 0.4
+    SATURATION: 0.4
+    HUE: 0.1
+SYSTEM:
+  RUN_NAME: "G4_ColorJitter"
+  LOG_PATH: "results/stage2_m2f/G4_ColorJitter"

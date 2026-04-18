@@ -1,0 +1,9 @@
+_BASE_: "M0_baseline_dinov3_vitb_k80.yaml"
+VALIDATION:
+  USE_DENSE_CRF: True
+  DENSE_CRF_ITER: 5
+  DENSE_CRF_BI_W: 4.0
+  DENSE_CRF_POS_W: 3.0
+SYSTEM:
+  RUN_NAME: "G6_CRF"
+  LOG_PATH: "results/stage2_m2f/G6_CRF"
