@@ -30,6 +30,12 @@ class _StubMetaArch(Mask2FormerPanoptic):
         self.num_thing_classes = num_thing
         self.num_classes = num_stuff + num_thing
         self._device = torch.device("cpu")
+        self.register_buffer(
+            "_pixel_mean", torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1), persistent=False
+        )
+        self.register_buffer(
+            "_pixel_std", torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1), persistent=False
+        )
 
     @property
     def device(self) -> torch.device:

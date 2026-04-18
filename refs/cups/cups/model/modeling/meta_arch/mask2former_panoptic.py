@@ -51,18 +51,37 @@ class Mask2FormerPanoptic(nn.Module):
         self.object_mask_threshold = object_mask_threshold
         self.overlap_threshold = overlap_threshold
         self.aux_loss_hooks = aux_loss_hooks or {}
+        # DINOv3 backbone (refs/dinov3/README.md) expects ImageNet-normalized input.
+        # The backbone wrapper does NOT normalize internally, so we do it here.
+        self.register_buffer(
+            "_pixel_mean", torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1), persistent=False
+        )
+        self.register_buffer(
+            "_pixel_std", torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1), persistent=False
+        )
 
     @property
     def device(self) -> torch.device:
         return next(self.parameters()).device
 
     def _stack_images(self, batch: List[Dict[str, Any]]) -> torch.Tensor:
+        """Pad to max H/W in batch and apply ImageNet normalization.
+
+        uint8 inputs are assumed to span [0, 255] and are rescaled to [0, 1]
+        before normalization. Float inputs are assumed to already be in [0, 1].
+        Padding pixels stay at zero, which is safe because zero is further
+        from the normalized distribution centre than any valid pixel — the
+        backbone treats it as out-of-distribution per existing behaviour.
+        """
         imgs = [s["image"].to(self.device) for s in batch]
         H = max(t.shape[-2] for t in imgs)
         W = max(t.shape[-1] for t in imgs)
         padded = torch.zeros(len(imgs), 3, H, W, device=self.device)
         for i, t in enumerate(imgs):
-            padded[i, :, : t.shape[-2], : t.shape[-1]] = t.float() / 255.0 if t.dtype == torch.uint8 else t.float()
+            x = t.float() / 255.0 if t.dtype == torch.uint8 else t.float()
+            # Normalize only the valid region; padding stays at zero.
+            h, w = t.shape[-2], t.shape[-1]
+            padded[i, :, :h, :w] = (x - self._pixel_mean[0]) / self._pixel_std[0]
         return padded
 
     def _maybe_depth(self, batch: List[Dict[str, Any]]) -> Optional[torch.Tensor]:
