@@ -273,16 +273,11 @@ def main() -> None:
             RTPTCallback(name_initials="CR&OH", experiment_name="UPS"),
             TQDMProgressBar(refresh_rate=1),
             ModelCheckpoint(
-                filename="ups_checkpoint_{step:06d}",
-                every_n_train_steps=ckpt_every,
-                save_last=True,
-                save_top_k=-1,
-            ),
-            ModelCheckpoint(
                 filename="best_pq_{step:06d}",
                 monitor="pq_val",
                 mode="max",
-                save_top_k=3,
+                save_top_k=6,
+                save_last=True,
                 every_n_train_steps=ckpt_every,
             ),
             LearningRateMonitor(logging_interval="step", log_momentum=True),
