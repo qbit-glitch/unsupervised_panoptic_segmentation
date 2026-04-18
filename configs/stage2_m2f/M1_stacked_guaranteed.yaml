@@ -1,0 +1,31 @@
+# M1: M0 + (G-levers that passed the +0.5 PQ gate in Phase 1).
+# STUB — enabled flags below should be replaced with the actual Phase 1 winners
+# after G1-G10 have been run and evaluated. Currently set optimistically
+# (all cheap levers enabled) so downstream N-configs can _BASE_ on this file.
+_BASE_: "M0_baseline_dinov3_vitb_k80.yaml"
+
+MODEL:
+  EMA:
+    ENABLED: True          # G1 assumed winner
+    DECAY: 0.9998
+  SWA:
+    ENABLED: False         # G2: replace with True if it passed
+  MASK2FORMER:
+    NUM_QUERIES: 100       # G9: keep 100 or change to 200 if G9 passed
+    NUM_DECODER_LAYERS: 9  # G10 assumed winner
+
+AUGMENTATION:
+  LSJ:
+    ENABLED: True          # G3 assumed winner
+  COLOR_JITTER:
+    ENABLED: True          # G4 assumed winner
+
+TRAINING:
+  STEPS: 30000             # G7 assumed winner
+
+VALIDATION:
+  USE_DENSE_CRF: False     # G6: replace if it passed
+
+SYSTEM:
+  RUN_NAME: "M1_stacked_guaranteed"
+  LOG_PATH: "results/stage2_m2f/M1_stacked_guaranteed"

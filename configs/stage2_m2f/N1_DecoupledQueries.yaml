@@ -1,0 +1,9 @@
+_BASE_: "M1_stacked_guaranteed.yaml"
+MODEL:
+  MASK2FORMER:
+    QUERY_POOL: "decoupled"
+    QUERIES_STUFF: 150
+    QUERIES_THING: 50
+SYSTEM:
+  RUN_NAME: "N1_DecoupledQueries"
+  LOG_PATH: "results/stage2_m2f/N1_DecoupledQueries"

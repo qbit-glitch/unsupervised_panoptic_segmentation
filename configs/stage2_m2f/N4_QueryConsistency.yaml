@@ -1,0 +1,11 @@
+_BASE_: "M1_stacked_guaranteed.yaml"
+MODEL:
+  EMA:
+    ENABLED: True
+    DECAY: 0.9998
+  MASK2FORMER:
+    QUERY_CONSISTENCY_WEIGHT: 0.1
+    QUERY_CONSISTENCY_TEMPERATURE: 0.1
+SYSTEM:
+  RUN_NAME: "N4_QueryConsistency"
+  LOG_PATH: "results/stage2_m2f/N4_QueryConsistency"

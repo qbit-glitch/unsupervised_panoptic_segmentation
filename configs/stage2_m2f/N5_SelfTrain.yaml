@@ -1,0 +1,14 @@
+_BASE_: "M1_stacked_guaranteed.yaml"
+MODEL:
+  EMA:
+    ENABLED: True
+    DECAY: 0.9998
+  MASK2FORMER:
+    SELF_TRAIN_THRESHOLD: 0.95
+SELF_TRAINING:
+  ROUND_STEPS: 1000
+  ROUNDS: 3
+  SEMANTIC_SEGMENTATION_THRESHOLD: 0.95
+SYSTEM:
+  RUN_NAME: "N5_SelfTrain"
+  LOG_PATH: "results/stage2_m2f/N5_SelfTrain"

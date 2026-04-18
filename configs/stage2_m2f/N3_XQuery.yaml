@@ -1,0 +1,11 @@
+_BASE_: "M1_stacked_guaranteed.yaml"
+MODEL:
+  MASK2FORMER:
+    XQUERY_WEIGHT: 0.1
+    XQUERY_TEMPERATURE: 0.1
+TRAINING:
+  BATCH_SIZE: 2
+  ACCUMULATE_GRAD_BATCHES: 8
+SYSTEM:
+  RUN_NAME: "N3_XQuery"
+  LOG_PATH: "results/stage2_m2f/N3_XQuery"

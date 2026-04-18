@@ -1,0 +1,9 @@
+_BASE_: "M1_stacked_guaranteed.yaml"
+MODEL:
+  MASK2FORMER:
+    QUERY_POOL: "depth_bias"
+DATA:
+  DEPTH_SUBDIR: "depth_depthpro"
+SYSTEM:
+  RUN_NAME: "N2_DepthQueryBias"
+  LOG_PATH: "results/stage2_m2f/N2_DepthQueryBias"
