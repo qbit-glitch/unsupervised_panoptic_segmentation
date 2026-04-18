@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Optional, Set, Tuple
 
 from yacs.config import CfgNode
 
@@ -365,35 +365,54 @@ _C.MASK_REFINEMENT.MIN_AREA = 100
 __all__: Tuple[str, ...] = ("get_default_config",)
 
 
+def _resolve_base_chain(config_file: str) -> List[str]:
+    """Return ordered list of config paths, ancestors first."""
+    chain: List[str] = []
+    seen: Set[str] = set()
+    cur: Optional[str] = os.path.abspath(config_file)
+    while cur is not None:
+        if cur in seen:
+            raise ValueError(f"cyclic _BASE_ chain starting at {config_file}")
+        seen.add(cur)
+        chain.append(cur)
+        with open(cur, "r") as f:
+            import yaml
+            raw = yaml.safe_load(f) or {}
+        base_rel = raw.get("_BASE_")
+        if base_rel is None:
+            break
+        cur = os.path.abspath(os.path.join(os.path.dirname(cur), base_rel))
+    return list(reversed(chain))   # parent first
+
+
 def get_default_config(
     experiment_config_file: Optional[str] = None,
     command_line_arguments: Optional[List[Any]] = None,
 ) -> CfgNode:
-    """Loads config object.
-
-    Args:
-        experiment_config_file (Optional[str]): If given config file is used to overwrite the default config.
-        command_line_arguments Optional[List[Any]]: Optional command line arguments, overwrites experiment config.
-
-    Returns:
-        config (CfgNode): Config object.
-    """
-    # Get default config
+    """Loads config object with _BASE_ inheritance support."""
     config = _C.clone()
-    # Load and merge experiment config from file
     if experiment_config_file is not None:
-        assert isinstance(
-            experiment_config_file, str
-        ), f"Experiment config file must be a string but {type(experiment_config_file)} given."
-        assert os.path.exists(experiment_config_file), f"File {experiment_config_file} does not exists."
-        config.merge_from_file(experiment_config_file)
-        log.info(f"Experiment config file {experiment_config_file} loaded.")
+        assert isinstance(experiment_config_file, str)
+        assert os.path.exists(experiment_config_file)
+        chain = _resolve_base_chain(experiment_config_file)
+        # Merge each file in parent-first order, dropping _BASE_ key before merge.
+        for path in chain:
+            import yaml
+            with open(path, "r") as f:
+                raw = yaml.safe_load(f) or {}
+            raw.pop("_BASE_", None)
+            import tempfile
+            with tempfile.NamedTemporaryFile("w", suffix=".yaml", delete=False) as tmp:
+                yaml.safe_dump(raw, tmp)
+                tmp_path = tmp.name
+            try:
+                config.merge_from_file(tmp_path)
+            finally:
+                os.unlink(tmp_path)
+        log.info(f"Experiment config chain {[os.path.basename(p) for p in chain]} loaded.")
     if command_line_arguments is not None:
-        assert isinstance(
-            command_line_arguments, list
-        ), f"Command line arguments must be a list [keys, values, ...] but type {type(command_line_arguments)} given."
+        assert isinstance(command_line_arguments, list)
         config.merge_from_list(command_line_arguments)
         log.info("Command line arguments loaded.")
-    # Freeze config
     config.freeze()
     return config
