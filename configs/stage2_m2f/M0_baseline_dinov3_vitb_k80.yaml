@@ -1,0 +1,77 @@
+# M0 baseline: Mask2Former + ViT-Adapter, frozen DINOv3 ViT-B/16,
+# k=80 semantic + DepthPro tau=0.20 instance pseudo-labels.
+# Zero augmentations, 20k steps, class-weighted CE.
+
+_BASE_: "../../refs/cups/configs/train_cityscapes_dinov3_vitb_k80_depthpro_tau020.yaml"
+
+MODEL:
+  META_ARCH: "Mask2FormerPanoptic"
+  BACKBONE_TYPE: "dinov3_vitb"
+  DINOV2_FREEZE: True
+  TTA_SCALES:
+    - 0.75
+    - 1.0
+    - 1.25
+  MASK2FORMER:
+    NUM_QUERIES: 100
+    QUERY_POOL: "standard"
+    NUM_DECODER_LAYERS: 6
+    PIXEL_DECODER_LAYERS: 6
+    HIDDEN_DIM: 256
+    NUM_HEADS: 8
+    MASK_WEIGHT: 5.0
+    DICE_WEIGHT: 5.0
+    CLASS_WEIGHT: 2.0
+    NO_OBJECT_WEIGHT: 0.1
+    NUM_POINTS: 12544
+    OBJECT_MASK_THRESHOLD: 0.4
+    OVERLAP_THRESHOLD: 0.8
+    PYRAMID_CHANNELS: 256
+    ADAPTER_BLOCKS: 4
+    ADAPTER_EMBED_DIM: 768
+    DROPPATH: 0.0
+  # Aux semantic-head losses OFF at M0 (we switch meta-arch entirely).
+  SEM_SEG_HEAD:
+    LOVASZ_WEIGHT: 0.0
+    BOUNDARY_WEIGHT: 0.0
+    STEGO_WEIGHT: 0.0
+    DEPTH_SMOOTH_WEIGHT: 0.0
+    GATED_CRF_WEIGHT: 0.0
+    NECO_WEIGHT: 0.0
+
+TRAINING:
+  STEPS: 20000
+  BATCH_SIZE: 1
+  ACCUMULATE_GRAD_BATCHES: 16
+  PRECISION: "bf16-mixed"
+  CLASS_WEIGHTING: True
+  OPTIMIZER: "adamw"
+  ADAMW:
+    LEARNING_RATE: 0.0001
+    WEIGHT_DECAY: 0.00001
+  VAL_EVERY_N_STEPS: 1000
+  LOG_EVERT_N_STEPS: 50
+  DROP_LOSS: False          # Mask2Former has its own matching loss
+  GRADIENT_CLIP_ALGORITHM: "norm"
+  GRADIENT_CLIP_VAL: 0.1
+
+AUGMENTATION:
+  COPY_PASTE: False          # OFF at M0, baseline only
+  NUM_STEPS_STARTUP: 500
+  LSJ:
+    ENABLED: False
+  COLOR_JITTER:
+    ENABLED: False
+
+SYSTEM:
+  ACCELERATOR: "gpu"
+  NUM_GPUS: 1
+  NUM_NODES: 1
+  NUM_WORKERS: 2
+  LOG_PATH: "results/stage2_m2f/M0_baseline"
+  RUN_NAME: "M0_baseline_dinov3_vitb_k80"
+
+VALIDATION:
+  CACHE_DEVICE: "cpu"
+  USE_TTA: False
+  USE_DENSE_CRF: False
