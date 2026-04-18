@@ -43,6 +43,7 @@ class DecoupledQueryPool(nn.Module):
         super().__init__()
         self.num_stuff = num_queries_stuff
         self.num_thing = num_queries_thing
+        self.num_queries = num_queries_stuff + num_queries_thing
         self.stuff = nn.Embedding(num_queries_stuff, embed_dim)
         self.thing = nn.Embedding(num_queries_thing, embed_dim)
 
