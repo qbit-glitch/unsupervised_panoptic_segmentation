@@ -38,3 +38,25 @@ def test_vit_adapter_backbone_frozen(tiny_image_batch: torch.Tensor) -> None:
     # Backbone conv must have no grad (frozen); adapter pieces must have grads.
     assert adapter.backbone.conv.weight.grad is None
     assert any(p.grad is not None for p in adapter.spm.parameters())
+
+
+class _DictDino(torch.nn.Module):
+    """Mimic DINOv3ViTBackbone: subclasses d2.Backbone and returns {'dinov3': tensor}."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.conv = torch.nn.Conv2d(3, 768, kernel_size=16, stride=16, bias=False)
+        for p in self.parameters():
+            p.requires_grad_(False)
+
+    def forward(self, x: torch.Tensor):
+        return {"dinov3": self.conv(x)}
+
+
+def test_vit_adapter_unwraps_dict_backbone(tiny_image_batch: torch.Tensor) -> None:
+    """Regression: DINOv3ViTBackbone returns a dict (detectron2.Backbone contract)."""
+    adapter = ViTAdapter(backbone=_DictDino(), embed_dim=768, num_blocks=2).eval()
+    with torch.no_grad():
+        feats = adapter(tiny_image_batch)
+    assert set(feats.keys()) == {"p2", "p3", "p4", "p5"}
+    assert feats["p2"].shape == (2, 256, 16, 32)

@@ -50,6 +50,11 @@ class ViTAdapter(nn.Module):
 
     def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
         vit = self.backbone(x)                       # B, embed, H/16, W/16
+        # DINOv3ViTBackbone subclasses detectron2.Backbone, which mandates
+        # a Dict[str, Tensor] return. Unwrap to the single feature tensor.
+        # Mocks in unit tests may return a raw tensor, so stay permissive.
+        if isinstance(vit, dict):
+            vit = vit.get("dinov3", next(iter(vit.values())))
         c2, c3, c4 = self.spm(x)                     # strides 4/8/16
         for inj, ext in zip(self.injectors, self.extractors):
             vit = inj(vit_feat=vit, c2=c2, c3=c3, c4=c4)
