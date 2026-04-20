@@ -157,9 +157,14 @@ class Mask2FormerPanoptic(nn.Module):
         cur_prob_masks = cur_scores.view(-1, 1, 1) * cur_masks
         cur_mask_ids = cur_prob_masks.argmax(0)
         current_id = 0
-        # "score" keeps downstream consumers (prediction_to_label_format,
-        # copy-paste augmentation, log_visualizations) schema-compatible
-        # with the Cascade Mask R-CNN panoptic output they were written for.
+        # Downstream consumers (prediction_to_label_format at model.py:343,
+        # prediction_to_standard_format at model.py:192) expect the Cascade-era
+        # category_id space:
+        #   stuff: 1-indexed [1, S]    accessed as stuff_classes[cid - 1]
+        #   thing: 0-indexed [0, T)    accessed as thing_classes[cid]
+        # Our internal criterion uses the combined space [0, S+T); we remap
+        # ONLY the segments_info dict so external code sees the expected form.
+        # "score" is the softmax class confidence of the winning query.
         segments_info: List[Dict[str, Any]] = []
         for k in range(cur_masks.shape[0]):
             mask_area = (cur_mask_ids == k).sum().item()
@@ -168,10 +173,12 @@ class Mask2FormerPanoptic(nn.Module):
                 current_id += 1
                 panoptic_seg[cur_mask_ids == k] = current_id
                 cls = int(cur_labels[k])
+                is_thing = cls >= self.num_stuff_classes
+                external_cid = (cls - self.num_stuff_classes) if is_thing else (cls + 1)
                 segments_info.append({
                     "id": current_id,
-                    "category_id": cls,
-                    "isthing": cls >= self.num_stuff_classes,
+                    "category_id": int(external_cid),
+                    "isthing": is_thing,
                     "score": float(cur_scores[k]),
                 })
                 sem_seg[cls] = torch.maximum(sem_seg[cls], cur_masks[k])

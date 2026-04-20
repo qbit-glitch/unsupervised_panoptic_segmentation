@@ -1,16 +1,23 @@
 """Guards the segments_info schema emitted by Mask2FormerPanoptic.
 
-The CUPS training loop feeds each step's eval output through
-``prediction_to_label_format``, which requires every thing entry in
-``segments_info`` to expose a ``"score"`` field. A previous run crashed
-at step 872 with ``KeyError: 'score'`` because the meta-arch omitted it.
-These tests lock the Cascade-compatible schema in place.
+Two historical crashes motivated this file:
+1. Step 872 crash: ``KeyError: 'score'`` in ``prediction_to_label_format``
+   (model.py:345). Fixed by adding "score" to segments_info.
+2. Step 3800 val crash: ``IndexError: tuple index out of range`` in
+   ``prediction_to_standard_format`` (model.py:196) where
+   ``thing_classes[pred["category_id"]]`` was indexed with a combined-space
+   class id (e.g. 13 for an 8-thing dataset). Fixed by remapping
+   category_id into Cascade-era space (stuff 1-indexed [1,S]; thing 0-indexed
+   [0,T)) for external consumers while keeping the internal criterion on
+   the combined space.
+
+These tests lock both fixes + the Cascade-compatible schema in place.
 """
 from __future__ import annotations
 
 import torch
 
-from cups.model.model import prediction_to_label_format
+from cups.model.model import prediction_to_label_format, prediction_to_standard_format
 from cups.model.modeling.meta_arch.mask2former_panoptic import Mask2FormerPanoptic
 from cups.model.modeling.mask2former.matcher import HungarianMatcher
 from cups.model.modeling.mask2former.masked_attention_decoder import MaskedAttentionDecoder
@@ -85,14 +92,32 @@ def test_segments_info_required_keys() -> None:
             assert isinstance(seg["score"], float)
 
 
-def test_prediction_to_label_format_accepts_output() -> None:
-    """Integration guard: the schema matches what the CUPS training loop expects.
+def test_category_id_in_cascade_ranges() -> None:
+    """Category ids must be in the Cascade-era space.
 
-    This is the exact call that crashed in production
+    Stuff: 1-indexed [1, S]. Thing: 0-indexed [0, T).
+    Downstream code indexes ``stuff_classes[cid - 1]`` and ``thing_classes[cid]``,
+    so emitting combined-space ids (e.g. 13 for a thing) corrupts semantics
+    and crashes ``prediction_to_standard_format``.
+    """
+    num_stuff, num_thing = 12, 8  # matches _tiny_meta_arch()
+    out, _ = _run_eval()
+    for sample in out:
+        for seg in sample["panoptic_seg"][1]:
+            cid = seg["category_id"]
+            if seg["isthing"]:
+                assert 0 <= cid < num_thing, f"thing cid={cid} not in [0, {num_thing})"
+            else:
+                assert 1 <= cid <= num_stuff, f"stuff cid={cid} not in [1, {num_stuff}]"
+
+
+def test_prediction_to_label_format_accepts_output() -> None:
+    """Integration guard: output matches what the CUPS training loop expects.
+
+    Exact call that crashed at step 872
     (pl_model_pseudo.py:176 -> prediction_to_label_format -> KeyError 'score').
     """
     out, images = _run_eval()
-    # Must not raise KeyError on 'score'.
     labels = prediction_to_label_format(out, images, confidence_threshold=-1.0)
     assert isinstance(labels, list)
     assert len(labels) == len(out)
@@ -100,6 +125,28 @@ def test_prediction_to_label_format_accepts_output() -> None:
         assert "image" in entry
         assert "sem_seg" in entry
         assert "instances" in entry
+
+
+def test_prediction_to_standard_format_accepts_output() -> None:
+    """Integration guard: output is indexable by stuff_classes / thing_classes.
+
+    Exact call that crashed at step 3800
+    (pl_model_pseudo.py:303 -> prediction_to_standard_format -> IndexError).
+    Uses Cityscapes-like class tuples sized to _tiny_meta_arch()'s 12 stuff
+    and 8 things.
+    """
+    out, _ = _run_eval()
+    # Stuff classes: 12 dataset ids; thing classes: 8 dataset ids.
+    stuff_classes = tuple(range(12))
+    thing_classes = tuple(range(24, 32))
+    for sample in out:
+        panoptic = prediction_to_standard_format(
+            sample["panoptic_seg"],
+            stuff_classes=stuff_classes,
+            thing_classes=thing_classes,
+        )
+        # Shape [H, W, 2] (semantic, instance).
+        assert panoptic.dim() == 3 and panoptic.shape[-1] == 2
 
 
 def test_empty_segments_info_is_handled() -> None:
