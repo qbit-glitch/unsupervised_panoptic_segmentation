@@ -27,14 +27,30 @@ MODEL:
     # Eval-time filters. Defaults 0.4/0.8 are Mask2Former paper values tuned
     # for post-converged supervised training. In our unsupervised cold-start
     # regime (random-init queries + frozen DINOv3 + k=80 noisy pseudo-labels)
-    # those strict cutoffs throw away virtually every query in the first 1-5k
-    # steps, so prediction_to_standard_format returns all-255 semantics and
-    # PQ/PQ_things/PQ_stuffs all read exactly 0 even while the network is
-    # actually learning. Lower values match the spirit of the unit test in
-    # tests/stage2_m2f/test_panoptic_merge_schema.py, which sets both to 0.0
-    # for the same reason. We raise them again once warm-up PQ climbs.
-    OBJECT_MASK_THRESHOLD: 0.05
-    OVERLAP_THRESHOLD: 0.3
+    # those strict cutoffs throw away virtually every query and PQ reads 0
+    # even while the network is learning (see commit 48bc1ce).
+    #
+    # The intermediate 0.05/0.3 still caused PQ_things=0 exactly while
+    # PQ_stuffs rose to ~7%: `_panoptic_merge` does
+    #   cur_prob_masks = cur_scores.view(-1,1,1) * cur_masks
+    #   cur_mask_ids = cur_prob_masks.argmax(0)
+    # Stuff queries converge first (larger masks, more samples per class) so
+    # their softmax-max scores are ~0.7 by step 3k; rare thing classes are
+    # still ~0.3. Whenever a stuff query's mask prob at a thing pixel is
+    # above 0.43*thing_prob, the stuff query wins the pixel-level argmax
+    # (0.7*0.43 > 0.3*1.0). Thing queries end up with mask_area << original
+    # _area, fail the `mask_area/original_area > overlap_threshold` gate,
+    # and the pipeline reports zero thing segments for every batch (visible
+    # in the per-step "boxes doesn't contain any box" warning from
+    # prediction_to_label_format -> get_bounding_boxes).
+    #
+    # Matching the unit test values (both 0.0) lets under-confident thing
+    # queries survive until their scores catch up with stuff. The empty-
+    # segments_info path is already covered by
+    # tests/stage2_m2f/test_panoptic_merge_schema.py. Raise again (0.1/0.3,
+    # then toward paper defaults) once PQ_things climbs.
+    OBJECT_MASK_THRESHOLD: 0.0
+    OVERLAP_THRESHOLD: 0.0
     PYRAMID_CHANNELS: 256
     ADAPTER_BLOCKS: 4
     ADAPTER_EMBED_DIM: 768
