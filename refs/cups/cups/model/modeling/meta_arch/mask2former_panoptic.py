@@ -157,7 +157,10 @@ class Mask2FormerPanoptic(nn.Module):
         cur_prob_masks = cur_scores.view(-1, 1, 1) * cur_masks
         cur_mask_ids = cur_prob_masks.argmax(0)
         current_id = 0
-        segments_info: List[Dict[str, int]] = []
+        # "score" keeps downstream consumers (prediction_to_label_format,
+        # copy-paste augmentation, log_visualizations) schema-compatible
+        # with the Cascade Mask R-CNN panoptic output they were written for.
+        segments_info: List[Dict[str, Any]] = []
         for k in range(cur_masks.shape[0]):
             mask_area = (cur_mask_ids == k).sum().item()
             original_area = (cur_masks[k] >= 0.5).sum().item()
@@ -165,8 +168,12 @@ class Mask2FormerPanoptic(nn.Module):
                 current_id += 1
                 panoptic_seg[cur_mask_ids == k] = current_id
                 cls = int(cur_labels[k])
-                segments_info.append({"id": current_id, "category_id": cls,
-                                      "isthing": cls >= self.num_stuff_classes})
+                segments_info.append({
+                    "id": current_id,
+                    "category_id": cls,
+                    "isthing": cls >= self.num_stuff_classes,
+                    "score": float(cur_scores[k]),
+                })
                 sem_seg[cls] = torch.maximum(sem_seg[cls], cur_masks[k])
         return {"sem_seg": sem_seg, "panoptic_seg": (panoptic_seg, segments_info)}
 
