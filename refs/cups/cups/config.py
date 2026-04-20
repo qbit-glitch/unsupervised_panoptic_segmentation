@@ -253,6 +253,11 @@ _C.TRAINING.DROP_LOSS_IOU_THRESHOLD = 0.4
 _C.TRAINING.DROP_LOSS = True
 # Gradient accumulation steps (effective batch = batch_size * num_gpus * accumulate)
 _C.TRAINING.ACCUMULATE_GRAD_BATCHES = 1
+# Linear LR warm-up iters (0 = disabled). Consumed by configure_optimizers
+# in cups/pl_model_pseudo.py; used for Mask2Former cold-start stabilisation
+# where 100 random-init queries otherwise cause gradient spikes in the
+# first few hundred steps.
+_C.TRAINING.WARMUP_STEPS = 0
 
 # Self-training specific config
 _C.SELF_TRAINING = CfgNode()

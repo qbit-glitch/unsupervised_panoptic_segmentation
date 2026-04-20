@@ -24,8 +24,17 @@ MODEL:
     CLASS_WEIGHT: 2.0
     NO_OBJECT_WEIGHT: 0.1
     NUM_POINTS: 12544
-    OBJECT_MASK_THRESHOLD: 0.4
-    OVERLAP_THRESHOLD: 0.8
+    # Eval-time filters. Defaults 0.4/0.8 are Mask2Former paper values tuned
+    # for post-converged supervised training. In our unsupervised cold-start
+    # regime (random-init queries + frozen DINOv3 + k=80 noisy pseudo-labels)
+    # those strict cutoffs throw away virtually every query in the first 1-5k
+    # steps, so prediction_to_standard_format returns all-255 semantics and
+    # PQ/PQ_things/PQ_stuffs all read exactly 0 even while the network is
+    # actually learning. Lower values match the spirit of the unit test in
+    # tests/stage2_m2f/test_panoptic_merge_schema.py, which sets both to 0.0
+    # for the same reason. We raise them again once warm-up PQ climbs.
+    OBJECT_MASK_THRESHOLD: 0.05
+    OVERLAP_THRESHOLD: 0.3
     PYRAMID_CHANNELS: 256
     ADAPTER_BLOCKS: 4
     ADAPTER_EMBED_DIM: 768
@@ -49,6 +58,11 @@ TRAINING:
   ADAMW:
     LEARNING_RATE: 0.0001
     WEIGHT_DECAY: 0.00001
+  # Linear LR warm-up (start_factor=1e-3 -> 1.0 over WARMUP_STEPS steps).
+  # 100 random-init queries + frozen backbone otherwise produce destabilising
+  # gradient spikes in the first few hundred steps and the loss plateaus
+  # around 70 instead of decaying. M2F paper uses ~1500-step warm-up.
+  WARMUP_STEPS: 1500
   VAL_EVERY_N_STEPS: 1000
   LOG_EVERT_N_STEPS: 50
   DROP_LOSS: False          # Mask2Former has its own matching loss

@@ -490,6 +490,22 @@ class UnsupervisedModel(LightningModule):
                 betas=self.hparams.config.TRAINING.ADAMW.BETAS,
             )
             log.info("AdamW used.")
+        # Linear LR warm-up for Mask2Former cold-start. The M2F paper uses a
+        # short linear ramp because 100 random-init queries otherwise produce
+        # destabilising gradient spikes in the first few hundred steps. We
+        # gate behind TRAINING.WARMUP_STEPS so pre-existing configs (Cascade
+        # Mask R-CNN, LoRA experiments) keep their original no-scheduler
+        # behaviour by default.
+        warmup_steps = int(getattr(self.hparams.config.TRAINING, "WARMUP_STEPS", 0))
+        if warmup_steps > 0:
+            scheduler = torch.optim.lr_scheduler.LinearLR(
+                optimizer, start_factor=1e-3, end_factor=1.0, total_iters=warmup_steps,
+            )
+            log.info("Linear LR warm-up: %d steps (start_factor=1e-3 -> 1.0).", warmup_steps)
+            return {
+                "optimizer": optimizer,
+                "lr_scheduler": {"scheduler": scheduler, "interval": "step", "frequency": 1},
+            }
         return optimizer
 
 
