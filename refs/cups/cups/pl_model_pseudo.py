@@ -513,6 +513,7 @@ def _build_mask2former_model(
     config: CfgNode,
     num_stuff_classes: int | None = None,
     num_thing_classes: int | None = None,
+    class_weights: Tuple[float, ...] | None = None,
 ):
     """Build Mask2Former panoptic model (Stage-2 M2F meta-arch).
 
@@ -523,6 +524,10 @@ def _build_mask2former_model(
         config: Full CUPS config node.
         num_stuff_classes: Number of pseudo stuff classes (from dataloader).
         num_thing_classes: Number of pseudo thing classes (from dataloader).
+        class_weights: Per-class CE weights of length num_stuff+num_thing.
+            If None, SetCriterion uses uniform weights. If provided, rare
+            thing classes get upweighted (essential for k=80 pseudo-labels
+            where some thing classes have <0.1 instances per crop).
 
     Returns:
         Constructed ``Mask2FormerPanoptic`` ``nn.Module``.
@@ -532,6 +537,7 @@ def _build_mask2former_model(
         config,
         num_stuff_classes=num_stuff_classes,
         num_thing_classes=num_thing_classes,
+        class_weights=class_weights,
     )
 
 
@@ -579,6 +585,7 @@ def build_model_pseudo(
             config,
             num_stuff_classes=num_clusters_stuffs,
             num_thing_classes=num_clusters_things,
+            class_weights=class_weights,
         )
         return UnsupervisedModel(
             model=m2f_model,

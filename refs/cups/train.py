@@ -186,6 +186,17 @@ def main() -> None:
         pin_memory=False,
     )
     # Init model
+    # Cascade expects class_weights aligned with its S+1 semantic head
+    # (stuff + one "thing placeholder"); M2F expects one weight per real
+    # class in the combined stuff-then-thing space. ``class_distribution``
+    # and ``class_distribution_full`` hold the two shapes respectively;
+    # pick based on meta-arch so CLASS_WEIGHTING=True works for both.
+    _is_m2f = config.MODEL.META_ARCH == "Mask2FormerPanoptic"
+    _cw_dist = (
+        training_dataset.class_distribution_full
+        if _is_m2f
+        else training_dataset.class_distribution
+    )
     model: LightningModule = cups.build_model_pseudo(
         config=config,
         thing_classes=thing_classes,
@@ -195,7 +206,7 @@ def main() -> None:
         class_weights=(
             tuple(
                 (
-                    1.0 / (torch.tensor(training_dataset.class_distribution) * len(training_dataset.class_distribution))
+                    1.0 / (torch.tensor(_cw_dist) * len(_cw_dist))
                 ).tolist()
             )
             if config.TRAINING.CLASS_WEIGHTING

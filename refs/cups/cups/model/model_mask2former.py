@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Sequence, Tuple
 
 import torch
 import torch.nn as nn
@@ -43,6 +43,7 @@ def build_mask2former_vitb(
     cfg: CfgNode,
     num_stuff_classes: int | None = None,
     num_thing_classes: int | None = None,
+    class_weights: Sequence[float] | Tuple[float, ...] | None = None,
 ) -> Mask2FormerPanoptic:
     """Build M2F + ViT-Adapter from a yacs config.
 
@@ -51,6 +52,12 @@ def build_mask2former_vitb(
     by ``build_model_pseudo``. The legacy ``cfg._NUM_STUFF_CLASSES`` /
     ``cfg._NUM_THING_CLASSES`` attributes remain as a fallback for callers
     that still inject those underscore-prefixed runtime keys.
+
+    ``class_weights`` (if provided, length == num_stuff + num_thing) is folded
+    into ``SetCriterion.empty_weight[:num_classes]`` so rare thing classes get
+    upweighted in the CE loss. Needed because the Cascade Mask R-CNN branch
+    consumes class_weights via the semantic-head path, but M2F's per-query
+    classification has no equivalent plumbing.
     """
     m = cfg.MODEL.MASK2FORMER
     if num_stuff_classes is None:
@@ -128,6 +135,11 @@ def build_mask2former_vitb(
         cost_dice=m.DICE_WEIGHT,
         num_points=m.NUM_POINTS,
     )
+    if class_weights is not None and len(class_weights) != num_classes:
+        raise ValueError(
+            f"class_weights length {len(class_weights)} != "
+            f"num_stuff+num_thing {num_classes}"
+        )
     criterion = SetCriterion(
         num_classes=num_classes,
         matcher=matcher,
@@ -139,6 +151,7 @@ def build_mask2former_vitb(
         eos_coef=m.NO_OBJECT_WEIGHT,
         losses=("labels", "masks"),
         num_points=m.NUM_POINTS,
+        class_weights=class_weights,
     )
 
     model = Mask2FormerPanoptic(
@@ -166,8 +179,10 @@ def build_mask2former_vitb(
         model.aux_loss_hooks = aux_loss_hooks
 
     log.info(
-        "Built Mask2FormerPanoptic: queries=%d stuff=%d thing=%d adapter_blocks=%d dec_layers=%d aux_hooks=%s",
+        "Built Mask2FormerPanoptic: queries=%d stuff=%d thing=%d "
+        "adapter_blocks=%d dec_layers=%d class_weights=%s aux_hooks=%s",
         num_queries, num_stuff, num_thing, m.ADAPTER_BLOCKS, m.NUM_DECODER_LAYERS,
+        "ON" if class_weights is not None else "OFF",
         sorted(k for k in aux_loss_hooks.keys() if k != "return_query_embeds"),
     )
     return model

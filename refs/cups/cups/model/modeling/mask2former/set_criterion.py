@@ -44,6 +44,7 @@ class SetCriterion(nn.Module):
         eos_coef: float = 0.1,
         losses: Sequence[str] = ("labels", "masks"),
         num_points: int = 12544,
+        class_weights: Sequence[float] | None = None,
     ) -> None:
         super().__init__()
         self.num_classes = num_classes
@@ -52,7 +53,19 @@ class SetCriterion(nn.Module):
         self.eos_coef = eos_coef
         self.losses = tuple(losses)
         self.num_points = num_points
+        # Per-class CE weight. With class_weights=None the behaviour is identical
+        # to the reference M2F (uniform 1.0 for real classes, eos_coef for phi).
+        # With class_weights provided (length == num_classes), rare classes get
+        # upweighted so thing classes aren't drowned out by the dominant stuff
+        # gradient under k=80 noisy pseudo-labels.
         empty_weight = torch.ones(num_classes + 1)
+        if class_weights is not None:
+            cw = torch.as_tensor(class_weights, dtype=torch.float32)
+            if cw.numel() != num_classes:
+                raise ValueError(
+                    f"class_weights length {cw.numel()} != num_classes {num_classes}"
+                )
+            empty_weight[:num_classes] = cw
         empty_weight[-1] = eos_coef
         self.register_buffer("empty_weight", empty_weight)
 

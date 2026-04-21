@@ -147,12 +147,25 @@ class PseudoLabelDataset(Dataset):
         # Log thing and stuff pseudo classes
         print(f"Thing classes: {self.things_classes}")
         print(f"Stuff classes: {self.stuff_classes}")
-        # Get class distribution [stuff classes + 1 (thing class frequency)]
+        # Get class distribution [stuff classes + 1 (thing class frequency)].
+        # This aggregated form is what the Cascade Mask R-CNN branch expects —
+        # its semantic head has S+1 outputs (stuff + "thing placeholder") and
+        # per-thing classification is delegated to the instance head.
         class_distribution = class_distribution / (class_distribution.sum() * class_distribution.numel())
         class_distribution_stuff = class_distribution[torch.tensor(self.stuff_classes)]
-        class_distribution_thing = class_distribution[torch.tensor(self.things_classes)].sum().view(1)
+        class_distribution_thing_sum = class_distribution[torch.tensor(self.things_classes)].sum().view(1)
         self.class_distribution: Tuple[float, ...] = tuple(
-            torch.cat((class_distribution_stuff, class_distribution_thing))
+            torch.cat((class_distribution_stuff, class_distribution_thing_sum))
+        )
+        # Per-class distribution of length S+T in SetCriterion class_id order
+        # (stuff first in stuff_classes order, thing next in things_classes order).
+        # M2F's per-query classification needs a weight per real class — there is
+        # no thing-placeholder — so the aggregated form above is the wrong shape
+        # for it. This full-dim vector matches Mask2FormerPanoptic's combined
+        # class space built by `_collect_targets`.
+        class_distribution_thing_per = class_distribution[torch.tensor(self.things_classes)]
+        self.class_distribution_full: Tuple[float, ...] = tuple(
+            torch.cat((class_distribution_stuff, class_distribution_thing_per))
         )
         # Approach B: depth + pseudo-onehot for stuff KD
         self.root = root
