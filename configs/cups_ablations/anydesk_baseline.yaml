@@ -12,6 +12,10 @@ MODEL:
   BACKBONE_TYPE: "dinov3_vitb"
   DINOV2_FREEZE: True
   USE_DINO: False
+  ROI_BOX_HEAD:
+    USE_SEESAW_LOSS: True
+    SEESAW_P: 0.8
+    SEESAW_Q: 2.0
   TTA_SCALES:
     - 0.75
     - 1.0
