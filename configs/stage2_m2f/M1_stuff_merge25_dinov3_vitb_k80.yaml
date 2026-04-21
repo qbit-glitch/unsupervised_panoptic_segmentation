@@ -1,0 +1,30 @@
+# M1 — shrink output space 80 → 25 by merging the 65 stuff clusters into
+# 10 Cityscapes-style super-classes (grouped by CAUSE cluster_to_class)
+# while keeping the 15 thing clusters standalone.
+#
+# Why: M0 plateaued with PQ_things=0 on k=80 supervision (100 queries × 20k
+# steps is ~36x undertrained vs M2F paper's 200 queries × 90k on 19-class
+# Cityscapes). Fix 1 (commit e18bf0c) plumbed class_weights into
+# SetCriterion so rare thing classes get upweighted; M1 is the second
+# prong — cut the classification-space cardinality from 80 to 25 so
+# every query actually sees enough gradient events to learn the class
+# boundary.
+#
+# Merged labels produced by:
+#     python scripts/merge_stuff_clusters_k80_to_25.py \
+#         --input_dir  <cups_pseudo_labels_depthpro_tau020> \
+#         --output_dir <cups_pseudo_labels_depthpro_tau020_merge25>
+
+_BASE_: "M0_baseline_dinov3_vitb_k80.yaml"
+
+DATA:
+  # Point at the merged pseudo-label directory. DepthPro tau=0.20 instance
+  # proposals are copied verbatim through the merge, so the .pt files' inside
+  # distribution still lands only on the 15 thing (new-id 10..24) classes and
+  # ``PseudoLabelDataset`` recovers the same 15/10 thing/stuff split on the
+  # 25-dim distribution it computes at init.
+  ROOT_PSEUDO: "/home/cvpr_ug_5/umesh/datasets/cityscapes/cups_pseudo_labels_depthpro_tau020_merge25/"
+
+SYSTEM:
+  LOG_PATH: "results/stage2_m2f/M1_stuff_merge25"
+  RUN_NAME: "M1_stuff_merge25_dinov3_vitb_k80"

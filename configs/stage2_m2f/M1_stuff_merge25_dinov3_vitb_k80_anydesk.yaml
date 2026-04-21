@@ -1,0 +1,19 @@
+# M1 anydesk variant (cvpr_ug_5@gpunode2, RTX A6000 48GB).
+# Mirrors M0_baseline_dinov3_vitb_k80_anydesk bs=4 × accum=4 (eff. batch=16)
+# but points at the merged 25-class pseudo-label directory.
+
+_BASE_: "M1_stuff_merge25_dinov3_vitb_k80.yaml"
+
+DATA:
+  ROOT: "/home/cvpr_ug_5/umesh/datasets/cityscapes/"
+  ROOT_VAL: "/home/cvpr_ug_5/umesh/datasets/cityscapes/"
+  ROOT_PSEUDO: "/home/cvpr_ug_5/umesh/datasets/cityscapes/cups_pseudo_labels_depthpro_tau020_merge25/"
+
+SYSTEM:
+  LOG_PATH: "/home/cvpr_ug_5/umesh/experiments/stage2_m2f/M1_stuff_merge25_anydesk"
+  RUN_NAME: "M1_stuff_merge25_dinov3_vitb_k80_anydesk"
+  NUM_WORKERS: 4
+
+TRAINING:
+  BATCH_SIZE: 4
+  ACCUMULATE_GRAD_BATCHES: 4   # Effective batch = 16, comparable to santosh bs=1 × accum=16.
