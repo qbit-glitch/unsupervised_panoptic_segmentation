@@ -140,7 +140,8 @@ class PseudoLabelDataset(Dataset):
         # Get thing stuff class split
         tensor_files = []
         for p in os.listdir(root_pseudo):
-            if not p.endswith(".pt"):
+            # Skip AppleDouble resource forks and hidden files
+            if p.startswith(".") or not p.endswith(".pt"):
                 continue
             path = os.path.join(root_pseudo, p)
             try:
