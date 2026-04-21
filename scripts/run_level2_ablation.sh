@@ -31,21 +31,26 @@ run_ablation() {
     local name="$1"
     local config="${ABLATIONS[$name]}"
     local logfile="$LOG_DIR/${name}_$(date +%Y%m%d_%H%M%S).log"
+    local pidfile="$LOG_DIR/${name}.pid"
 
     echo "============================================================"
     echo "  Running Level-2 Ablation: $name"
     echo "  Config: $config"
     echo "  Log: $logfile"
+    echo "  PID file: $pidfile"
     echo "============================================================"
 
     cd "$PROJECT_DIR"
-    python refs/cups/train.py \
+    nohup python refs/cups/train.py \
         --experiment_config_file "$config" \
         --disable_wandb \
-        2>&1 | tee "$logfile"
+        > "$logfile" 2>&1 &
 
+    echo $! > "$pidfile"
     echo ""
-    echo "Ablation $name complete. Log: $logfile"
+    echo "Ablation $name started in background (PID: $!)"
+    echo "Monitor with: tail -f $logfile"
+    echo "Kill with: kill \$(cat $pidfile)"
     echo ""
 }
 
@@ -54,24 +59,25 @@ run_parallel() {
     cd "$PROJECT_DIR"
 
     # Run L2A on first half of GPU memory
-    CUDA_VISIBLE_DEVICES=0 python refs/cups/train.py \
+    nohup python refs/cups/train.py \
         --experiment_config_file "${ABLATIONS[L2A]}" \
         --disable_wandb \
-        2>&1 | tee "$LOG_DIR/L2A_parallel_$(date +%Y%m%d_%H%M%S).log" &
+        > "$LOG_DIR/L2A_parallel_$(date +%Y%m%d_%H%M%S).log" 2>&1 &
     PID1=$!
 
     # Run L2B on same GPU but with memory fraction limit
-    CUDA_VISIBLE_DEVICES=0 python -c "
-import torch; torch.cuda.set_per_process_memory_fraction(0.45, 0)
-" && python refs/cups/train.py \
+    nohup python refs/cups/train.py \
         --experiment_config_file "${ABLATIONS[L2B]}" \
         --disable_wandb \
-        2>&1 | tee "$LOG_DIR/L2B_parallel_$(date +%Y%m%d_%H%M%S).log" &
+        > "$LOG_DIR/L2B_parallel_$(date +%Y%m%d_%H%M%S).log" 2>&1 &
     PID2=$!
 
-    wait $PID1
-    wait $PID2
-    echo "Parallel run complete."
+    echo ""
+    echo "Parallel runs started:"
+    echo "  L2A PID: $PID1"
+    echo "  L2B PID: $PID2"
+    echo "Monitor with: tail -f $LOG_DIR/L2A_parallel_*.log"
+    echo "              tail -f $LOG_DIR/L2B_parallel_*.log"
 }
 
 case "${1:-help}" in
@@ -99,13 +105,28 @@ case "${1:-help}" in
     all)
         for name in baseline L2A L2B L2C L2D L2E L3A; do
             run_ablation "$name"
+            echo "Waiting for $name to complete before starting next..."
+            wait $(cat "$LOG_DIR/${name}.pid" 2>/dev/null) 2>/dev/null || true
+        done
+        ;;
+    status)
+        echo "=== Running ablations ==="
+        for pidfile in "$LOG_DIR"/*.pid; do
+            [ -f "$pidfile" ] || continue
+            name=$(basename "$pidfile" .pid)
+            pid=$(cat "$pidfile" 2>/dev/null)
+            if kill -0 "$pid" 2>/dev/null; then
+                echo "  $name: RUNNING (PID: $pid)"
+            else
+                echo "  $name: FINISHED (PID: $pid)"
+            fi
         done
         ;;
     parallel)
         run_parallel
         ;;
     *)
-        echo "Usage: $0 {baseline|L2A|L2B|L2C|L2D|L2E|all|parallel}"
+        echo "Usage: $0 {baseline|L2A|L2B|L2C|L2D|L2E|L3A|all|parallel|status}"
         echo ""
         echo "  baseline  — Baseline CUPS run on AnyDesk (bs=4)"
         echo "  L2A       — BACC-TS (Boundary + Class-balanced + Temp scaling)"
