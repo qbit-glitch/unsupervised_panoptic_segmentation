@@ -160,7 +160,11 @@ class PseudoLabelDataset(Dataset):
         # Compute split
         distribution, indices = torch.sort(class_distribution_instances / (class_distribution + 1e-06), descending=True)
         distribution = distribution / distribution.sum()
-        num_instance_pseudo_classes = (distribution > thing_stuff_threshold).float().argmin()
+        above_threshold = distribution > thing_stuff_threshold
+        if above_threshold.all():
+            num_instance_pseudo_classes = len(distribution)
+        else:
+            num_instance_pseudo_classes = above_threshold.float().argmin()
         # Get thing and stuff split
         self.things_classes: Tuple[int, ...] = tuple(indices[:num_instance_pseudo_classes].tolist())
         self.stuff_classes: Tuple[int, ...] = tuple(indices[num_instance_pseudo_classes:].tolist())
@@ -172,8 +176,18 @@ class PseudoLabelDataset(Dataset):
         # its semantic head has S+1 outputs (stuff + "thing placeholder") and
         # per-thing classification is delegated to the instance head.
         class_distribution = class_distribution / (class_distribution.sum() * class_distribution.numel())
-        class_distribution_stuff = class_distribution[torch.tensor(self.stuff_classes)]
-        class_distribution_thing_sum = class_distribution[torch.tensor(self.things_classes)].sum().view(1)
+        class_distribution_stuff = class_distribution[torch.tensor(self.stuff_classes, dtype=torch.long)]
+        if len(self.things_classes) > 0:
+            class_distribution_thing_sum = class_distribution[torch.tensor(self.things_classes, dtype=torch.long)].sum().view(1)
+            class_distribution_thing_per = class_distribution[torch.tensor(self.things_classes, dtype=torch.long)]
+        else:
+            log.warning(
+                "THING_STUFF_THRESHOLD=%.3f produced zero thing classes — "
+                "all pseudo classes treated as stuff. Instance head will receive no supervision.",
+                thing_stuff_threshold,
+            )
+            class_distribution_thing_sum = torch.zeros(1)
+            class_distribution_thing_per = torch.tensor([])
         self.class_distribution: Tuple[float, ...] = tuple(
             torch.cat((class_distribution_stuff, class_distribution_thing_sum))
         )
@@ -183,7 +197,6 @@ class PseudoLabelDataset(Dataset):
         # no thing-placeholder — so the aggregated form above is the wrong shape
         # for it. This full-dim vector matches Mask2FormerPanoptic's combined
         # class space built by `_collect_targets`.
-        class_distribution_thing_per = class_distribution[torch.tensor(self.things_classes)]
         self.class_distribution_full: Tuple[float, ...] = tuple(
             torch.cat((class_distribution_stuff, class_distribution_thing_per))
         )
