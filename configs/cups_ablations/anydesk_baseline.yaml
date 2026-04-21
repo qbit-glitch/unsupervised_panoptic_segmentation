@@ -15,6 +15,6 @@ TRAINING:
 SYSTEM:
   NUM_GPUS: 1
   NUM_WORKERS: 4
-  RUN_NAME: "anydesk_baseline"
+  SYSTEM.RUN_NAME: "anydesk_baseline"
 
-OUTPUT_DIR: "./output/anydesk_baseline"
+SYSTEM.LOG_PATH: "./output/anydesk_baseline"

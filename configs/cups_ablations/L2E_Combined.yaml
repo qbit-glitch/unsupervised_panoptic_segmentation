@@ -33,6 +33,6 @@ TRAINING:
 SYSTEM:
   NUM_GPUS: 1
   NUM_WORKERS: 4
-  RUN_NAME: "L2E_Combined"
+  SYSTEM.RUN_NAME: "L2E_Combined"
 
-OUTPUT_DIR: "./output/L2E_Combined"
+SYSTEM.LOG_PATH: "./output/L2E_Combined"
