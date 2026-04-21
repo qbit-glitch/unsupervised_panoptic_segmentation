@@ -138,7 +138,20 @@ class PseudoLabelDataset(Dataset):
                 if path.split("/")[-1].replace("_leftImg8bit_semantic.png", "") in CITYSCAPES_TRAINING_FILES
             ]
         # Get thing stuff class split
-        tensor_files = [torch.load(os.path.join(root_pseudo, p), weights_only=False) for p in os.listdir(root_pseudo) if ".pt" in p]
+        tensor_files = []
+        for p in os.listdir(root_pseudo):
+            if not p.endswith(".pt"):
+                continue
+            path = os.path.join(root_pseudo, p)
+            try:
+                tensor_files.append(torch.load(path, weights_only=False))
+            except Exception as e:
+                log.error("Failed to load pseudo-label file %s: %s", path, e)
+                raise RuntimeError(
+                    f"Corrupted pseudo-label file: {path}. "
+                    f"Re-download the pseudo-labels and re-extract. "
+                    f"Original error: {e}"
+                ) from e
         class_distribution_instances = torch.stack(
             [t["distribution inside object proposals"] for t in tensor_files]
         ).sum(dim=0)
