@@ -10,8 +10,9 @@ MODEL:
     SSRCTS_RARE_IDS: [13, 14, 15]  # caravan, trailer, polegroup (adjust to actual IDs)
 
 TRAINING:
+  ACCUMULATE_GRAD_BATCHES: 2
   STEPS: 8000
-  BATCH_SIZE: 4
+  BATCH_SIZE: 8
   VAL_EVERY_N_STEPS: 500
 
 SYSTEM:
