@@ -185,6 +185,148 @@ class NormedLinear(nn.Module):
         return out
 
 
+class SeesawLoss(nn.Module):
+    """
+    Seesaw Loss for Long-Tailed Instance Segmentation (CVPR 2021).
+    Adapted from the mmdetection implementation for Detectron2 Fast R-CNN.
+
+    The loss dynamically rebalances the penalty for each category using:
+    1. Mitigation factor: reduces penalty when a frequent class is confused
+       as a rarer class (based on cumulative sample ratios).
+    2. Compensation factor: increases penalty when the model is overconfident
+       in a wrong class (based on softmax probability ratios).
+
+    Background class (index ``num_classes``) is excluded from cumulative-sample
+    tracking and always receives a unit weight.
+    """
+
+    def __init__(self, num_classes, p=0.8, q=2.0, eps=1e-2):
+        super().__init__()
+        self.num_classes = num_classes  # foreground classes only
+        self.p = p
+        self.q = q
+        self.eps = eps
+        self.register_buffer("cum_samples", torch.zeros(num_classes, dtype=torch.float))
+
+    def forward(self, cls_score, labels, weights=None):
+        """
+        Args:
+            cls_score (Tensor): (N, K+1) logits for K foreground classes and
+                1 background class.
+            labels (Tensor): (N,) with values in [0, K], where K is background.
+            weights (Tensor, optional): (N,) per-sample loss weights.
+
+        Returns:
+            Tensor: scalar loss.
+        """
+        if cls_score.numel() == 0:
+            return cls_score.new_zeros([1])[0]
+
+        N = cls_score.shape[0]
+        K = self.num_classes
+
+        # Update cumulative samples for foreground classes only.
+        for c in range(K):
+            self.cum_samples[c] += (labels == c).sum().float()
+
+        # One-hot encoding for all K+1 classes.
+        onehot_labels = torch.zeros(N, K + 1, device=cls_score.device, dtype=cls_score.dtype)
+        onehot_labels.scatter_(1, labels.unsqueeze(1), 1)
+
+        # Seesaw weights start at 1 for every (sample, class) pair.
+        seesaw_weights = cls_score.new_ones(N, K + 1)
+
+        # ---- Mitigation factor ----
+        # Applied only to foreground predicted classes; background stays at 1.
+        if self.p > 0:
+            cum = self.cum_samples.clamp(min=1)
+            # ratio[i, j] = cum_samples[j] / cum_samples[i]
+            ratio = cum[None, :] / cum[:, None]  # (K, K)
+            # Reduce penalty only when predicted class is rarer than GT (ratio < 1).
+            index = (ratio < 1.0).float()
+            sample_weights = ratio.pow(self.p) * index + (1 - index)  # (K, K)
+
+            mitigation = torch.ones(N, K, device=cls_score.device)
+            fg_mask = labels < K
+            if fg_mask.any():
+                fg_labels = labels[fg_mask].long()
+                mitigation[fg_mask] = sample_weights[fg_labels, :]  # (N_fg, K)
+
+            # Background predicted class always weight 1.
+            mitigation = torch.cat(
+                [mitigation, torch.ones(N, 1, device=cls_score.device)], dim=1
+            )
+            seesaw_weights = seesaw_weights * mitigation
+
+        # ---- Compensation factor ----
+        # Background predicted class always weight 1.
+        if self.q > 0:
+            scores = F.softmax(cls_score.detach(), dim=1)  # (N, K+1)
+            self_scores = scores[torch.arange(N, device=scores.device), labels]  # (N,)
+            score_matrix = scores / self_scores.unsqueeze(1).clamp(min=self.eps)  # (N, K+1)
+            index = (score_matrix > 1.0).float()
+            compensation = score_matrix.pow(self.q) * index + (1 - index)
+            compensation[:, K] = 1.0  # no compensation for background class
+            seesaw_weights = seesaw_weights * compensation
+
+        # Apply log-space adjustment only to negative classes.
+        adjusted_score = cls_score + (seesaw_weights.log() * (1 - onehot_labels))
+
+        loss = F.cross_entropy(adjusted_score, labels, reduction="none")
+        if weights is not None:
+            loss = (weights * loss).mean()
+        else:
+            loss = loss.mean()
+        return loss
+
+
+class EQLv2Loss(nn.Module):
+    """
+    Equalization Loss v2 (Tan et al., CVPR 2021).
+    Maintains online EMA of positive/negative gradient magnitudes per class,
+    then rescales loss so tail classes receive gradient comparable to head classes.
+    """
+    def __init__(self, num_classes: int, gamma: float = 12.0, mu: float = 0.8):
+        super().__init__()
+        self.num_classes = num_classes
+        self.gamma = gamma
+        self.mu = mu
+        self.register_buffer("pos_grad", torch.zeros(num_classes))
+        self.register_buffer("neg_grad", torch.zeros(num_classes))
+        self.register_buffer("pos_neg_ratio", torch.ones(num_classes))
+
+    def forward(self, cls_score: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
+        if cls_score.numel() == 0:
+            return cls_score.sum() * 0.0
+
+        N, K_plus_1 = cls_score.shape
+        K = self.num_classes
+        pred_prob = F.softmax(cls_score, dim=1)
+
+        one_hot = torch.zeros(N, K_plus_1, device=cls_score.device, dtype=cls_score.dtype)
+        fg_mask = labels < K
+        one_hot[fg_mask, labels[fg_mask]] = 1.0
+
+        with torch.no_grad():
+            pos_grad_per = (pred_prob * (1 - pred_prob) * one_hot).sum(dim=0)[:K]
+            neg_grad_per = (pred_prob * (1 - pred_prob) * (1 - one_hot)).sum(dim=0)[:K]
+
+            self.pos_grad = self.mu * self.pos_grad + (1 - self.mu) * pos_grad_per
+            self.neg_grad = self.mu * self.neg_grad + (1 - self.mu) * neg_grad_per
+
+            pos = self.pos_grad.clamp(min=1e-8)
+            neg = self.neg_grad.clamp(min=1e-8)
+            self.pos_neg_ratio = (pos / neg).clamp(min=1e-8)
+
+        sample_weights = torch.ones(N, device=cls_score.device)
+        if fg_mask.any():
+            sample_weights[fg_mask] = self.pos_neg_ratio[labels[fg_mask]]
+
+        loss = F.cross_entropy(cls_score, labels, reduction='none')
+        loss = (loss * sample_weights).mean()
+        return loss
+
+
 class FastRCNNOutputLayers(nn.Module):
     """
     Two linear layers for predicting Fast R-CNN outputs:
@@ -211,6 +353,11 @@ class FastRCNNOutputLayers(nn.Module):
         use_sigmoid_ce: bool = False,
         get_fed_loss_cls_weights: Optional[Callable] = None,
         fed_loss_num_classes: int = 50,
+        use_seesaw_loss: bool = False,
+        seesaw_p: float = 0.8,
+        seesaw_q: float = 2.0,
+        use_eqlv2: bool = False,
+        eqlv2_gamma: float = 12.0,
     ):
         """
         NOTE: this interface is experimental.
@@ -269,6 +416,13 @@ class FastRCNNOutputLayers(nn.Module):
         self.use_fed_loss = use_fed_loss
         self.use_sigmoid_ce = use_sigmoid_ce
         self.fed_loss_num_classes = fed_loss_num_classes
+        self.use_seesaw_loss = use_seesaw_loss
+        if self.use_seesaw_loss:
+            self.seesaw_loss = SeesawLoss(num_classes, p=seesaw_p, q=seesaw_q)
+
+        self.use_eqlv2 = use_eqlv2
+        if self.use_eqlv2:
+            self.eqlv2_loss = EQLv2Loss(num_classes, gamma=eqlv2_gamma)
 
         if self.use_fed_loss:
             assert self.use_sigmoid_ce, "Please use sigmoid cross entropy loss with federated loss"
@@ -296,6 +450,11 @@ class FastRCNNOutputLayers(nn.Module):
             "use_sigmoid_ce"            : cfg.MODEL.ROI_BOX_HEAD.USE_SIGMOID_CE,
             "get_fed_loss_cls_weights"  : lambda: get_fed_loss_cls_weights(dataset_names=cfg.DATASETS.TRAIN, freq_weight_power=cfg.MODEL.ROI_BOX_HEAD.FED_LOSS_FREQ_WEIGHT_POWER),  # noqa
             "fed_loss_num_classes"      : cfg.MODEL.ROI_BOX_HEAD.FED_LOSS_NUM_CLASSES,
+            "use_seesaw_loss"           : getattr(cfg.MODEL.ROI_BOX_HEAD, "USE_SEESAW_LOSS", False),
+            "seesaw_p"                  : getattr(cfg.MODEL.ROI_BOX_HEAD, "SEESAW_P", 0.8),
+            "seesaw_q"                  : getattr(cfg.MODEL.ROI_BOX_HEAD, "SEESAW_Q", 2.0),
+            "use_eqlv2"                 : getattr(cfg.MODEL.ROI_BOX_HEAD, "USE_EQLV2", False),
+            "eqlv2_gamma"               : getattr(cfg.MODEL.ROI_BOX_HEAD, "EQLV2_GAMMA", 12.0),
             # fmt: on
         }
 
@@ -354,10 +513,15 @@ class FastRCNNOutputLayers(nn.Module):
         if self.use_sigmoid_ce:
             loss_cls = self.sigmoid_cross_entropy_loss(scores, gt_classes)
         else:
-            if weights != None:
-                loss_cls = (weights * cross_entropy(scores, gt_classes, reduction="none")).mean()
+            if self.use_eqlv2:
+                loss_cls = self.eqlv2_loss(scores, gt_classes)
+            elif self.use_seesaw_loss:
+                loss_cls = self.seesaw_loss(scores, gt_classes, weights=weights)
             else:
-                loss_cls = cross_entropy(scores, gt_classes, reduction="mean")
+                if weights != None:
+                    loss_cls = (weights * cross_entropy(scores, gt_classes, reduction="none")).mean()
+                else:
+                    loss_cls = cross_entropy(scores, gt_classes, reduction="mean")
 
         losses = {
             "loss_cls": loss_cls,

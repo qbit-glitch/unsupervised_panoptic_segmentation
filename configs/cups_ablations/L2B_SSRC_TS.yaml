@@ -1,0 +1,22 @@
+# Level-2 Ablation B: SSRCTS — Stage-Specific Rare-Class Sampling
+# Enforces >=2 rare-class RoIs per image in each cascade stage by relaxing
+# IoU threshold to 0.35 for rare classes and promoting background proposals.
+
+_base_: ../cups_cityscapes.yaml
+
+MODEL:
+  ROI_BOX_HEAD:
+    SSRCTS_ENABLED: True
+    SSRCTS_RARE_IDS: [13, 14, 15]  # caravan, trailer, polegroup (adjust to actual IDs)
+
+TRAINING:
+  STEPS: 8000
+  BATCH_SIZE: 4
+  VAL_EVERY_N_STEPS: 500
+
+SYSTEM:
+  NUM_GPUS: 1
+  NUM_WORKERS: 4
+  RUN_NAME: "L2B_SSRC_TS"
+
+OUTPUT_DIR: "./output/L2B_SSRC_TS"

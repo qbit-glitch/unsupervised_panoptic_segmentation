@@ -16,6 +16,7 @@ __all__: Tuple[str, ...] = (
     "instances_to_masks",
     "panoptic_label_to_to_class_agnostic_detection_label",
     "StepDataset",
+    "RareFirstStepDataset",
 )
 
 
@@ -57,6 +58,78 @@ class StepDataset(Dataset):
         """
         sample: Any = self.dataset[self.indexes[index]]
         return sample
+
+
+class RareFirstStepDataset(Dataset):
+    """StepDataset with rare-first curriculum sampling.
+
+    Images containing rare-class pixels are oversampled early in training,
+    with the oversampling rate decaying to uniform over the course.
+    """
+
+    def __init__(
+        self,
+        dataset: Dataset,
+        steps: int,
+        rare_classes: List[int],
+        rare_fraction_start: float = 0.8,
+        rare_fraction_end: float = 0.0,
+    ) -> None:
+        super().__init__()
+        self.dataset = dataset
+        self.steps = steps
+        dataset_length = len(dataset)  # type: ignore
+        self.dataset_length = dataset_length
+        self.rare_classes = set(rare_classes)
+        self.rare_frac_start = rare_fraction_start
+        self.rare_frac_end = rare_fraction_end
+
+        # Pre-compute per-image rarity scores (one-time cost)
+        self.rarity_scores = self._compute_rarity_scores(dataset)
+        self.base_weights = self._get_base_weights()
+
+        # Generate curriculum-weighted indexes
+        num_epochs = math.ceil(steps / dataset_length)
+        self.indexes: List[int] = []
+        for epoch in range(num_epochs):
+            progress = epoch / max(num_epochs - 1, 1)
+            alpha = self.rare_frac_start * (1.0 - progress) + self.rare_frac_end * progress
+            epoch_weights = (1.0 - alpha) + alpha * self.base_weights
+            epoch_weights = epoch_weights / epoch_weights.sum()
+            epoch_indices = torch.multinomial(
+                epoch_weights, num_samples=dataset_length, replacement=True
+            ).tolist()
+            self.indexes.extend(epoch_indices)
+        self.indexes = self.indexes[:steps]
+
+    def _compute_rarity_scores(self, dataset: Dataset) -> torch.Tensor:
+        """Compute rarity score for each image in the dataset."""
+        scores = []
+        for i in range(len(dataset)):  # type: ignore
+            sample = dataset[i]
+            sem = sample.get("sem_seg", sample.get("semantic", None))
+            if sem is None:
+                scores.append(0.0)
+                continue
+            if isinstance(sem, torch.Tensor):
+                sem = sem.numpy()
+            total = sem.size
+            rare_pixels = sum((sem == c).sum() for c in self.rare_classes)
+            score = (rare_pixels / (total + 1e-6)) ** 0.5 if rare_pixels > 0 else 0.01
+            scores.append(score)
+        return torch.tensor(scores, dtype=torch.float32)
+
+    def _get_base_weights(self) -> torch.Tensor:
+        """Normalize rarity scores to valid sampling weights."""
+        weights = self.rarity_scores.clone()
+        weights = weights / weights.sum()
+        return weights
+
+    def __len__(self) -> int:
+        return len(self.indexes)
+
+    def __getitem__(self, index: int) -> Any:
+        return self.dataset[self.indexes[index]]
 
 
 def load_image(path: str) -> Tensor:

@@ -1,0 +1,23 @@
+# Level-2 Ablation C: EQL v2 — Equalization Loss v2 in Cascade Box Heads
+# Drop-in replacement for CE. Maintains online EMA of pos/neg gradient
+# magnitudes per class, rescaling so tail classes get comparable gradient.
+
+_base_: ../cups_cityscapes.yaml
+
+MODEL:
+  ROI_BOX_HEAD:
+    USE_SEESAW_LOSS: False
+    USE_EQLV2: True
+    EQLV2_GAMMA: 12.0
+
+TRAINING:
+  STEPS: 8000
+  BATCH_SIZE: 4
+  VAL_EVERY_N_STEPS: 500
+
+SYSTEM:
+  NUM_GPUS: 1
+  NUM_WORKERS: 4
+  RUN_NAME: "L2C_EQLv2"
+
+OUTPUT_DIR: "./output/L2C_EQLv2"

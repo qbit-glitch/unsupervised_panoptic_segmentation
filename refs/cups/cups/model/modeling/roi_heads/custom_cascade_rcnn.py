@@ -278,6 +278,10 @@ class CustomCascadeROIHeads(CustomStandardROIHeads):
             num_fg_samples.append((proposal_labels == 1).sum().item())
             num_bg_samples.append(proposal_labels.numel() - num_fg_samples[-1])
 
+        # SSRCTS: Stage-Specific Rare-Class Sampling
+        if self.training and hasattr(self, 'cfg') and getattr(self.cfg.MODEL.ROI_BOX_HEAD, 'SSRCS_ENABLED', False):
+            proposals = self._resample_rare_classes(proposals, targets, stage)
+
         # Log the number of fg/bg samples in each stage
         storage = get_event_storage()
         storage.put_scalar(
@@ -288,6 +292,50 @@ class CustomCascadeROIHeads(CustomStandardROIHeads):
             "stage{}/roi_head/num_bg_samples".format(stage),
             sum(num_bg_samples) / len(num_bg_samples),
         )
+        return proposals
+
+    @torch.no_grad()
+    def _resample_rare_classes(self, proposals, targets, stage, min_rare=2, relaxed_iou=0.35):
+        """
+        After standard matcher / subsampling, ensure each image has at least
+        ``min_rare`` rare-class proposals in this stage by relaxing the IoU
+        threshold for rare classes and promoting background proposals that
+        overlap rare GT boxes.
+        """
+        rare_ids = getattr(self.cfg.MODEL.ROI_BOX_HEAD, 'SSRCS_RARE_IDS', [13, 14, 15])
+        rare_ids_tensor = torch.tensor(rare_ids, device=proposals[0].gt_classes.device)
+
+        for proposals_per_image, targets_per_image in zip(proposals, targets):
+            gt_classes = proposals_per_image.gt_classes
+            num_rare = sum((gt_classes == r).sum() for r in rare_ids)
+            if num_rare >= min_rare:
+                continue
+
+            # Identify rare GT boxes in this image
+            rare_gt_mask = torch.isin(targets_per_image.gt_classes, rare_ids_tensor)
+            if rare_gt_mask.sum() == 0:
+                continue
+            rare_gt = targets_per_image[rare_gt_mask]
+
+            # Compute IoU between all proposals and rare GT boxes
+            ious = pairwise_iou(rare_gt.gt_boxes, proposals_per_image.proposal_boxes)  # (M_rare, P)
+            max_ious, best_rare_idx = ious.max(dim=0)  # (P,)
+
+            # Candidates: proposals currently background with IoU > relaxed_iou to rare GT
+            bg_mask = gt_classes == self.num_classes
+            candidate_mask = bg_mask & (max_ious > relaxed_iou)
+            candidate_idxs = candidate_mask.nonzero(as_tuple=True)[0]
+
+            needed = int(min_rare - num_rare)
+            if len(candidate_idxs) == 0:
+                continue
+            selected = candidate_idxs[torch.randperm(len(candidate_idxs), device=candidate_idxs.device)[:needed]]
+
+            # Assign the rare class and its GT box
+            best_class = rare_gt.gt_classes[best_rare_idx[selected]]
+            best_box = rare_gt.gt_boxes[best_rare_idx[selected]]
+            proposals_per_image.gt_classes[selected] = best_class
+            proposals_per_image.gt_boxes[selected] = best_box
         return proposals
 
     def _run_stage(self, features, proposals, stage):

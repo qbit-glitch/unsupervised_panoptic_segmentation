@@ -1,0 +1,28 @@
+# Level-3 Ablation A: AMR-ST — Asymmetric Multi-Round Self-Training
+# Stage-3 EMA teacher uses class-dependent confidence thresholds:
+#   - Frequent classes: τ = 0.7
+#   - Dead classes: τ = 0.35 (decays by 0.1 per round, min 0.15)
+#   - Rare-class logit sharpening: T = 0.7
+
+_base_: ../cups_self_cityscapes.yaml
+
+SELF_TRAINING:
+  AMR_ST_ENABLED: True
+  AMR_ST_RARE_CLASSES: [3, 6, 12, 16, 17]  # guard_rail, tunnel, polegroup, train, motorcycle
+  AMR_ST_TAU_FREQ: 0.7
+  AMR_ST_TAU_RARE: 0.35
+  AMR_ST_RARE_TEMP: 0.7
+  AMR_ST_ROUND_DECAY: 0.1
+  SEMANTIC_SEGMENTATION_THRESHOLD: 0.5
+
+TRAINING:
+  STEPS: 4000
+  BATCH_SIZE: 4
+  VAL_EVERY_N_STEPS: 500
+
+SYSTEM:
+  NUM_GPUS: 1
+  NUM_WORKERS: 4
+  RUN_NAME: "L3A_AMR_ST"
+
+OUTPUT_DIR: "./output/L3A_AMR_ST"

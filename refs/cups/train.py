@@ -47,6 +47,7 @@ from cups.data import (
     KITTIPanopticValidation,
     PseudoLabelDataset,
     StepDataset,
+    RareFirstStepDataset,
     collate_function_validation,
 )
 from cups.utils import RTPTCallback
@@ -168,12 +169,25 @@ def main() -> None:
     log.info(f"{len(training_dataset)} training samples and {len(validation_dataset)} validation samples detected.")
     # Make data loaders
     num_workers = config.SYSTEM.NUM_WORKERS
+    # RFCL: Rare-First Curriculum Learning
+    use_rfcl = getattr(config, 'RFCL', None) and getattr(config.RFCL, 'ENABLED', False)
+    total_steps = config.TRAINING.STEPS * config.SYSTEM.NUM_GPUS * config.TRAINING.BATCH_SIZE * getattr(config.TRAINING, "ACCUMULATE_GRAD_BATCHES", 1)
+    if use_rfcl:
+        log.info("RFCL enabled: using RareFirstStepDataset with rare-class curriculum sampling.")
+        train_dataset_wrapper = RareFirstStepDataset(
+            training_dataset,
+            steps=total_steps,
+            rare_classes=getattr(config.RFCL, 'RARE_CLASSES', [3, 6, 12, 16, 17]),
+            rare_fraction_start=getattr(config.RFCL, 'RARE_FRACTION_START', 0.8),
+            rare_fraction_end=getattr(config.RFCL, 'RARE_FRACTION_END', 0.0),
+        )
+    else:
+        train_dataset_wrapper = StepDataset(training_dataset, steps=total_steps)
+
     training_data_loader = DataLoader(
-        dataset=StepDataset(
-            training_dataset, steps=config.TRAINING.STEPS * config.SYSTEM.NUM_GPUS * config.TRAINING.BATCH_SIZE * getattr(config.TRAINING, "ACCUMULATE_GRAD_BATCHES", 1)
-        ),
+        dataset=train_dataset_wrapper,
         batch_size=config.TRAINING.BATCH_SIZE,
-        shuffle=True,
+        shuffle=not use_rfcl,  # RFCL handles its own sampling; otherwise shuffle
         num_workers=num_workers,
         collate_fn=lambda x: x,
         drop_last=True,

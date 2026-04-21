@@ -1,0 +1,23 @@
+# Level-2 Ablation D: RFCL — Rare-First Curriculum Learning
+# Stage-2 dataloader oversamples images containing dead-class pixels early
+# in training (80% rare-heavy at step 0), decaying to uniform by step 8000.
+
+_base_: ../cups_cityscapes.yaml
+
+RFCL:
+  ENABLED: True
+  RARE_CLASSES: [3, 6, 12, 16, 17]  # guard_rail, tunnel, polegroup, train, motorcycle (adjust IDs as needed)
+  RARE_FRACTION_START: 0.8
+  RARE_FRACTION_END: 0.0
+
+TRAINING:
+  STEPS: 8000
+  BATCH_SIZE: 4
+  VAL_EVERY_N_STEPS: 500
+
+SYSTEM:
+  NUM_GPUS: 1
+  NUM_WORKERS: 4
+  RUN_NAME: "L2D_RFCL"
+
+OUTPUT_DIR: "./output/L2D_RFCL"

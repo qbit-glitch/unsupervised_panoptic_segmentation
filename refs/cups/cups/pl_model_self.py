@@ -208,40 +208,78 @@ class SelfSupervisedModel(UnsupervisedModel):
             semantic_segmentation_raw = sample["sem_seg"]
             # Get max class scores
             max_class_scores = semantic_segmentation_raw.amax(dim=(1, 2), keepdim=True)  # type: ignore
-            # A2: Per-class threshold adjustment based on class frequency
-            base_thresh = self.hparams.config.SELF_TRAINING.SEMANTIC_SEGMENTATION_THRESHOLD
-            class_freqs = self.hparams.config.SELF_TRAINING.get("CLASS_FREQUENCIES", None)
-            num_stuff_classes = max_class_scores.shape[0]
-            if class_freqs and len(class_freqs) == num_stuff_classes:
-                class_freqs = torch.tensor(class_freqs, device=semantic_segmentation_raw.device, dtype=torch.float32)
-                freq_ratio = class_freqs / class_freqs.max()  # [0, 1]
-                alpha = getattr(self.hparams.config.SELF_TRAINING, "CLASS_THRESHOLD_ALPHA", 0.3)
-                per_class_factor = (freq_ratio ** alpha).view(-1, 1, 1)
-                class_threshold = max_class_scores * base_thresh * per_class_factor
+            # AMR-ST: Asymmetric Multi-Round Self-Training
+            st_cfg = self.hparams.config.SELF_TRAINING
+            base_thresh = st_cfg.SEMANTIC_SEGMENTATION_THRESHOLD
+            use_amr = getattr(st_cfg, "AMR_ST_ENABLED", False)
+            if use_amr:
+                # TTA logit sharpening for rare classes
+                rare_classes = getattr(st_cfg, "AMR_ST_RARE_CLASSES", [3, 6, 12, 16, 17])
+                rare_temp = getattr(st_cfg, "AMR_ST_RARE_TEMP", 0.7)
+                tau_freq = getattr(st_cfg, "AMR_ST_TAU_FREQ", 0.7)
+                tau_rare = getattr(st_cfg, "AMR_ST_TAU_RARE", 0.35)
+                # Round-wise adaptive lowering
+                round_decay = getattr(st_cfg, "AMR_ST_ROUND_DECAY", 0.1)
+                current_tau_rare = max(0.15, tau_rare - (self.round - 1) * round_decay)
+
+                # Sharpen rare-class logits
+                sem_logits_boosted = semantic_segmentation_raw.clone()
+                for rc in rare_classes:
+                    if rc < sem_logits_boosted.shape[0]:
+                        sem_logits_boosted[rc] = sem_logits_boosted[rc] / rare_temp
+
+                # Class-dependent thresholding
+                threshold_map = torch.full_like(sem_logits_boosted, tau_freq)
+                for rc in rare_classes:
+                    if rc < threshold_map.shape[0]:
+                        threshold_map[rc] = current_tau_rare
+
+                # Apply threshold: pixel must exceed its class threshold AND be max class
+                semantic_segmentation = torch.where(
+                    sem_logits_boosted > threshold_map, sem_logits_boosted, 0.0
+                )
+                semantic_segmentation_pseudo = semantic_segmentation.argmax(dim=0)
+                semantic_segmentation_pseudo[semantic_segmentation.sum(dim=0) == 0] = 255
                 if not self._logged_class_threshold:
                     log.info(
-                        "A2: Using class-aware pseudo-label thresholding (alpha=%.2f, %d classes)",
-                        alpha,
-                        len(class_freqs),
+                        "AMR-ST: asymmetric thresholds (freq=%.2f, rare=%.2f, round=%d, temp=%.2f)",
+                        tau_freq, current_tau_rare, self.round, rare_temp,
                     )
                     self._logged_class_threshold = True
             else:
-                if class_freqs and len(class_freqs) != num_stuff_classes:
+                # A2: Per-class threshold adjustment based on class frequency
+                class_freqs = st_cfg.get("CLASS_FREQUENCIES", None)
+                num_stuff_classes = max_class_scores.shape[0]
+                if class_freqs and len(class_freqs) == num_stuff_classes:
+                    class_freqs = torch.tensor(class_freqs, device=semantic_segmentation_raw.device, dtype=torch.float32)
+                    freq_ratio = class_freqs / class_freqs.max()  # [0, 1]
+                    alpha = getattr(st_cfg, "CLASS_THRESHOLD_ALPHA", 0.3)
+                    per_class_factor = (freq_ratio ** alpha).view(-1, 1, 1)
+                    class_threshold = max_class_scores * base_thresh * per_class_factor
                     if not self._logged_class_threshold:
-                        log.warning(
-                            "A2: CLASS_FREQUENCIES length (%d) does not match stuff classes (%d). "
-                            "Falling back to global threshold.",
+                        log.info(
+                            "A2: Using class-aware pseudo-label thresholding (alpha=%.2f, %d classes)",
+                            alpha,
                             len(class_freqs),
-                            num_stuff_classes,
                         )
                         self._logged_class_threshold = True
-                class_threshold = max_class_scores * base_thresh
-            # Make semantic pseudo label
-            semantic_segmentation = torch.where(  # type: ignore
-                semantic_segmentation_raw > class_threshold, semantic_segmentation_raw, 0.0  # type: ignore
-            )
-            semantic_segmentation_pseudo = semantic_segmentation.argmax(dim=0)
-            semantic_segmentation_pseudo[semantic_segmentation.sum(dim=0) == 0] = 255
+                else:
+                    if class_freqs and len(class_freqs) != num_stuff_classes:
+                        if not self._logged_class_threshold:
+                            log.warning(
+                                "A2: CLASS_FREQUENCIES length (%d) does not match stuff classes (%d). "
+                                "Falling back to global threshold.",
+                                len(class_freqs),
+                                num_stuff_classes,
+                            )
+                            self._logged_class_threshold = True
+                    class_threshold = max_class_scores * base_thresh
+                # Make semantic pseudo label
+                semantic_segmentation = torch.where(  # type: ignore
+                    semantic_segmentation_raw > class_threshold, semantic_segmentation_raw, 0.0  # type: ignore
+                )
+                semantic_segmentation_pseudo = semantic_segmentation.argmax(dim=0)
+                semantic_segmentation_pseudo[semantic_segmentation.sum(dim=0) == 0] = 255
             # M5: Compute per-pixel confidence weights from teacher softmax
             confidence_weights = None
             lora_cfg = getattr(self.hparams.config.MODEL, "LORA", None)

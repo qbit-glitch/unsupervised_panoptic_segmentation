@@ -1,0 +1,34 @@
+# Level-2 Ablation A: BACC-TS — Boundary-Aware Class-Balanced CE + Temperature Scaling
+# Applied to CUPS Stage-2 semantic head on AnyDesk (RTX Pro 6000, 48GB)
+#
+# Components:
+#   1. Class-frequency weighting (inverse-sqrt, normalized to mean=1.0)
+#   2. Boundary CE aux loss (up-weights boundary pixels 3×)
+#   3. Temperature-scaled soft pseudo-labels via stuff-preservation KD (T=2.0)
+
+_base_: ../cups_cityscapes.yaml
+
+MODEL:
+  SEM_SEG_HEAD:
+    # Class weights: inverse-sqrt frequency, normalized mean=1.0
+    # Computed from cups_pseudo_labels_dcfa_simcf_abc (2975 train images)
+    CLASS_WEIGHT: [0.542, 0.906, 0.549, 1.006, 1.057, 0.837, 1.213, 0.721, 0.847, 0.953, 0.992, 1.119, 0.875, 0.509, 0.754, 1.277, 2.038, 1.185, 1.62]
+    # Enable boundary-aware CE aux loss (P1)
+    BOUNDARY_WEIGHT: 1.0
+    BOUNDARY_DILATE_PX: 3
+    BOUNDARY_CE_MULT: 3.0
+    # Enable temperature-scaled soft pseudo-label KD for all stuff classes
+    STUFF_KD_WEIGHT: 0.5
+    KD_TEMPERATURE: 2.0
+
+TRAINING:
+  STEPS: 8000
+  BATCH_SIZE: 4
+  VAL_EVERY_N_STEPS: 500
+
+SYSTEM:
+  NUM_GPUS: 1
+  NUM_WORKERS: 4
+  RUN_NAME: "L2A_BACC_TS"
+
+OUTPUT_DIR: "./output/L2A_BACC_TS"
