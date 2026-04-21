@@ -331,8 +331,15 @@ class PseudoLabelDataset(Dataset):
             semantic_paths (List[str]): List of pseudo semantic paths.
         """
         # Get both semantic and instance pseudo label path
-        instance_paths = [file for file in sorted(os.listdir(root_pseudo)) if "_instance.png" in file]
-        semantic_paths = [file for file in sorted(os.listdir(root_pseudo)) if "_semantic.png" in file]
+        # Skip AppleDouble resource forks (._*) and hidden files
+        instance_paths = [
+            file for file in sorted(os.listdir(root_pseudo))
+            if "_instance.png" in file and not file.startswith(".")
+        ]
+        semantic_paths = [
+            file for file in sorted(os.listdir(root_pseudo))
+            if "_semantic.png" in file and not file.startswith(".")
+        ]
         # Get corresponding image path
         image_paths = []
         for file in instance_paths:
