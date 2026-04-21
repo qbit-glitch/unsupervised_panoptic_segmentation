@@ -83,6 +83,8 @@ class SelfSupervisedModel(UnsupervisedModel):
         self.round: int = 1
         # Mask refiner (classical refinement)
         self.mask_refiner = mask_refiner
+        # A2: Log per-class thresholding once
+        self._logged_class_threshold: bool = False
 
     def forward(self, input: List[Dict[str, Tensor]]) -> List[Dict[str, Any]]:
         """Just wraps the forward pass of the Cascade Panoptic Mask R-CNN.
@@ -206,8 +208,34 @@ class SelfSupervisedModel(UnsupervisedModel):
             semantic_segmentation_raw = sample["sem_seg"]
             # Get max class scores
             max_class_scores = semantic_segmentation_raw.amax(dim=(1, 2), keepdim=True)  # type: ignore
-            # Compute class threshold
-            class_threshold = max_class_scores * self.hparams.config.SELF_TRAINING.SEMANTIC_SEGMENTATION_THRESHOLD
+            # A2: Per-class threshold adjustment based on class frequency
+            base_thresh = self.hparams.config.SELF_TRAINING.SEMANTIC_SEGMENTATION_THRESHOLD
+            class_freqs = self.hparams.config.SELF_TRAINING.get("CLASS_FREQUENCIES", None)
+            num_stuff_classes = max_class_scores.shape[0]
+            if class_freqs and len(class_freqs) == num_stuff_classes:
+                class_freqs = torch.tensor(class_freqs, device=semantic_segmentation_raw.device, dtype=torch.float32)
+                freq_ratio = class_freqs / class_freqs.max()  # [0, 1]
+                alpha = getattr(self.hparams.config.SELF_TRAINING, "CLASS_THRESHOLD_ALPHA", 0.3)
+                per_class_factor = (freq_ratio ** alpha).view(-1, 1, 1)
+                class_threshold = max_class_scores * base_thresh * per_class_factor
+                if not self._logged_class_threshold:
+                    log.info(
+                        "A2: Using class-aware pseudo-label thresholding (alpha=%.2f, %d classes)",
+                        alpha,
+                        len(class_freqs),
+                    )
+                    self._logged_class_threshold = True
+            else:
+                if class_freqs and len(class_freqs) != num_stuff_classes:
+                    if not self._logged_class_threshold:
+                        log.warning(
+                            "A2: CLASS_FREQUENCIES length (%d) does not match stuff classes (%d). "
+                            "Falling back to global threshold.",
+                            len(class_freqs),
+                            num_stuff_classes,
+                        )
+                        self._logged_class_threshold = True
+                class_threshold = max_class_scores * base_thresh
             # Make semantic pseudo label
             semantic_segmentation = torch.where(  # type: ignore
                 semantic_segmentation_raw > class_threshold, semantic_segmentation_raw, 0.0  # type: ignore
@@ -720,6 +748,9 @@ def build_model_self(
             drop_loss_iou_threshold=config.TRAINING.DROP_LOSS_IOU_THRESHOLD,
             use_drop_loss=config.SELF_TRAINING.USE_DROP_LOSS,
             freeze_backbone=getattr(config.MODEL, "DINOV2_FREEZE", True),
+            use_seesaw_loss=getattr(config.MODEL.ROI_BOX_HEAD, "USE_SEESAW_LOSS", False),
+            seesaw_p=getattr(config.MODEL.ROI_BOX_HEAD, "SEESAW_P", 0.8),
+            seesaw_q=getattr(config.MODEL.ROI_BOX_HEAD, "SEESAW_Q", 2.0),
         )
     elif backbone_type == "dinov3_vitb":
         from cups.model.model_vitb import panoptic_cascade_mask_r_cnn_dinov3
@@ -738,6 +769,9 @@ def build_model_self(
             drop_loss_iou_threshold=config.TRAINING.DROP_LOSS_IOU_THRESHOLD,
             use_drop_loss=config.SELF_TRAINING.USE_DROP_LOSS,
             freeze_backbone=getattr(config.MODEL, "DINOV2_FREEZE", True),
+            use_seesaw_loss=getattr(config.MODEL.ROI_BOX_HEAD, "USE_SEESAW_LOSS", False),
+            seesaw_p=getattr(config.MODEL.ROI_BOX_HEAD, "SEESAW_P", 0.8),
+            seesaw_q=getattr(config.MODEL.ROI_BOX_HEAD, "SEESAW_Q", 2.0),
         )
         # Load checkpoint BEFORE TTA wrapping
         if config.MODEL.CHECKPOINT is not None:
@@ -746,7 +780,11 @@ def build_model_self(
             student_checkpoint = {k: v for k, v in checkpoint.items() if not k.startswith("teacher_")}
             if len(student_checkpoint) < len(checkpoint):
                 log.info(f"Filtered {len(checkpoint) - len(student_checkpoint)} teacher keys from checkpoint")
-            model.load_state_dict(student_checkpoint)
+            missing_keys, unexpected_keys = model.load_state_dict(student_checkpoint, strict=False)
+            if missing_keys:
+                log.warning(f"Missing keys when loading checkpoint: {missing_keys}")
+            if unexpected_keys:
+                log.warning(f"Unexpected keys when loading checkpoint: {unexpected_keys}")
         # Now wrap with TTA
         from detectron2.config import get_cfg as _get_cfg
         from cups.model.modeling.meta_arch.panoptic_fpn_tta import PanopticFPNWithTTA

@@ -94,6 +94,9 @@ def panoptic_cascade_mask_r_cnn_vitb(
     cfg.TEST.INSTANCE_SCORE_THRESH = tta_detection_threshold
     cfg.MODEL.ROI_HEADS.USE_DROPLOSS = use_drop_loss
     cfg.MODEL.ROI_HEADS.DROPLOSS_IOU_THRESH = drop_loss_iou_threshold
+    cfg.MODEL.ROI_BOX_HEAD.USE_SEESAW_LOSS = use_seesaw_loss
+    cfg.MODEL.ROI_BOX_HEAD.SEESAW_P = seesaw_p
+    cfg.MODEL.ROI_BOX_HEAD.SEESAW_Q = seesaw_q
     if use_tta:
         cfg.TEST.AUG.MIN_SIZES = tuple(
             int(default_size[0] * scale) for scale in tta_scales
@@ -161,6 +164,9 @@ def panoptic_cascade_mask_r_cnn_dinov3(
     kd_temperature: float = 2.0,
     sem_seg_head_name: str = "CustomSemSegFPNHead",
     depth_channels: int = 15,
+    use_seesaw_loss: bool = False,
+    seesaw_p: float = 0.8,
+    seesaw_q: float = 2.0,
 ) -> nn.Module:
     """Build Panoptic Cascade Mask R-CNN with DINOv3 ViT-B/16 + SimpleFeaturePyramid.
 
@@ -217,6 +223,9 @@ def panoptic_cascade_mask_r_cnn_dinov3(
     cfg.TEST.INSTANCE_SCORE_THRESH = tta_detection_threshold
     cfg.MODEL.ROI_HEADS.USE_DROPLOSS = use_drop_loss
     cfg.MODEL.ROI_HEADS.DROPLOSS_IOU_THRESH = drop_loss_iou_threshold
+    cfg.MODEL.ROI_BOX_HEAD.USE_SEESAW_LOSS = use_seesaw_loss
+    cfg.MODEL.ROI_BOX_HEAD.SEESAW_P = seesaw_p
+    cfg.MODEL.ROI_BOX_HEAD.SEESAW_Q = seesaw_q
     if use_tta:
         cfg.TEST.AUG.MIN_SIZES = tuple(
             int(default_size[0] * scale) for scale in tta_scales

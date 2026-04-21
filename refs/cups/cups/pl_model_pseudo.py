@@ -23,6 +23,8 @@ from cups.model import (
     prediction_to_label_format,
     prediction_to_standard_format,
 )
+from cups.model.modeling.mask2former.ema import EMAModel
+from cups.model.modeling.mask2former.swa import average_state_dicts
 from cups.visualization import (
     save_image,
     save_object_proposals,
@@ -121,6 +123,20 @@ class UnsupervisedModel(LightningModule):
             self.color_template = "mots"
         else:
             self.color_template = "cityscapes_19"
+        # --- EMA teacher (G1 / N4 / Stage-3) --------------------------------
+        self._ema_enabled: bool = bool(getattr(getattr(config.MODEL, "EMA", None), "ENABLED", False))
+        self._ema_decay: float = float(getattr(getattr(config.MODEL, "EMA", None), "DECAY", 0.9998))
+        self.ema_teacher: EMAModel | None = EMAModel(self.model, decay=self._ema_decay) if self._ema_enabled else None
+        self._ema_backup: Dict[str, Tensor] | None = None
+        # --- SWA averaging (G2) ---------------------------------------------
+        self._swa_enabled: bool = bool(getattr(getattr(config.MODEL, "SWA", None), "ENABLED", False))
+        self._swa_num_ckpts: int = int(getattr(getattr(config.MODEL, "SWA", None), "NUM_CKPTS", 5))
+        self._swa_start_fraction: float = float(getattr(getattr(config.MODEL, "SWA", None), "START_FRACTION", 0.75))
+        self._swa_state_dicts: List[Dict[str, Tensor]] = []
+        # --- N4 query-consistency: teacher forward cache --------------------
+        self._query_consistency_weight: float = float(
+            getattr(getattr(config.MODEL, "MASK2FORMER", None), "QUERY_CONSISTENCY_WEIGHT", 0.0)
+        )
 
     def forward(self, input: List[Dict[str, Tensor]]) -> List[Dict[str, Any]]:
         """Just wraps the forward pass of the Cascade Panoptic Mask R-CNN.
@@ -160,8 +176,19 @@ class UnsupervisedModel(LightningModule):
                     batch_aug = deepcopy(batch)
         else:
             batch_aug = deepcopy(batch)
+        # Augmented batch
+        augmented_batch = self.photometric_augmentation(self.resolution_jitter_augmentation(batch_aug))
+        # --- N4: teacher forward to populate query embeddings on student model ---
+        # The aux_loss_hooks["query_consistency"] reads ctx["teacher_query_embeds"]
+        # via Mask2FormerPanoptic; we stash the EMA-teacher's pred_query_embeds on
+        # the student model as _teacher_query_embeds so the hook can pull them.
+        if self._query_consistency_weight > 0.0 and self.ema_teacher is not None:
+            self._populate_teacher_query_embeds(augmented_batch)
         # Get losses
-        loss_dict = self(self.photometric_augmentation(self.resolution_jitter_augmentation(batch_aug)))
+        loss_dict = self(augmented_batch)
+        # Clear stashed teacher embeddings so they don't leak across steps.
+        if hasattr(self.model, "_teacher_query_embeds"):
+            self.model._teacher_query_embeds = None
         # Compute sum of losses
         loss: Tensor = sum(loss_dict.values())
         # Log final loss
@@ -392,6 +419,14 @@ class UnsupervisedModel(LightningModule):
         # Reset metric
         self.panoptic_quality.reset()
 
+    def on_validation_end(self) -> None:  # type: ignore[override]
+        """Restore student weights after EMA validation (counterpart to on_validation_epoch_start)."""
+        if self.ema_teacher is not None and self._ema_backup is not None:
+            for name, p in self.model.named_parameters():
+                if name in self._ema_backup:
+                    p.data.copy_(self._ema_backup[name])
+            self._ema_backup = None
+
     def on_before_optimizer_step(self, optimizer: torch.optim.Optimizer) -> None:
         """Things to do before the optimizer step.
 
@@ -402,6 +437,106 @@ class UnsupervisedModel(LightningModule):
         gradient_norms = grad_norm(self.model, norm_type=2)
         # Log gradient norms
         self.log_dict(gradient_norms)
+
+    @torch.no_grad()
+    def _populate_teacher_query_embeds(self, augmented_batch: List[Dict[str, Any]]) -> None:
+        """Run the EMA teacher (weights swapped in) and stash pred_query_embeds on
+        the student so the N4 query_consistency hook can read them via ctx.
+
+        Bypasses the meta-arch's panoptic-merge eval path to capture the raw
+        decoder dict (which contains pred_query_embeds when requested).
+        """
+        assert self.ema_teacher is not None
+        # Requires Mask2FormerPanoptic-style meta-arch (backbone/pixel_decoder/transformer_decoder).
+        if not all(hasattr(self.model, attr) for attr in ("backbone", "pixel_decoder", "transformer_decoder")):
+            return
+        # Swap EMA shadow into the student temporarily for the teacher forward.
+        backup = {
+            name: p.detach().clone()
+            for name, p in self.model.named_parameters()
+            if name in self.ema_teacher.shadow
+        }
+        self.ema_teacher.copy_to(self.model)
+        was_training = self.model.training
+        self.model.eval()
+        try:
+            # Use the meta-arch's own stacking helpers so shapes match.
+            images = self.model._stack_images(augmented_batch)  # (B, 3, H, W)
+            depth = self.model._maybe_depth(augmented_batch)
+            feats = self.model.backbone(images)
+            mask_feat, multi_scale = self.model.pixel_decoder(feats)
+            teacher_dec_out = self.model.transformer_decoder(
+                mask_feat=mask_feat,
+                multi_scale=multi_scale,
+                depth=depth,
+                return_query_embeds=True,
+            )
+            # MaskedAttentionDecoder returns {"pred_logits", "pred_masks", "aux_outputs", "query_embeds"}.
+            teacher_embeds: Tensor | None = teacher_dec_out.get("query_embeds") if isinstance(teacher_dec_out, dict) else None
+            self.model._teacher_query_embeds = teacher_embeds
+        finally:
+            # Restore student weights + mode.
+            for name, p in self.model.named_parameters():
+                if name in backup:
+                    p.data.copy_(backup[name])
+            if was_training:
+                self.model.train()
+
+    def on_train_batch_end(self, outputs: Any, batch: Any, batch_idx: int) -> None:  # type: ignore[override]
+        """EMA update + SWA buffering after every optimizer step."""
+        # EMA teacher: update after each student step
+        if self.ema_teacher is not None:
+            self.ema_teacher.update(self.model)
+        # SWA buffering: save N evenly-spaced snapshots in the last START_FRACTION window
+        if self._swa_enabled:
+            total_steps = self._estimate_total_steps()
+            start_step = int(self._swa_start_fraction * total_steps) if total_steps > 0 else 0
+            if total_steps > 0 and self.global_step >= start_step and self._swa_num_ckpts > 0:
+                remaining = max(1, total_steps - start_step)
+                stride = max(1, remaining // self._swa_num_ckpts)
+                if ((self.global_step - start_step) % stride == 0
+                        and len(self._swa_state_dicts) < self._swa_num_ckpts):
+                    self._swa_state_dicts.append(
+                        {k: v.detach().clone().cpu() for k, v in self.model.state_dict().items()}
+                    )
+                    log.info(
+                        f"[SWA] cached ckpt {len(self._swa_state_dicts)}/{self._swa_num_ckpts} "
+                        f"at step {self.global_step}"
+                    )
+
+    def on_train_end(self) -> None:  # type: ignore[override]
+        """Average SWA buffered state dicts and save; no-op otherwise."""
+        if self._swa_enabled and self._swa_state_dicts:
+            avg = average_state_dicts(self._swa_state_dicts)
+            save_dir = getattr(self.logger, "save_dir", None) if self.logger is not None else None
+            out_dir = save_dir or getattr(self.hparams.config.SYSTEM, "LOG_PATH", ".")
+            os.makedirs(out_dir, exist_ok=True)
+            out_path = os.path.join(out_dir, "swa_averaged.ckpt")
+            torch.save({"state_dict": {f"model.{k}": v for k, v in avg.items()}}, out_path)
+            log.info(f"[SWA] wrote averaged weights ({len(self._swa_state_dicts)} ckpts) to {out_path}")
+
+    def on_validation_epoch_start(self) -> None:  # type: ignore[override]
+        """Swap in EMA teacher weights for validation (G1 / N4 path)."""
+        if self.ema_teacher is not None:
+            self._ema_backup = {
+                name: p.detach().clone() for name, p in self.model.named_parameters()
+                if name in self.ema_teacher.shadow
+            }
+            self.ema_teacher.copy_to(self.model)
+
+    def _estimate_total_steps(self) -> int:
+        """Best-effort estimate of total optimizer steps for SWA scheduling."""
+        trainer = getattr(self, "trainer", None)
+        if trainer is None:
+            return 0
+        max_steps = getattr(trainer, "max_steps", -1)
+        if max_steps is not None and max_steps > 0:
+            return int(max_steps)
+        # Fallback: derive from max_epochs × estimated_stepping_batches
+        est = getattr(trainer, "estimated_stepping_batches", None)
+        if est is not None and est > 0:
+            return int(est)
+        return 0
 
     def on_train_epoch_end(self) -> None:
         """Stuff to perform at the end of the epoch."""
