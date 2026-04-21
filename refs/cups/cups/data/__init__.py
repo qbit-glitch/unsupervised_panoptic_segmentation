@@ -31,7 +31,7 @@ from .kitti import (
 from .mots import MOTS, MOTS_STUFF_CLASSES, MOTS_THING_CLASSES
 from .muses import MUSESPanopticValidation
 from .pseudo_label_dataset import PseudoLabelDataset
-from .utils import StepDataset
+from .utils import StepDataset, RareFirstStepDataset
 from .waymo import (
     WAYMO_7_MISSING_CS_CLASSES,
     WAYMO_19_MISSING_CS_CLASSES,
