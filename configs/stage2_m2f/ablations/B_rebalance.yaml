@@ -1,0 +1,16 @@
+# Approach B: Training Rebalancing
+# Enable copy-paste augmentation, increase queries, boost class-matching
+# priority in Hungarian matcher, and use instance-aware cropping.
+#
+# Include this as a _BASE_ fragment or merge into a full config.
+
+AUGMENTATION:
+  COPY_PASTE: True
+  MAX_NUM_PASTED_OBJECTS: 5
+  INSTANCE_AWARE_CROP: True
+  INSTANCE_AWARE_CROP_PROB: 0.5
+
+MODEL:
+  MASK2FORMER:
+    NUM_QUERIES: 200
+    CLASS_WEIGHT: 5.0

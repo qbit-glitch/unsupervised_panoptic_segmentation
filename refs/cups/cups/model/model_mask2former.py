@@ -119,6 +119,11 @@ def build_mask2former_vitb(
         num_queries = m.NUM_QUERIES
 
     # Transformer decoder.
+    use_decoupled = getattr(m, "DECOUPLED_CLASS_HEADS", False)
+    if use_decoupled and m.QUERY_POOL != "decoupled":
+        raise ValueError(
+            "DECOUPLED_CLASS_HEADS=True requires QUERY_POOL='decoupled'"
+        )
     dec = MaskedAttentionDecoder(
         hidden_dim=m.HIDDEN_DIM,
         num_queries=num_queries,
@@ -127,6 +132,8 @@ def build_mask2former_vitb(
         num_heads=m.NUM_HEADS,
         query_pool=pool,
         droppath=m.DROPPATH,
+        num_stuff_classes=num_stuff if use_decoupled else 0,
+        num_thing_classes=num_thing if use_decoupled else 0,
     )
 
     matcher = HungarianMatcher(
@@ -134,6 +141,8 @@ def build_mask2former_vitb(
         cost_mask=m.MASK_WEIGHT,
         cost_dice=m.DICE_WEIGHT,
         num_points=m.NUM_POINTS,
+        num_stuff_classes=num_stuff if use_decoupled else 0,
+        num_queries_stuff=m.QUERIES_STUFF if use_decoupled else 0,
     )
     if class_weights is not None and len(class_weights) != num_classes:
         raise ValueError(

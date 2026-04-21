@@ -88,6 +88,10 @@ TRAINING:
 AUGMENTATION:
   COPY_PASTE: False          # OFF at M0, baseline only
   NUM_STEPS_STARTUP: 500
+  # Reduce random crop aggressiveness so sparse Cityscapes things (cars,
+  # pedestrians, riders) are not cropped out during cold-start training.
+  # Default (0.7, 1.0) causes ~30% empty-thing crops (Hypothesis D).
+  RANDOM_CROP_SCALE: (0.9, 1.0)
   LSJ:
     ENABLED: False
   COLOR_JITTER:

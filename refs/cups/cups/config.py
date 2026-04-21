@@ -130,11 +130,20 @@ _C.MODEL.SEM_SEG_HEAD.NECO_K = 5
 # -------- Stage-2 M2F meta-arch ---------------------------------------------
 _C.MODEL.META_ARCH = "Cascade"  # "Cascade" (default) or "Mask2FormerPanoptic"
 
+# -------- ROI box head (Detectron2 Cascade R-CNN) ----------------------------
+_C.MODEL.ROI_BOX_HEAD = CfgNode()
+_C.MODEL.ROI_BOX_HEAD.USE_SEESAW_LOSS = False
+_C.MODEL.ROI_BOX_HEAD.SEESAW_P = 0.8
+_C.MODEL.ROI_BOX_HEAD.SEESAW_Q = 2.0
+
 _C.MODEL.MASK2FORMER = CfgNode()
 _C.MODEL.MASK2FORMER.NUM_QUERIES = 100
 _C.MODEL.MASK2FORMER.QUERIES_STUFF = 150           # used when QUERY_POOL=decoupled
 _C.MODEL.MASK2FORMER.QUERIES_THING = 50
 _C.MODEL.MASK2FORMER.QUERY_POOL = "standard"       # "standard" / "decoupled" / "depth_bias"
+# True decoupled architecture: separate classification heads for stuff and
+# thing queries + restricted Hungarian matching. Requires QUERY_POOL="decoupled".
+_C.MODEL.MASK2FORMER.DECOUPLED_CLASS_HEADS = False
 _C.MODEL.MASK2FORMER.NUM_DECODER_LAYERS = 9
 _C.MODEL.MASK2FORMER.PIXEL_DECODER_LAYERS = 6
 _C.MODEL.MASK2FORMER.HIDDEN_DIM = 256
@@ -269,6 +278,10 @@ _C.SELF_TRAINING.ROUNDS = 3
 _C.SELF_TRAINING.USE_DROP_LOSS = False
 # Set semantic segmentation threshold
 _C.SELF_TRAINING.SEMANTIC_SEGMENTATION_THRESHOLD = 0.5
+# A2: Per-class pixel frequencies for class-aware thresholding (empty = disabled)
+_C.SELF_TRAINING.CLASS_FREQUENCIES = []
+# A2: Frequency scaling exponent for class-aware thresholding
+_C.SELF_TRAINING.CLASS_THRESHOLD_ALPHA = 0.3
 # Set confidence step for each stage (base confidence + stage * confidence step)
 _C.SELF_TRAINING.CONFIDENCE_STEP = 0.05
 # Disable EMA teacher updates (Exp 13: test LoRA implicit smoothing)
@@ -331,6 +344,18 @@ _C.AUGMENTATION.COLOR_JITTER.BRIGHTNESS = 0.4
 _C.AUGMENTATION.COLOR_JITTER.CONTRAST = 0.4
 _C.AUGMENTATION.COLOR_JITTER.SATURATION = 0.4
 _C.AUGMENTATION.COLOR_JITTER.HUE = 0.1
+
+# RandomResizedCrop scale range used in pseudo-label training.
+# Smaller lower bound = stronger spatial augmentation but higher chance of
+# cropping out sparse thing instances (Cityscapes cars / pedestrians).
+# M0 baseline uses (0.9, 1.0) to keep things visible during cold-start.
+_C.AUGMENTATION.RANDOM_CROP_SCALE = (0.7, 1.0)
+
+# Instance-aware crop: bias random crops toward regions containing thing
+# instances. Probability 0.5 = half the crops are centered on a random thing
+# bbox, half are uniform random. Fully unsupervised (uses DepthPro proposals).
+_C.AUGMENTATION.INSTANCE_AWARE_CROP = False
+_C.AUGMENTATION.INSTANCE_AWARE_CROP_PROB = 0.5
 
 # Pseudo label generation specific config
 _C.PSEUDOS = CfgNode()

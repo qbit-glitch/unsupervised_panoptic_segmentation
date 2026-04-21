@@ -126,7 +126,12 @@ def main() -> None:
         crop_resolution=config.DATA.CROP_RESOLUTION,
         thing_stuff_threshold=config.DATA.THING_STUFF_THRESHOLD,
         ignore_unknown_thing_regions=config.DATA.IGNORE_UNKNOWN_THING_REGIONS,
-        augmentations=get_pseudo_label_augmentations(config.DATA.CROP_RESOLUTION),
+        augmentations=get_pseudo_label_augmentations(
+            config.DATA.CROP_RESOLUTION,
+            scale=getattr(config.AUGMENTATION, "RANDOM_CROP_SCALE", (0.7, 1.0)),
+        ),
+        instance_aware_crop=getattr(config.AUGMENTATION, "INSTANCE_AWARE_CROP", False),
+        instance_aware_crop_prob=getattr(config.AUGMENTATION, "INSTANCE_AWARE_CROP_PROB", 0.5),
         dataset=config.DATA.DATASET,
         only_use_non_empty_samples=True,
         # Approach B: depth + pseudo-onehot for stuff KD / depth FiLM

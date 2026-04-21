@@ -426,11 +426,17 @@ def get_label_efficient_augmentations(resolution: Tuple[int, int] = (608, 1104))
     return augmentations
 
 
-def get_pseudo_label_augmentations(resolution: Tuple[int, int] = (608, 1104)) -> AugmentationSequential:
+def get_pseudo_label_augmentations(
+    resolution: Tuple[int, int] = (608, 1104),
+    scale: Tuple[float, float] = (0.7, 1.0),
+) -> AugmentationSequential:
     """Builds the augmentation pipeline used during pseudo label training.
 
     Args:
         resolution (Tuple[int, int]): Target resolution to be used in training.
+        scale (Tuple[float, float]): Min/max area ratio for RandomResizedCrop.
+            Smaller lower bound = stronger spatial augmentation but higher risk
+            of cropping out sparse thing instances.
 
     Returns:
         augmentations (AugmentationSequential): Augmentation pipeline.
@@ -439,7 +445,7 @@ def get_pseudo_label_augmentations(resolution: Tuple[int, int] = (608, 1104)) ->
         RandomHorizontalFlip(p=0.5),
         RandomResizedCrop(
             size=resolution,
-            scale=(0.7, 1.0),
+            scale=scale,
             ratio=(resolution[0] / resolution[1], resolution[0] / resolution[1]),
             p=1.0,
         ),

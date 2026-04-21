@@ -63,6 +63,8 @@ class MaskedAttentionDecoder(nn.Module):
         num_heads: int = 8,
         query_pool: Optional[nn.Module] = None,
         droppath: float = 0.0,
+        num_stuff_classes: int = 0,
+        num_thing_classes: int = 0,
     ) -> None:
         super().__init__()
         self.num_queries = num_queries
@@ -70,7 +72,25 @@ class MaskedAttentionDecoder(nn.Module):
         self.num_layers = num_layers
         self.query_pool = query_pool
         self.layers = nn.ModuleList([_CrossAttnLayer(hidden_dim, num_heads) for _ in range(num_layers)])
-        self.class_embed = nn.Linear(hidden_dim, num_classes + 1)   # +1 for no-object
+
+        # True decoupled mode: separate classification heads for stuff and thing
+        # queries. When both counts are > 0 we split class_embed; otherwise fall
+        # back to the standard shared head for backward compatibility.
+        self.num_stuff_classes = num_stuff_classes
+        self.num_thing_classes = num_thing_classes
+        self.decoupled_heads = (num_stuff_classes > 0 and num_thing_classes > 0)
+        if self.decoupled_heads:
+            self.class_embed_stuff = nn.Linear(hidden_dim, num_stuff_classes + 1)
+            self.class_embed_thing = nn.Linear(hidden_dim, num_thing_classes + 1)
+            # num_queries must match the decoupled pool layout
+            assert hasattr(query_pool, "num_stuff") and hasattr(query_pool, "num_thing"), (
+                "Decoupled class heads require a DecoupledQueryPool with num_stuff / num_thing attributes"
+            )
+            self.num_queries_stuff = query_pool.num_stuff  # type: ignore
+            self.num_queries_thing = query_pool.num_thing  # type: ignore
+        else:
+            self.class_embed = nn.Linear(hidden_dim, num_classes + 1)   # +1 for no-object
+
         self.mask_embed = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim),
             nn.ReLU(inplace=True),
@@ -81,7 +101,28 @@ class MaskedAttentionDecoder(nn.Module):
         self.droppath = droppath
 
     def _pred(self, q: torch.Tensor, mask_feat: torch.Tensor):
-        logits = self.class_embed(q)                         # B, Q, K+1
+        if self.decoupled_heads:
+            # Stuff queries -> stuff head; thing queries -> thing head
+            q_stuff = q[:, : self.num_queries_stuff]
+            q_thing = q[:, self.num_queries_stuff :]
+            logits_stuff = self.class_embed_stuff(q_stuff)    # B, S, num_stuff+1
+            logits_thing = self.class_embed_thing(q_thing)    # B, T, num_thing+1
+            # Map into shared (num_classes + 1) space so downstream criterion
+            # and matcher see a uniform tensor shape.
+            B, S, _ = logits_stuff.shape
+            T = logits_thing.shape[1]
+            K = self.num_stuff_classes + self.num_thing_classes + 1
+            logits = torch.zeros(B, S + T, K, device=q.device, dtype=logits_stuff.dtype)
+            # Stuff classes -> columns [0, num_stuff)
+            logits[:, :S, : self.num_stuff_classes] = logits_stuff[:, :, : self.num_stuff_classes]
+            # Stuff no-object -> last column
+            logits[:, :S, -1] = logits_stuff[:, :, -1]
+            # Thing classes -> columns [num_stuff, num_stuff+num_thing)
+            logits[:, S:, self.num_stuff_classes : -1] = logits_thing[:, :, : self.num_thing_classes]
+            # Thing no-object -> last column
+            logits[:, S:, -1] = logits_thing[:, :, -1]
+        else:
+            logits = self.class_embed(q)                      # B, Q, K+1
         mask_embed = self.mask_embed(q)                       # B, Q, C
         masks = torch.einsum("bqc,bchw->bqhw", mask_embed, mask_feat)
         return logits, masks, mask_embed

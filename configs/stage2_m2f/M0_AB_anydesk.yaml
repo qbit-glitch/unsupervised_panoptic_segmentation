@@ -1,0 +1,28 @@
+# M0 + Approach A + B (Decoupled Architecture + Training Rebalancing)
+
+_BASE_: "M0_A_only.yaml"
+
+AUGMENTATION:
+  COPY_PASTE: True
+  MAX_NUM_PASTED_OBJECTS: 5
+  INSTANCE_AWARE_CROP: True
+  INSTANCE_AWARE_CROP_PROB: 0.5
+
+MODEL:
+  MASK2FORMER:
+    NUM_QUERIES: 200
+    CLASS_WEIGHT: 5.0
+
+DATA:
+  ROOT: "/home/cvpr_ug_5/umesh/datasets/cityscapes/"
+  ROOT_VAL: "/home/cvpr_ug_5/umesh/datasets/cityscapes/"
+  ROOT_PSEUDO: "/home/cvpr_ug_5/umesh/datasets/cityscapes/cups_pseudo_labels_depthpro_tau020/"
+
+SYSTEM:
+  LOG_PATH: "/home/cvpr_ug_5/umesh/experiments/stage2_m2f/M0_AB_anydesk"
+  RUN_NAME: "M0_AB_dinov3_vitb_k80_anydesk"
+  NUM_WORKERS: 4
+
+TRAINING:
+  BATCH_SIZE: 2
+  ACCUMULATE_GRAD_BATCHES: 8

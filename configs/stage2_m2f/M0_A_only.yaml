@@ -1,0 +1,16 @@
+# M0 + Approach A (True Decoupled Architecture only)
+# Separate stuff/thing classification heads + restricted Hungarian matching.
+# No training rebalancing (copy-paste OFF, 100 queries, default class weight).
+
+_BASE_: "M0_baseline_dinov3_vitb_k80.yaml"
+
+MODEL:
+  MASK2FORMER:
+    QUERY_POOL: "decoupled"
+    DECOUPLED_CLASS_HEADS: True
+    QUERIES_STUFF: 80
+    QUERIES_THING: 80
+
+SYSTEM:
+  LOG_PATH: "results/stage2_m2f/M0_A_only"
+  RUN_NAME: "M0_A_only_dinov3_vitb_k80"

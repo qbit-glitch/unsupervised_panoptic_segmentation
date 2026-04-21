@@ -1,0 +1,20 @@
+# M0 + Approach B (Training Rebalancing only)
+# Tests whether copy-paste + more queries + higher class cost + instance-aware
+# crop fixes PQ_things=0 without any architecture changes.
+
+_BASE_: "M0_baseline_dinov3_vitb_k80.yaml"
+
+AUGMENTATION:
+  COPY_PASTE: True
+  MAX_NUM_PASTED_OBJECTS: 5
+  INSTANCE_AWARE_CROP: True
+  INSTANCE_AWARE_CROP_PROB: 0.5
+
+MODEL:
+  MASK2FORMER:
+    NUM_QUERIES: 200
+    CLASS_WEIGHT: 5.0
+
+SYSTEM:
+  LOG_PATH: "results/stage2_m2f/M0_B_only"
+  RUN_NAME: "M0_B_only_dinov3_vitb_k80"

@@ -54,6 +54,8 @@ class PseudoLabelDataset(Dataset):
         depth_subdir: str = "",
         num_pseudo_classes: int = 80,
         load_pseudo_onehot: bool = False,
+        instance_aware_crop: bool = False,
+        instance_aware_crop_prob: float = 0.5,
     ) -> None:
         """Constructor method.
 
@@ -75,6 +77,8 @@ class PseudoLabelDataset(Dataset):
             ignore_unknown_thing_regions (bool): If true thing regions that are not occupied by a OP is ignored.
             ignore_object_proposal_stuff_regions (bool): If true stuff object proposal regions are set to seam. ignore.
             only_use_non_empty_samples (bool): If true only samples that have > 0 object proposals are loaded.
+            instance_aware_crop (bool): If true bias random crops toward thing instances.
+            instance_aware_crop_prob (float): Probability of using a thing-biased crop vs uniform random.
         """
         # Call super constructor
         super(PseudoLabelDataset, self).__init__()
@@ -96,6 +100,8 @@ class PseudoLabelDataset(Dataset):
         self.ignore_unknown_thing_regions: bool = ignore_unknown_thing_regions
         self.only_use_training_samples: bool = only_use_training_samples
         self.ignore_object_proposal_stuff_regions: bool = ignore_object_proposal_stuff_regions
+        self.instance_aware_crop: bool = instance_aware_crop
+        self.instance_aware_crop_prob: float = instance_aware_crop_prob
         # Init crop module
         self.crop_module: nn.Module = CenterCrop(size=crop_resolution, keepdim=True)
         self.pad_module: nn.Module = (
@@ -394,12 +400,17 @@ class PseudoLabelDataset(Dataset):
         instance_pseudo_label = F.interpolate(
             instance_pseudo_label[None, None].float(), scale_factor=self.ground_truth_scale, mode="nearest"
         )[0, 0].long()
-        # Crop both image and pseudo label
+        # Spatial crop (standard center/random or instance-aware)
         if self.pad_module is not None:
             image = self.pad_module(image[None])[0]
-        image = self.crop_module(image[None])
-        semantic_pseudo_label = self.crop_module(semantic_pseudo_label[None, None].float())
-        instance_pseudo_label = self.crop_module(instance_pseudo_label[None, None].float())
+        if self.instance_aware_crop:
+            image, semantic_pseudo_label, instance_pseudo_label = self._instance_aware_crop(
+                image, semantic_pseudo_label, instance_pseudo_label
+            )
+        else:
+            image = self.crop_module(image[None])
+            semantic_pseudo_label = self.crop_module(semantic_pseudo_label[None, None].float())
+            instance_pseudo_label = self.crop_module(instance_pseudo_label[None, None].float())
         # Perform augmentations
         if self.augmentations is not None:
             image, semantic_pseudo_label, instance_pseudo_label, valid_mask = self.augmentations(
@@ -502,6 +513,69 @@ class PseudoLabelDataset(Dataset):
         }
         self._add_depth_and_onehot(output, index)
         return output
+
+
+    def _instance_aware_crop(
+        self,
+        image: Tensor,
+        semantic: Tensor,
+        instance: Tensor,
+    ) -> Tuple[Tensor, Tensor, Tensor]:
+        """Crop a random region, biasing toward areas containing thing instances.
+
+        With probability ``instance_aware_crop_prob`` the crop is centered on
+        a random thing instance's bounding box (with jitter). Otherwise a
+        uniform random crop is used. The crop is then resized to
+        ``self.crop_resolution``.
+
+        Returns:
+            (image, semantic, instance) tensors after crop+resize.
+        """
+        H, W = image.shape[-2:]
+        crop_h, crop_w = self.crop_module.size
+        # Determine crop box size (same as RandomResizedCrop default scale)
+        scale_min, scale_max = 0.9, 1.0
+        scale = torch.empty(1).uniform_(scale_min, scale_max).item()
+        ch, cw = int(crop_h * scale), int(crop_w * scale)
+        ch, cw = min(ch, H), min(cw, W)
+
+        # Decide whether to bias toward a thing instance
+        use_thing_bias = (
+            torch.rand(1).item() < self.instance_aware_crop_prob
+            and instance.unique().numel() > 1  # at least one non-zero instance id
+        )
+
+        if use_thing_bias:
+            # Get bbox of a random thing instance
+            inst_ids = instance.unique()
+            inst_ids = inst_ids[inst_ids != 0]  # remove background
+            if len(inst_ids) > 0:
+                tid = int(inst_ids[torch.randint(0, len(inst_ids), (1,)).item()].item())
+                ys, xs = (instance == tid).nonzero(as_tuple=True)
+                y_min, y_max = int(ys.min().item()), int(ys.max().item())
+                x_min, x_max = int(xs.min().item()), int(xs.max().item())
+                # Center crop on instance bbox with jitter
+                cy = (y_min + y_max) // 2
+                cx = (x_min + x_max) // 2
+                jitter_y = torch.randint(-ch // 4, ch // 4 + 1, (1,)).item()
+                jitter_x = torch.randint(-cw // 4, cw // 4 + 1, (1,)).item()
+                y0 = max(0, min(cy - ch // 2 + jitter_y, H - ch))
+                x0 = max(0, min(cx - cw // 2 + jitter_x, W - cw))
+            else:
+                y0 = torch.randint(0, H - ch + 1, (1,)).item() if H > ch else 0
+                x0 = torch.randint(0, W - cw + 1, (1,)).item() if W > cw else 0
+        else:
+            y0 = torch.randint(0, H - ch + 1, (1,)).item() if H > ch else 0
+            x0 = torch.randint(0, W - cw + 1, (1,)).item() if W > cw else 0
+
+        # Slice and resize
+        image_c = image[:, y0 : y0 + ch, x0 : x0 + cw]
+        sem_c = semantic[y0 : y0 + ch, x0 : x0 + cw]
+        inst_c = instance[y0 : y0 + ch, x0 : x0 + cw]
+        image_c = F.interpolate(image_c[None], size=(crop_h, crop_w), mode="bilinear", align_corners=False)[0]
+        sem_c = F.interpolate(sem_c[None, None].float(), size=(crop_h, crop_w), mode="nearest")[0, 0].long()
+        inst_c = F.interpolate(inst_c[None, None].float(), size=(crop_h, crop_w), mode="nearest")[0, 0].long()
+        return image_c, sem_c, inst_c
 
 
 if __name__ == "__main__":

@@ -142,7 +142,15 @@ class Mask2FormerPanoptic(nn.Module):
         return targets
 
     def _panoptic_merge(self, logits: torch.Tensor, masks: torch.Tensor, H: int, W: int) -> Dict[str, torch.Tensor]:
-        """Greedy panoptic assembly (one sample)."""
+        """Greedy panoptic assembly (one sample) with thing-first fusion.
+
+        During cold-start training stuff queries converge faster and dominate
+        the global pixel-wise argmax, annihilating under-confident thing
+        queries (Hypothesis E).  We fix this by evaluating thing and stuff
+        queries in separate channels: things get first dibs on pixels, then
+        remaining pixels are filled by stuff.  This mirrors standard panoptic
+        fusion where instance masks have priority over semantic regions.
+        """
         scores, labels = F.softmax(logits, dim=-1).max(-1)
         mask_probs = masks.sigmoid()
         keep = (labels < self.num_classes) & (scores > self.object_mask_threshold)
@@ -154,34 +162,63 @@ class Mask2FormerPanoptic(nn.Module):
         if cur_masks.numel() == 0:
             return {"sem_seg": sem_seg, "panoptic_seg": (panoptic_seg, [])}
         cur_masks = F.interpolate(cur_masks.unsqueeze(0), size=(H, W), mode="bilinear", align_corners=False).squeeze(0)
-        cur_prob_masks = cur_scores.view(-1, 1, 1) * cur_masks
-        cur_mask_ids = cur_prob_masks.argmax(0)
-        current_id = 0
-        # Downstream consumers (prediction_to_label_format at model.py:343,
-        # prediction_to_standard_format at model.py:192) expect the Cascade-era
-        # category_id space:
-        #   stuff: 1-indexed [1, S]    accessed as stuff_classes[cid - 1]
-        #   thing: 0-indexed [0, T)    accessed as thing_classes[cid]
-        # Our internal criterion uses the combined space [0, S+T); we remap
-        # ONLY the segments_info dict so external code sees the expected form.
-        # "score" is the softmax class confidence of the winning query.
+
+        # Separate stuff and thing queries so things get pixel priority.
+        is_thing = cur_labels >= self.num_stuff_classes
+        thing_idx = torch.where(is_thing)[0]
+        stuff_idx = torch.where(~is_thing)[0]
+
         segments_info: List[Dict[str, Any]] = []
-        for k in range(cur_masks.shape[0]):
-            mask_area = (cur_mask_ids == k).sum().item()
-            original_area = (cur_masks[k] >= 0.5).sum().item()
-            if mask_area > 0 and original_area > 0 and mask_area / original_area > self.overlap_threshold:
-                current_id += 1
-                panoptic_seg[cur_mask_ids == k] = current_id
-                cls = int(cur_labels[k])
-                is_thing = cls >= self.num_stuff_classes
-                external_cid = (cls - self.num_stuff_classes) if is_thing else (cls + 1)
-                segments_info.append({
-                    "id": current_id,
-                    "category_id": int(external_cid),
-                    "isthing": is_thing,
-                    "score": float(cur_scores[k]),
-                })
-                sem_seg[cls] = torch.maximum(sem_seg[cls], cur_masks[k])
+        current_id = 0
+
+        # ----- Things first -------------------------------------------------
+        if thing_idx.numel() > 0:
+            thing_prob_masks = cur_scores[thing_idx].view(-1, 1, 1) * cur_masks[thing_idx]
+            thing_mask_ids = thing_prob_masks.argmax(0)
+            thing_local = {int(k): i for i, k in enumerate(thing_idx)}
+            # Greedy assignment by descending score (highest-confidence thing first)
+            for k in sorted(thing_idx.tolist(), key=lambda k_: -cur_scores[k_]):
+                local_k = thing_local[k]
+                mask = (thing_mask_ids == local_k)
+                mask_area = mask.sum().item()
+                original_area = (cur_masks[k] >= 0.5).sum().item()
+                if mask_area > 0 and original_area > 0 and mask_area / original_area > self.overlap_threshold:
+                    current_id += 1
+                    panoptic_seg[mask] = current_id
+                    cls = int(cur_labels[k])
+                    external_cid = cls - self.num_stuff_classes
+                    segments_info.append({
+                        "id": current_id,
+                        "category_id": int(external_cid),
+                        "isthing": True,
+                        "score": float(cur_scores[k]),
+                    })
+                    sem_seg[cls] = torch.maximum(sem_seg[cls], cur_masks[k])
+
+        # ----- Stuff fills remaining pixels ---------------------------------
+        remaining = (panoptic_seg == 0)
+        if stuff_idx.numel() > 0 and remaining.any():
+            stuff_prob_masks = cur_scores[stuff_idx].view(-1, 1, 1) * cur_masks[stuff_idx]
+            stuff_mask_ids = stuff_prob_masks.argmax(0)
+            stuff_local = {int(k): i for i, k in enumerate(stuff_idx)}
+            for k in stuff_idx.tolist():
+                local_k = stuff_local[k]
+                mask = remaining & (stuff_mask_ids == local_k)
+                mask_area = mask.sum().item()
+                original_area = (cur_masks[k] >= 0.5).sum().item()
+                if mask_area > 0 and original_area > 0 and mask_area / original_area > self.overlap_threshold:
+                    current_id += 1
+                    panoptic_seg[mask] = current_id
+                    cls = int(cur_labels[k])
+                    external_cid = cls + 1
+                    segments_info.append({
+                        "id": current_id,
+                        "category_id": int(external_cid),
+                        "isthing": False,
+                        "score": float(cur_scores[k]),
+                    })
+                    sem_seg[cls] = torch.maximum(sem_seg[cls], cur_masks[k])
+
         return {"sem_seg": sem_seg, "panoptic_seg": (panoptic_seg, segments_info)}
 
     def forward(

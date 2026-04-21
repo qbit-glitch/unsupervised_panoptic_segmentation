@@ -1,0 +1,13 @@
+# M0 + Approach C (Unsupervised Stuff Merge 80→25 only)
+# Uses AgglomerativeClustering on stuff centroids (no GT) to collapse
+# 65 stuff clusters into 10 super-classes. Thing clusters stay untouched.
+
+_BASE_: "M0_baseline_dinov3_vitb_k80.yaml"
+
+DATA:
+  # Point at the UNSUPERVISED merged pseudo-label directory
+  ROOT_PSEUDO: "<set_via_arg_or_override>"
+
+SYSTEM:
+  LOG_PATH: "results/stage2_m2f/M0_C_only"
+  RUN_NAME: "M0_C_only_dinov3_vitb_k80"

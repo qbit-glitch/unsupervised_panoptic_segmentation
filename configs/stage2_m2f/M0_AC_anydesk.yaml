@@ -1,0 +1,17 @@
+# M0 + Approach A + C (Decoupled Architecture + Unsupervised Merge)
+
+_BASE_: "M0_A_only.yaml"
+
+DATA:
+  ROOT: "/home/cvpr_ug_5/umesh/datasets/cityscapes/"
+  ROOT_VAL: "/home/cvpr_ug_5/umesh/datasets/cityscapes/"
+  ROOT_PSEUDO: "/home/cvpr_ug_5/umesh/datasets/cityscapes/cups_pseudo_labels_depthpro_tau020_merge25_unsupervised/"
+
+SYSTEM:
+  LOG_PATH: "/home/cvpr_ug_5/umesh/experiments/stage2_m2f/M0_AC_anydesk"
+  RUN_NAME: "M0_AC_dinov3_vitb_k80_anydesk"
+  NUM_WORKERS: 4
+
+TRAINING:
+  BATCH_SIZE: 4
+  ACCUMULATE_GRAD_BATCHES: 4
