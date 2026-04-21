@@ -13,4 +13,4 @@ MODEL:
 
 SYSTEM:
   LOG_PATH: "results/stage2_m2f/M0_A_only"
-  RUN_NAME: "M0_A_only_dinov3_vitb_k80"
+  RUN_NAME: "DecoupledQueries_dinov3_vitb_k80"

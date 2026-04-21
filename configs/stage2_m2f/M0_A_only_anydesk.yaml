@@ -8,8 +8,8 @@ DATA:
   ROOT_PSEUDO: "/home/cvpr_ug_5/umesh/datasets/cityscapes/cups_pseudo_labels_depthpro_tau020/"
 
 SYSTEM:
-  LOG_PATH: "/home/cvpr_ug_5/umesh/experiments/stage2_m2f/M0_A_only_anydesk"
-  RUN_NAME: "M0_A_only_dinov3_vitb_k80_anydesk"
+  LOG_PATH: "/home/cvpr_ug_5/umesh/experiments/stage2_m2f/DecoupledQueries"
+  RUN_NAME: "DecoupledQueries_dinov3_vitb_k80_anydesk"
   NUM_WORKERS: 4
 
 TRAINING:

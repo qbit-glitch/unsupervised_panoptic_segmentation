@@ -10,4 +10,4 @@ DATA:
 
 SYSTEM:
   LOG_PATH: "results/stage2_m2f/M0_C_only"
-  RUN_NAME: "M0_C_only_dinov3_vitb_k80"
+  RUN_NAME: "UnsupervisedMerge_dinov3_vitb_k80"
