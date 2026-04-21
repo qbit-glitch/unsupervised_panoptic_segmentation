@@ -2,7 +2,7 @@
 # Enforces >=2 rare-class RoIs per image in each cascade stage by relaxing
 # IoU threshold to 0.35 for rare classes and promoting background proposals.
 
-_base_: ../cups_cityscapes.yaml
+_base_: anydesk_baseline.yaml
 
 MODEL:
   ROI_BOX_HEAD:

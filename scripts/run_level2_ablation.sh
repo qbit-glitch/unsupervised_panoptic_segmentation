@@ -18,7 +18,7 @@ mkdir -p "$LOG_DIR"
 
 # Ablation mapping
 declare -A ABLATIONS=(
-    [baseline]="$PROJECT_DIR/configs/cups_cityscapes.yaml"
+    [baseline]="$PROJECT_DIR/configs/cups_ablations/anydesk_baseline.yaml"
     [L2A]="$CONFIG_DIR/L2A_BACC_TS.yaml"
     [L2B]="$CONFIG_DIR/L2B_SSRC_TS.yaml"
     [L2C]="$CONFIG_DIR/L2C_EQLv2.yaml"

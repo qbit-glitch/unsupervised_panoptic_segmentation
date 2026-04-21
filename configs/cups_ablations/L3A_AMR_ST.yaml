@@ -4,7 +4,7 @@
 #   - Dead classes: τ = 0.35 (decays by 0.1 per round, min 0.15)
 #   - Rare-class logit sharpening: T = 0.7
 
-_base_: ../cups_self_cityscapes.yaml
+_base_: anydesk_baseline.yaml
 
 SELF_TRAINING:
   AMR_ST_ENABLED: True

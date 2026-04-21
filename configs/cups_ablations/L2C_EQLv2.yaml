@@ -2,7 +2,7 @@
 # Drop-in replacement for CE. Maintains online EMA of pos/neg gradient
 # magnitudes per class, rescaling so tail classes get comparable gradient.
 
-_base_: ../cups_cityscapes.yaml
+_base_: anydesk_baseline.yaml
 
 MODEL:
   ROI_BOX_HEAD:

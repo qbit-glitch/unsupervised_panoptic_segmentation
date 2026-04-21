@@ -2,7 +2,7 @@
 # Stage-2 dataloader oversamples images containing dead-class pixels early
 # in training (80% rare-heavy at step 0), decaying to uniform by step 8000.
 
-_base_: ../cups_cityscapes.yaml
+_base_: anydesk_baseline.yaml
 
 RFCL:
   ENABLED: True

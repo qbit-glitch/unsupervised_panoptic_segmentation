@@ -6,7 +6,7 @@
 #   2. Boundary CE aux loss (up-weights boundary pixels 3×)
 #   3. Temperature-scaled soft pseudo-labels via stuff-preservation KD (T=2.0)
 
-_base_: ../cups_cityscapes.yaml
+_base_: anydesk_baseline.yaml
 
 MODEL:
   SEM_SEG_HEAD:

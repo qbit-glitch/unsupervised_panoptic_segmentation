@@ -1,7 +1,7 @@
 # Level-2 Ablation E: Combined Stack
 # BACC-TS + SSRCTS + EQL v2 + RFCL all together.
 
-_base_: ../cups_cityscapes.yaml
+_base_: anydesk_baseline.yaml
 
 MODEL:
   SEM_SEG_HEAD:
