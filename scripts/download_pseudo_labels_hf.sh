@@ -7,26 +7,30 @@ set -euo pipefail
 TARGET_DIR="${1:-./cityscapes_pseudo_labels}"
 REPO_ID="qbit-glitch/cityscapes-cups-pseudo-labels-v1"
 FILENAME="cups_pseudo_labels_dcfa_simcf_abc.tar.gz"
+URL="https://huggingface.co/datasets/$REPO_ID/resolve/main/$FILENAME"
 
 echo "=== Downloading pseudo-labels from HuggingFace Hub ==="
-echo "Repo: $REPO_ID"
+echo "URL: $URL"
 echo "Target: $TARGET_DIR"
 echo ""
 
 mkdir -p "$TARGET_DIR"
 
-# Download using huggingface-cli (assumes HF token is configured)
-if command -v huggingface-cli &> /dev/null; then
-    echo "Using huggingface-cli..."
-    huggingface-cli download "$REPO_ID" \
-        --local-dir "$TARGET_DIR" \
-        --repo-type dataset \
-        --include "$FILENAME"
+# Primary: wget (no auth needed for public datasets)
+if command -v wget &> /dev/null; then
+    echo "Using wget..."
+    wget -O "$TARGET_DIR/$FILENAME" "$URL"
+# Fallback: curl
+elif command -v curl &> /dev/null; then
+    echo "Using curl..."
+    curl -L -o "$TARGET_DIR/$FILENAME" "$URL"
+# Fallback: hf (new HuggingFace CLI)
+elif command -v hf &> /dev/null; then
+    echo "Using hf..."
+    hf download "$REPO_ID" "$FILENAME" --local-dir "$TARGET_DIR" --repo-type dataset
 else
-    echo "huggingface-cli not found. Trying wget fallback..."
-    # Public dataset URL fallback
-    wget -O "$TARGET_DIR/$FILENAME" \
-        "https://huggingface.co/datasets/$REPO_ID/resolve/main/$FILENAME"
+    echo "ERROR: No download tool found (wget, curl, or hf). Please install one."
+    exit 1
 fi
 
 echo ""
