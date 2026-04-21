@@ -4,7 +4,7 @@
 #   - Dead classes: τ = 0.35 (decays by 0.1 per round, min 0.15)
 #   - Rare-class logit sharpening: T = 0.7
 
-_base_: anydesk_baseline.yaml
+_BASE_: anydesk_baseline.yaml
 
 SELF_TRAINING:
   AMR_ST_ENABLED: True
@@ -24,6 +24,5 @@ TRAINING:
 SYSTEM:
   NUM_GPUS: 1
   NUM_WORKERS: 4
-  SYSTEM.RUN_NAME: "L3A_AMR_ST"
-
-SYSTEM.LOG_PATH: "./output/L3A_AMR_ST"
+  RUN_NAME: "L3A_AMR_ST"
+  LOG_PATH: "./output/L3A_AMR_ST"

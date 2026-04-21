@@ -1,5 +1,5 @@
 # AnyDesk baseline — overrides macOS paths for AnyDesk machine
-_base_: ../cups_cityscapes.yaml
+_BASE_: ../cups_cityscapes.yaml
 
 DATA:
   ROOT: "/home/cvpr_ug_5/umesh/datasets/cityscapes"
@@ -15,6 +15,5 @@ TRAINING:
 SYSTEM:
   NUM_GPUS: 1
   NUM_WORKERS: 4
-  SYSTEM.RUN_NAME: "anydesk_baseline"
-
-SYSTEM.LOG_PATH: "./output/anydesk_baseline"
+  RUN_NAME: "anydesk_baseline"
+  LOG_PATH: "./output/anydesk_baseline"

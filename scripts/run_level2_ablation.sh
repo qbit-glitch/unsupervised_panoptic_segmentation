@@ -33,6 +33,20 @@ run_ablation() {
     local logfile="$LOG_DIR/${name}_$(date +%Y%m%d_%H%M%S).log"
     local pidfile="$LOG_DIR/${name}.pid"
 
+    if [ ! -f "$config" ]; then
+        echo "ERROR: Config file not found: $config" >&2
+        return 1
+    fi
+
+    # Clean up stale PID file if present
+    if [ -f "$pidfile" ]; then
+        local old_pid
+        old_pid=$(cat "$pidfile" 2>/dev/null) || true
+        if [ -n "$old_pid" ] && ! kill -0 "$old_pid" 2>/dev/null; then
+            rm -f "$pidfile"
+        fi
+    fi
+
     echo "============================================================"
     echo "  Running Level-2 Ablation: $name"
     echo "  Config: $config"
@@ -46,38 +60,23 @@ run_ablation() {
         --disable_wandb \
         > "$logfile" 2>&1 &
 
-    echo $! > "$pidfile"
+    local pid=$!
+    echo "$pid" > "$pidfile"
     echo ""
-    echo "Ablation $name started in background (PID: $!)"
+    echo "Ablation $name started in background (PID: $pid)"
     echo "Monitor with: tail -f $logfile"
     echo "Kill with: kill \$(cat $pidfile)"
     echo ""
 }
 
 run_parallel() {
-    echo "Running L2A + L2B in parallel (GPU split)..."
-    cd "$PROJECT_DIR"
-
-    # Run L2A on first half of GPU memory
-    nohup python refs/cups/train.py \
-        --experiment_config_file "${ABLATIONS[L2A]}" \
-        --disable_wandb \
-        > "$LOG_DIR/L2A_parallel_$(date +%Y%m%d_%H%M%S).log" 2>&1 &
-    PID1=$!
-
-    # Run L2B on same GPU but with memory fraction limit
-    nohup python refs/cups/train.py \
-        --experiment_config_file "${ABLATIONS[L2B]}" \
-        --disable_wandb \
-        > "$LOG_DIR/L2B_parallel_$(date +%Y%m%d_%H%M%S).log" 2>&1 &
-    PID2=$!
-
+    echo "Running L2A + L2B in parallel (single GPU, serialized by CUDA)"
+    run_ablation L2A
+    run_ablation L2B
     echo ""
-    echo "Parallel runs started:"
-    echo "  L2A PID: $PID1"
-    echo "  L2B PID: $PID2"
-    echo "Monitor with: tail -f $LOG_DIR/L2A_parallel_*.log"
-    echo "              tail -f $LOG_DIR/L2B_parallel_*.log"
+    echo "Parallel runs started. Both jobs are queued on the same GPU."
+    echo "Monitor with: tail -f $LOG_DIR/L2A_*.log"
+    echo "              tail -f $LOG_DIR/L2B_*.log"
 }
 
 case "${1:-help}" in
@@ -105,22 +104,36 @@ case "${1:-help}" in
     all)
         for name in baseline L2A L2B L2C L2D L2E L3A; do
             run_ablation "$name"
-            echo "Waiting for $name to complete before starting next..."
-            wait $(cat "$LOG_DIR/${name}.pid" 2>/dev/null) 2>/dev/null || true
+            local pidfile="$LOG_DIR/${name}.pid"
+            local pid
+            pid=$(cat "$pidfile" 2>/dev/null) || true
+            if [ -n "$pid" ]; then
+                echo "Waiting for $name (PID: $pid) to complete before starting next..."
+                wait "$pid" || true
+            fi
+            # Clean up PID file after completion
+            rm -f "$pidfile"
         done
         ;;
     status)
         echo "=== Running ablations ==="
+        local any_pid=false
         for pidfile in "$LOG_DIR"/*.pid; do
             [ -f "$pidfile" ] || continue
+            any_pid=true
+            local name
+            local pid
             name=$(basename "$pidfile" .pid)
-            pid=$(cat "$pidfile" 2>/dev/null)
-            if kill -0 "$pid" 2>/dev/null; then
+            pid=$(cat "$pidfile" 2>/dev/null) || true
+            if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
                 echo "  $name: RUNNING (PID: $pid)"
             else
-                echo "  $name: FINISHED (PID: $pid)"
+                echo "  $name: FINISHED (PID: ${pid:-unknown})"
             fi
         done
+        if [ "$any_pid" = false ]; then
+            echo "  No ablation PID files found."
+        fi
         ;;
     parallel)
         run_parallel
@@ -128,7 +141,7 @@ case "${1:-help}" in
     *)
         echo "Usage: $0 {baseline|L2A|L2B|L2C|L2D|L2E|L3A|all|parallel|status}"
         echo ""
-        echo "  baseline  — Baseline CUPS run on AnyDesk (bs=4)"
+        echo "  baseline  — Baseline CUPS run on AnyDesk (bs=8)"
         echo "  L2A       — BACC-TS (Boundary + Class-balanced + Temp scaling)"
         echo "  L2B       — SSRCTS (Rare-class ROI resampling)"
         echo "  L2C       — EQL v2 (Equalization Loss v2)"
@@ -136,6 +149,7 @@ case "${1:-help}" in
         echo "  L2E       — Combined stack (L2A + L2B + L2C + L2D)"
         echo "  L3A       — AMR-ST (Asymmetric Multi-Round Self-Training)"
         echo "  all       — Run all sequentially"
-        echo "  parallel  — Run L2A + L2B in parallel (48GB VRAM)"
+        echo "  parallel  — Run L2A + L2B in parallel (queued on same GPU)"
+        echo "  status    — Show running ablations"
         ;;
 esac

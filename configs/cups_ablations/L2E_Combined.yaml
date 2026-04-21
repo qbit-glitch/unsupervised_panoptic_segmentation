@@ -1,7 +1,7 @@
 # Level-2 Ablation E: Combined Stack
 # BACC-TS + SSRCTS + EQL v2 + RFCL all together.
 
-_base_: anydesk_baseline.yaml
+_BASE_: anydesk_baseline.yaml
 
 MODEL:
   SEM_SEG_HEAD:
@@ -33,6 +33,5 @@ TRAINING:
 SYSTEM:
   NUM_GPUS: 1
   NUM_WORKERS: 4
-  SYSTEM.RUN_NAME: "L2E_Combined"
-
-SYSTEM.LOG_PATH: "./output/L2E_Combined"
+  RUN_NAME: "L2E_Combined"
+  LOG_PATH: "./output/L2E_Combined"

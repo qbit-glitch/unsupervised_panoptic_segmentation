@@ -2,7 +2,7 @@
 # Stage-2 dataloader oversamples images containing dead-class pixels early
 # in training (80% rare-heavy at step 0), decaying to uniform by step 8000.
 
-_base_: anydesk_baseline.yaml
+_BASE_: anydesk_baseline.yaml
 
 RFCL:
   ENABLED: True
@@ -19,6 +19,5 @@ TRAINING:
 SYSTEM:
   NUM_GPUS: 1
   NUM_WORKERS: 4
-  SYSTEM.RUN_NAME: "L2D_RFCL"
-
-SYSTEM.LOG_PATH: "./output/L2D_RFCL"
+  RUN_NAME: "L2D_RFCL"
+  LOG_PATH: "./output/L2D_RFCL"

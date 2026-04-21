@@ -286,6 +286,7 @@ class SelfSupervisedModel(UnsupervisedModel):
             if (
                 lora_cfg is not None
                 and hasattr(lora_cfg, "MITIGATIONS")
+                and hasattr(lora_cfg.MITIGATIONS, "CONFIDENCE_WEIGHTED_LOSS")
                 and getattr(lora_cfg.MITIGATIONS.CONFIDENCE_WEIGHTED_LOSS, "ENABLED", False)
             ):
                 m5_cfg = lora_cfg.MITIGATIONS.CONFIDENCE_WEIGHTED_LOSS
@@ -351,6 +352,7 @@ class SelfSupervisedModel(UnsupervisedModel):
             lora_cfg is not None
             and getattr(lora_cfg, "ENABLED", False)
             and hasattr(lora_cfg, "MITIGATIONS")
+            and hasattr(lora_cfg.MITIGATIONS, "SPECTRAL_NORM_BALL")
             and getattr(lora_cfg.MITIGATIONS.SPECTRAL_NORM_BALL, "ENABLED", False)
         ):
             from cups.model.lora import spectral_norm_project
@@ -414,6 +416,7 @@ class SelfSupervisedModel(UnsupervisedModel):
         if (
             lora_enabled
             and hasattr(lora_cfg, "MITIGATIONS")
+            and hasattr(lora_cfg.MITIGATIONS, "COSINE_WARMUP")
             and getattr(lora_cfg.MITIGATIONS.COSINE_WARMUP, "ENABLED", False)
         ):
             warmup_steps = lora_cfg.MITIGATIONS.COSINE_WARMUP.WARMUP_STEPS

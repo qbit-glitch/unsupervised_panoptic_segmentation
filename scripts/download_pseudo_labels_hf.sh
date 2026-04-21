@@ -18,20 +18,29 @@ echo ""
 mkdir -p "$TARGET_DIR"
 cd "$TARGET_DIR"
 
-# Download if not already present
+# Remove any partial/corrupted file from previous interrupted run
 if [ -f "$FILENAME" ]; then
-    echo "Tarball already exists. Skipping download."
-else
+    echo "Existing tarball found. Checking if it is a valid archive..."
+    if ! tar tzf "$FILENAME" >/dev/null 2>&1; then
+        echo "  → Corrupted or incomplete. Re-downloading..."
+        rm -f "$FILENAME"
+    else
+        echo "  → Valid archive. Skipping download."
+    fi
+fi
+
+# Download if not already present
+if [ ! -f "$FILENAME" ]; then
     # Primary: wget (no auth needed for public datasets)
     if command -v wget &> /dev/null; then
         echo "Using wget..."
-        wget "$URL"
-    # Fallback: curl
+        wget -O "$FILENAME" "$URL"
+    # Fallback: curl with -f to fail on HTTP errors
     elif command -v curl &> /dev/null; then
         echo "Using curl..."
-        curl -L -o "$FILENAME" "$URL"
+        curl -f -L -o "$FILENAME" "$URL"
     else
-        echo "ERROR: No download tool found (wget or curl). Please install one."
+        echo "ERROR: No download tool found (wget or curl). Please install one." >&2
         exit 1
     fi
 fi
@@ -44,4 +53,4 @@ rm "$FILENAME"
 echo ""
 echo "=== Done ==="
 echo "Contents:"
-ls -la "$TARGET_DIR/" | head -10
+ls -la "$TARGET_DIR/"

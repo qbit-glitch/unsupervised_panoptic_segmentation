@@ -2,7 +2,7 @@
 # Enforces >=2 rare-class RoIs per image in each cascade stage by relaxing
 # IoU threshold to 0.35 for rare classes and promoting background proposals.
 
-_base_: anydesk_baseline.yaml
+_BASE_: anydesk_baseline.yaml
 
 MODEL:
   ROI_BOX_HEAD:
@@ -18,6 +18,5 @@ TRAINING:
 SYSTEM:
   NUM_GPUS: 1
   NUM_WORKERS: 4
-  SYSTEM.RUN_NAME: "L2B_SSRC_TS"
-
-SYSTEM.LOG_PATH: "./output/L2B_SSRC_TS"
+  RUN_NAME: "L2B_SSRC_TS"
+  LOG_PATH: "./output/L2B_SSRC_TS"

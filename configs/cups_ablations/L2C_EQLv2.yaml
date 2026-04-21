@@ -2,7 +2,7 @@
 # Drop-in replacement for CE. Maintains online EMA of pos/neg gradient
 # magnitudes per class, rescaling so tail classes get comparable gradient.
 
-_base_: anydesk_baseline.yaml
+_BASE_: anydesk_baseline.yaml
 
 MODEL:
   ROI_BOX_HEAD:
@@ -19,6 +19,5 @@ TRAINING:
 SYSTEM:
   NUM_GPUS: 1
   NUM_WORKERS: 4
-  SYSTEM.RUN_NAME: "L2C_EQLv2"
-
-SYSTEM.LOG_PATH: "./output/L2C_EQLv2"
+  RUN_NAME: "L2C_EQLv2"
+  LOG_PATH: "./output/L2C_EQLv2"

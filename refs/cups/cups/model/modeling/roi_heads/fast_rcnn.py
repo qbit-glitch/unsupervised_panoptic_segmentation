@@ -295,7 +295,7 @@ class EQLv2Loss(nn.Module):
         self.register_buffer("neg_grad", torch.zeros(num_classes))
         self.register_buffer("pos_neg_ratio", torch.ones(num_classes))
 
-    def forward(self, cls_score: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
+    def forward(self, cls_score: torch.Tensor, labels: torch.Tensor, weights=None) -> torch.Tensor:
         if cls_score.numel() == 0:
             return cls_score.sum() * 0.0
 
@@ -304,8 +304,9 @@ class EQLv2Loss(nn.Module):
         pred_prob = F.softmax(cls_score, dim=1)
 
         one_hot = torch.zeros(N, K_plus_1, device=cls_score.device, dtype=cls_score.dtype)
-        fg_mask = labels < K
-        one_hot[fg_mask, labels[fg_mask]] = 1.0
+        # Guard against -1 (ignored) labels
+        valid_mask = (labels >= 0) & (labels < K)
+        one_hot[valid_mask, labels[valid_mask]] = 1.0
 
         with torch.no_grad():
             pos_grad_per = (pred_prob * (1 - pred_prob) * one_hot).sum(dim=0)[:K]
@@ -319,11 +320,14 @@ class EQLv2Loss(nn.Module):
             self.pos_neg_ratio = (pos / neg).clamp(min=1e-8)
 
         sample_weights = torch.ones(N, device=cls_score.device)
-        if fg_mask.any():
-            sample_weights[fg_mask] = self.pos_neg_ratio[labels[fg_mask]]
+        if valid_mask.any():
+            sample_weights[valid_mask] = self.pos_neg_ratio[labels[valid_mask]]
 
         loss = F.cross_entropy(cls_score, labels, reduction='none')
-        loss = (loss * sample_weights).mean()
+        if weights is not None:
+            loss = (weights * loss * sample_weights).mean()
+        else:
+            loss = (loss * sample_weights).mean()
         return loss
 
 
@@ -514,7 +518,7 @@ class FastRCNNOutputLayers(nn.Module):
             loss_cls = self.sigmoid_cross_entropy_loss(scores, gt_classes)
         else:
             if self.use_eqlv2:
-                loss_cls = self.eqlv2_loss(scores, gt_classes)
+                loss_cls = self.eqlv2_loss(scores, gt_classes, weights=weights)
             elif self.use_seesaw_loss:
                 loss_cls = self.seesaw_loss(scores, gt_classes, weights=weights)
             else:

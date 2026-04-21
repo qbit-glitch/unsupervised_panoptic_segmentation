@@ -6,7 +6,7 @@
 #   2. Boundary CE aux loss (up-weights boundary pixels 3×)
 #   3. Temperature-scaled soft pseudo-labels via stuff-preservation KD (T=2.0)
 
-_base_: anydesk_baseline.yaml
+_BASE_: anydesk_baseline.yaml
 
 MODEL:
   SEM_SEG_HEAD:
@@ -30,6 +30,5 @@ TRAINING:
 SYSTEM:
   NUM_GPUS: 1
   NUM_WORKERS: 4
-  SYSTEM.RUN_NAME: "L2A_BACC_TS"
-
-SYSTEM.LOG_PATH: "./output/L2A_BACC_TS"
+  RUN_NAME: "L2A_BACC_TS"
+  LOG_PATH: "./output/L2A_BACC_TS"

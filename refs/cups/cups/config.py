@@ -126,6 +126,8 @@ _C.MODEL.SEM_SEG_HEAD.GATED_CRF_KERNEL = 5
 _C.MODEL.SEM_SEG_HEAD.GATED_CRF_RGB_SIGMA = 0.1
 _C.MODEL.SEM_SEG_HEAD.NECO_WEIGHT = 0.0
 _C.MODEL.SEM_SEG_HEAD.NECO_K = 5
+# L2A: Per-class weights for boundary-aware class-balanced CE (empty = disabled)
+_C.MODEL.SEM_SEG_HEAD.CLASS_WEIGHT = []
 
 # -------- Stage-2 M2F meta-arch ---------------------------------------------
 _C.MODEL.META_ARCH = "Cascade"  # "Cascade" (default) or "Mask2FormerPanoptic"
@@ -135,6 +137,12 @@ _C.MODEL.ROI_BOX_HEAD = CfgNode()
 _C.MODEL.ROI_BOX_HEAD.USE_SEESAW_LOSS = False
 _C.MODEL.ROI_BOX_HEAD.SEESAW_P = 0.8
 _C.MODEL.ROI_BOX_HEAD.SEESAW_Q = 2.0
+# L2B: Stage-Specific Rare-Class Sampling (SSRCTS)
+_C.MODEL.ROI_BOX_HEAD.SSRCTS_ENABLED = False
+_C.MODEL.ROI_BOX_HEAD.SSRCTS_RARE_IDS = []
+# L2C: Equalization Loss v2 (EQLv2)
+_C.MODEL.ROI_BOX_HEAD.USE_EQLV2 = False
+_C.MODEL.ROI_BOX_HEAD.EQLV2_GAMMA = 12.0
 
 _C.MODEL.MASK2FORMER = CfgNode()
 _C.MODEL.MASK2FORMER.NUM_QUERIES = 100
@@ -286,6 +294,20 @@ _C.SELF_TRAINING.CLASS_THRESHOLD_ALPHA = 0.3
 _C.SELF_TRAINING.CONFIDENCE_STEP = 0.05
 # Disable EMA teacher updates (Exp 13: test LoRA implicit smoothing)
 _C.SELF_TRAINING.DISABLE_EMA = False
+# L3A: Asymmetric Multi-Round Self-Training (AMR-ST)
+_C.SELF_TRAINING.AMR_ST_ENABLED = False
+_C.SELF_TRAINING.AMR_ST_RARE_CLASSES = []
+_C.SELF_TRAINING.AMR_ST_TAU_FREQ = 0.7
+_C.SELF_TRAINING.AMR_ST_TAU_RARE = 0.35
+_C.SELF_TRAINING.AMR_ST_RARE_TEMP = 0.7
+_C.SELF_TRAINING.AMR_ST_ROUND_DECAY = 0.1
+
+# L2D: Rare-First Curriculum Learning (RFCL)
+_C.RFCL = CfgNode()
+_C.RFCL.ENABLED = False
+_C.RFCL.RARE_CLASSES = []
+_C.RFCL.RARE_FRACTION_START = 0.8
+_C.RFCL.RARE_FRACTION_END = 0.0
 
 # Validation specific config
 _C.VALIDATION = CfgNode()
