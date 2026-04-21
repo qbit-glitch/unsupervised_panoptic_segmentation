@@ -132,44 +132,61 @@ def main() -> None:
         print("Dry run complete. No files written.")
         return
 
-    splits = ["train", "val"]
     total_samples = 0
-    for split in splits:
-        split_in = input_dir / split
-        split_out = output_dir / split
-        if not split_in.exists():
-            print(f"Skipping {split}: {split_in} not found")
-            continue
-        split_out.mkdir(parents=True, exist_ok=True)
 
-        # Copy city subdirectories
-        for city_dir in sorted(split_in.iterdir()):
-            if not city_dir.is_dir():
+    def process_file(src_file: Path, out_dir: Path) -> None:
+        nonlocal total_samples
+        stem = src_file.name.replace("_leftImg8bit_semantic.png", "")
+        dst_sem = out_dir / f"{stem}_leftImg8bit_semantic.png"
+        remap_png(src_file, dst_sem, lut)
+
+        # Copy instance PNG verbatim
+        src_inst = src_file.parent / f"{stem}_leftImg8bit_instance.png"
+        dst_inst = out_dir / f"{stem}_leftImg8bit_instance.png"
+        if src_inst.exists():
+            shutil.copy2(src_inst, dst_inst)
+
+        # Remap .pt distribution
+        src_pt = src_file.parent / f"{stem}_leftImg8bit.pt"
+        dst_pt = out_dir / f"{stem}_leftImg8bit.pt"
+        if src_pt.exists():
+            remap_pt(src_pt, dst_pt, lut)
+
+        total_samples += 1
+
+    # Check if input has train/val splits with city subdirectories (original CUPS layout)
+    has_splits = (input_dir / "train").is_dir() or (input_dir / "val").is_dir()
+
+    if has_splits:
+        splits = ["train", "val"]
+        for split in splits:
+            split_in = input_dir / split
+            split_out = output_dir / split
+            if not split_in.exists():
+                print(f"Skipping {split}: {split_in} not found")
                 continue
-            city_out = split_out / city_dir.name
-            city_out.mkdir(parents=True, exist_ok=True)
+            split_out.mkdir(parents=True, exist_ok=True)
 
-            for src_file in sorted(city_dir.glob("*_leftImg8bit_semantic.png")):
-                stem = src_file.name.replace("_leftImg8bit_semantic.png", "")
-                dst_sem = city_out / f"{stem}_leftImg8bit_semantic.png"
-                remap_png(src_file, dst_sem, lut)
+            for city_dir in sorted(split_in.iterdir()):
+                if not city_dir.is_dir():
+                    continue
+                city_out = split_out / city_dir.name
+                city_out.mkdir(parents=True, exist_ok=True)
 
-                # Copy instance PNG verbatim
-                src_inst = city_dir / f"{stem}_leftImg8bit_instance.png"
-                dst_inst = city_out / f"{stem}_leftImg8bit_instance.png"
-                if src_inst.exists():
-                    shutil.copy2(src_inst, dst_inst)
-
-                # Remap .pt distribution
-                src_pt = city_dir / f"{stem}_leftImg8bit.pt"
-                dst_pt = city_out / f"{stem}_leftImg8bit.pt"
-                if src_pt.exists():
-                    remap_pt(src_pt, dst_pt, lut)
-
-                total_samples += 1
-                if args.max_files > 0 and total_samples >= args.max_files:
-                    print(f"Reached --max_files={args.max_files}, stopping.")
-                    return
+                for src_file in sorted(city_dir.glob("*_leftImg8bit_semantic.png")):
+                    process_file(src_file, city_out)
+                    if args.max_files > 0 and total_samples >= args.max_files:
+                        print(f"Reached --max_files={args.max_files}, stopping.")
+                        return
+    else:
+        # Flat layout: files directly in input_dir (no train/val/city subdirs)
+        print("Flat layout detected: processing files directly from input_dir")
+        output_dir.mkdir(parents=True, exist_ok=True)
+        for src_file in sorted(input_dir.glob("*_leftImg8bit_semantic.png")):
+            process_file(src_file, output_dir)
+            if args.max_files > 0 and total_samples >= args.max_files:
+                print(f"Reached --max_files={args.max_files}, stopping.")
+                return
 
     print(f"Done. Wrote {total_samples} samples to {output_dir}")
 
