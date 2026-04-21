@@ -4,7 +4,8 @@
 
 set -euo pipefail
 
-TARGET_DIR="${1:-./cityscapes_pseudo_labels}"
+# Default to standard cityscapes location on AnyDesk
+TARGET_DIR="${1:-/home/cvpr_ug_5/umesh/datasets/cityscapes}"
 REPO_ID="qbit-glitch/cityscapes-cups-pseudo-labels-v1"
 FILENAME="cups_pseudo_labels_dcfa_simcf_abc.tar.gz"
 URL="https://huggingface.co/datasets/$REPO_ID/resolve/main/$FILENAME"
@@ -15,31 +16,32 @@ echo "Target: $TARGET_DIR"
 echo ""
 
 mkdir -p "$TARGET_DIR"
+cd "$TARGET_DIR"
 
-# Primary: wget (no auth needed for public datasets)
-if command -v wget &> /dev/null; then
-    echo "Using wget..."
-    wget -O "$TARGET_DIR/$FILENAME" "$URL"
-# Fallback: curl
-elif command -v curl &> /dev/null; then
-    echo "Using curl..."
-    curl -L -o "$TARGET_DIR/$FILENAME" "$URL"
-# Fallback: hf (new HuggingFace CLI)
-elif command -v hf &> /dev/null; then
-    echo "Using hf..."
-    hf download "$REPO_ID" "$FILENAME" --local-dir "$TARGET_DIR" --repo-type dataset
+# Download if not already present
+if [ -f "$FILENAME" ]; then
+    echo "Tarball already exists. Skipping download."
 else
-    echo "ERROR: No download tool found (wget, curl, or hf). Please install one."
-    exit 1
+    # Primary: wget (no auth needed for public datasets)
+    if command -v wget &> /dev/null; then
+        echo "Using wget..."
+        wget "$URL"
+    # Fallback: curl
+    elif command -v curl &> /dev/null; then
+        echo "Using curl..."
+        curl -L -o "$FILENAME" "$URL"
+    else
+        echo "ERROR: No download tool found (wget or curl). Please install one."
+        exit 1
+    fi
 fi
 
 echo ""
 echo "=== Extracting tarball ==="
-cd "$TARGET_DIR"
 tar xzf "$FILENAME"
 rm "$FILENAME"
 
 echo ""
 echo "=== Done ==="
-echo "Pseudo-labels available at: $TARGET_DIR/cups_pseudo_labels_dcfa_simcf_abc/"
-ls -la "$TARGET_DIR/cups_pseudo_labels_dcfa_simcf_abc/" | head -5
+echo "Contents:"
+ls -la "$TARGET_DIR/" | head -10
