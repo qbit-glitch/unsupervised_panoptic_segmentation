@@ -4,6 +4,10 @@
 
 _BASE_: "../../refs/cups/configs/train_cityscapes_dinov3_vitb_k80_depthpro_tau020.yaml"
 
+DATA:
+  NUM_CLASSES: 80
+  NUM_PSEUDO_CLASSES: 80
+
 MODEL:
   META_ARCH: "Mask2FormerPanoptic"
   BACKBONE_TYPE: "dinov3_vitb"

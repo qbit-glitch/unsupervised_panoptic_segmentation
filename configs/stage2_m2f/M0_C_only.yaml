@@ -5,6 +5,8 @@
 _BASE_: "M0_baseline_dinov3_vitb_k80.yaml"
 
 DATA:
+  NUM_CLASSES: 25
+  NUM_PSEUDO_CLASSES: 25
   # Point at the UNSUPERVISED merged pseudo-label directory
   ROOT_PSEUDO: "<set_via_arg_or_override>"
 

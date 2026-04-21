@@ -3,6 +3,8 @@
 _BASE_: "M0_A_only.yaml"
 
 DATA:
+  NUM_CLASSES: 25
+  NUM_PSEUDO_CLASSES: 25
   ROOT: "/home/cvpr_ug_5/umesh/datasets/cityscapes/"
   ROOT_VAL: "/home/cvpr_ug_5/umesh/datasets/cityscapes/"
   ROOT_PSEUDO: "/home/cvpr_ug_5/umesh/datasets/cityscapes/cups_pseudo_labels_depthpro_tau020_merge25_unsupervised/"
