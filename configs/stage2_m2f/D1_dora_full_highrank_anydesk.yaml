@@ -1,0 +1,18 @@
+# D1 Anydesk: Conv-DoRA "Full-HighRank" on A6000 48GB.
+# Inherits D1 base, overrides paths + batch geometry for anydesk.
+
+_BASE_: "D1_dora_full_highrank.yaml"
+
+DATA:
+  ROOT: "/home/cvpr_ug_5/umesh/datasets/cityscapes/"
+  ROOT_VAL: "/home/cvpr_ug_5/umesh/datasets/cityscapes/"
+  ROOT_PSEUDO: "/home/cvpr_ug_5/umesh/datasets/cityscapes/cups_pseudo_labels_dcfa_simcf_abc/"
+
+SYSTEM:
+  LOG_PATH: "/home/cvpr_ug_5/umesh/experiments/stage2_m2f/D1_dora_full_highrank"
+  RUN_NAME: "D1_dora_full_highrank_dcfa_anydesk"
+  NUM_WORKERS: 4
+
+TRAINING:
+  BATCH_SIZE: 4
+  ACCUMULATE_GRAD_BATCHES: 4

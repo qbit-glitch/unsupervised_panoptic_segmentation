@@ -1,0 +1,31 @@
+# D0: Conv-DoRA "Deep-MidRank" — r=16, alpha=32, block≥3.
+# Hypothesis: rank=4 was catastrophically low for dense prediction;
+#             r=16 provides enough capacity while block≥3 preserves
+#             low-level features (blocks 0-2 qkv-only) and adapts
+#             mid-to-high-level blocks (3-11 fully) for semantic alignment.
+#
+# Inherits: M0_baseline_dinov3_vitb_k80.yaml (frozen backbone M2F).
+# Overrides: pseudo-labels → dcfa_simcf_abc, enables Conv-DoRA.
+# Expected trainable: ~2.0M adapter params + ~16M head/FPN = ~18M total.
+
+_BASE_: "M0_baseline_dinov3_vitb_k80.yaml"
+
+DATA:
+  ROOT_PSEUDO: "/Users/qbit-glitch/Desktop/datasets/cityscapes/cups_pseudo_labels_dcfa_simcf_abc/"
+
+MODEL:
+  LORA:
+    ENABLED: True
+    VARIANT: "conv_dora"
+    RANK: 16
+    ALPHA: 32.0
+    DROPOUT: 0.05
+    LATE_BLOCK_START: 3
+    LR_A: 0.00001
+    LR_B: 0.00005
+    MAGNITUDE_WD: 0.001
+    DELAYED_START_STEPS: 0
+
+SYSTEM:
+  LOG_PATH: "results/stage2_m2f/D0_dora_deep_midrank"
+  RUN_NAME: "D0_dora_deep_midrank_dcfa"

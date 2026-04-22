@@ -28,10 +28,21 @@ def _build_dinov3_backbone(cfg: CfgNode) -> nn.Module:
     """Wrapped for monkey-patching in tests.
 
     Reads LoRA config via ``getattr`` so the M2F path stays symmetric with
-    the cascade builder in ``model_vitb.py``. Future LoRA ablations can set
-    ``cfg.MODEL.LORA_CONFIG`` without silently being dropped here.
+    the cascade builder in ``model_vitb.py``. Checks ``MODEL.LORA_CONFIG``
+    first (legacy), then ``MODEL.LORA`` (canonical config key used by all
+    existing stage-2/3 YAMLs) so DoRA is not silently dropped on M2F.
     """
     lora_config = getattr(cfg.MODEL, "LORA_CONFIG", None)
+    if lora_config is None and hasattr(cfg.MODEL, "LORA"):
+        lora_section = cfg.MODEL.LORA
+        if getattr(lora_section, "ENABLED", False):
+            lora_config = {
+                "VARIANT": getattr(lora_section, "VARIANT", "dora"),
+                "RANK": getattr(lora_section, "RANK", 4),
+                "ALPHA": getattr(lora_section, "ALPHA", 4.0),
+                "DROPOUT": getattr(lora_section, "DROPOUT", 0.05),
+                "LATE_BLOCK_START": getattr(lora_section, "LATE_BLOCK_START", 6),
+            }
     backbone = DINOv3ViTBackbone(
         freeze=cfg.MODEL.DINOV2_FREEZE,
         lora_config=lora_config,

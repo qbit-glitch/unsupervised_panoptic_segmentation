@@ -1,0 +1,36 @@
+# D1: Conv-DoRA "Full-HighRank" — r=32, alpha=32, block≥0.
+# Hypothesis: if D0 (r=16, block≥3) closes the gap but doesn't fully reach
+#             the frozen-backbone PQ 35.83, then the bottleneck is either
+#             (a) insufficient rank for fine-grained boundary adaptation, or
+#             (b) missing early-block adaptation for low-level textures/edges.
+# D1 tests both hypotheses simultaneously by going to r=32 and adapting
+# ALL blocks from the start (no qkv-only early blocks).
+#
+# Trade-off: ~4.8M adapter params (vs ~2.0M in D0) → higher risk of
+# overfitting to pseudo-label noise. Lower LR (2.5x reduced) compensates.
+#
+# Inherits: M0_baseline_dinov3_vitb_k80.yaml.
+# Overrides: pseudo-labels → dcfa_simcf_abc, enables Conv-DoRA aggressively.
+# Expected trainable: ~4.8M adapter params + ~16M head/FPN = ~21M total.
+
+_BASE_: "M0_baseline_dinov3_vitb_k80.yaml"
+
+DATA:
+  ROOT_PSEUDO: "/Users/qbit-glitch/Desktop/datasets/cityscapes/cups_pseudo_labels_dcfa_simcf_abc/"
+
+MODEL:
+  LORA:
+    ENABLED: True
+    VARIANT: "conv_dora"
+    RANK: 32
+    ALPHA: 32.0
+    DROPOUT: 0.05
+    LATE_BLOCK_START: 0
+    LR_A: 0.000005
+    LR_B: 0.000025
+    MAGNITUDE_WD: 0.0005
+    DELAYED_START_STEPS: 0
+
+SYSTEM:
+  LOG_PATH: "results/stage2_m2f/D1_dora_full_highrank"
+  RUN_NAME: "D1_dora_full_highrank_dcfa"
