@@ -1,12 +1,11 @@
-# D0: Conv-DoRA "Deep-MidRank" — r=16, alpha=32, block≥3.
-# Hypothesis: rank=4 was catastrophically low for dense prediction;
-#             r=16 provides enough capacity while block≥3 preserves
-#             low-level features (blocks 0-2 qkv-only) and adapts
-#             mid-to-high-level blocks (3-11 fully) for semantic alignment.
+# D0: Conv-DoRA "Deep-HighRank" — r=32, alpha=32, block≥3.
+# Both D0 and D1 use r=32; the only variable is block coverage.
+# D0 tests whether adapting from block 3 (preserving early low-level features)
+# is sufficient; D1 tests whether full-depth adaptation (block 0) adds value.
 #
 # Inherits: M0_baseline_dinov3_vitb_k80.yaml (frozen backbone M2F).
 # Overrides: pseudo-labels → dcfa_simcf_abc, enables Conv-DoRA.
-# Expected trainable: ~2.0M adapter params + ~16M head/FPN = ~18M total.
+# Expected trainable: ~4.8M adapter params + ~16M head/FPN = ~21M total.
 
 _BASE_: "M0_baseline_dinov3_vitb_k80.yaml"
 
@@ -17,7 +16,7 @@ MODEL:
   LORA:
     ENABLED: True
     VARIANT: "conv_dora"
-    RANK: 16
+    RANK: 32
     ALPHA: 32.0
     DROPOUT: 0.05
     LATE_BLOCK_START: 3
@@ -28,4 +27,4 @@ MODEL:
 
 SYSTEM:
   LOG_PATH: "results/stage2_m2f/D0_dora_deep_midrank"
-  RUN_NAME: "D0_dora_deep_midrank_dcfa"
+  RUN_NAME: "D0_dora_deep_rank32_dcfa"

@@ -1,4 +1,4 @@
-# D0 Anydesk: Conv-DoRA "Deep-MidRank" on A6000 48GB.
+# D0 Anydesk: Conv-DoRA "Deep-HighRank" (r=32) on A6000 48GB.
 # Inherits D0 base, overrides paths + batch geometry for anydesk.
 
 _BASE_: "D0_dora_deep_midrank.yaml"
@@ -9,8 +9,8 @@ DATA:
   ROOT_PSEUDO: "/home/cvpr_ug_5/umesh/datasets/cityscapes/cups_pseudo_labels_dcfa_simcf_abc/"
 
 SYSTEM:
-  LOG_PATH: "/home/cvpr_ug_5/umesh/experiments/stage2_m2f/D0_dora_deep_midrank"
-  RUN_NAME: "D0_dora_deep_midrank_dcfa_anydesk"
+  LOG_PATH: "/home/cvpr_ug_5/umesh/experiments/stage2_m2f/D0_dora_deep_rank32"
+  RUN_NAME: "D0_dora_deep_rank32_dcfa_anydesk"
   NUM_WORKERS: 4
 
 TRAINING:
