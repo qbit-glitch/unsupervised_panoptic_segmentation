@@ -20,7 +20,7 @@ MODEL:
   BACKBONE_TYPE: "dinov3_vitb"
   DINOV2_FREEZE: True
   USE_DINO: False
-  CHECKPOINT: "output/L2A_BACC_TS/experiments/L2A_BACC_TS/Unsupervised Panoptic Segmentation/czlmnw85/checkpoints/best_pq_step=003500.ckpt"
+  CHECKPOINT: "output/L2A_BACC_TS/experiments/L2A_BACC_TS/Unsupervised Panoptic Segmentation/czlmnw85/checkpoints/best_pq_step=003000.ckpt"
   ROI_BOX_HEAD:
     USE_SEESAW_LOSS: True
     SEESAW_P: 0.8
