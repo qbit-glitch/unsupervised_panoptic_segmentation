@@ -1,0 +1,105 @@
+# Stage-3 self-training from L2A checkpoint.
+# DIRECT PORT of proven Santosh config:
+#   refs/cups/configs/train_self_cityscapes_dinov3_vitb_dcfa_simcf_abc_santosh.yaml
+# That config achieved PQ=36.41% at step 2200 starting from Stage-2 PQ=27.88%.
+#
+# Hardware adaptation: Santosh 2×1080Ti (bs=1, accum=8) → AnyDesk 1×RTX Pro 6000 48GB (bs=8, accum=2).
+# Effective batch size stays 16. ALL other hyperparameters copied exactly.
+
+DATA:
+  ROOT: "/home/cvpr_ug_5/umesh/datasets/cityscapes"
+  ROOT_VAL: "/home/cvpr_ug_5/umesh/datasets/cityscapes"
+  ROOT_PSEUDO: "/home/cvpr_ug_5/umesh/datasets/cityscapes/cups_pseudo_labels_dcfa_simcf_abc"
+  CROP_RESOLUTION: (640, 1280)
+  SCALE: 0.625
+  DATASET: "cityscapes"
+  IGNORE_UNKNOWN_THING_REGIONS: False
+  THING_STUFF_THRESHOLD: 0.05
+
+MODEL:
+  BACKBONE_TYPE: "dinov3_vitb"
+  DINOV2_FREEZE: True
+  USE_DINO: False
+  CHECKPOINT: "output/L2A_BACC_TS/experiments/L2A_BACC_TS/Unsupervised Panoptic Segmentation/czlmnw85/checkpoints/best_pq_step=003500.ckpt"
+  ROI_BOX_HEAD:
+    USE_SEESAW_LOSS: True
+    SEESAW_P: 0.8
+    SEESAW_Q: 2.0
+  TTA_SCALES:
+    - 0.5
+    - 0.75
+    - 1.0
+
+AUGMENTATION:
+  NUM_STEPS_STARTUP: 0
+  COPY_PASTE: True
+  CONFIDENCE: 0.75
+  MAX_NUM_PASTED_OBJECTS: 3
+  RESOLUTIONS:
+    - [384, 768]
+    - [416, 832]
+    - [448, 896]
+
+TRAINING:
+  BATCH_SIZE: 8
+  ACCUMULATE_GRAD_BATCHES: 2
+  PRECISION: "32-true"
+  OPTIMIZER: "adamw"
+  ADAMW:
+    LEARNING_RATE: 0.0001
+    WEIGHT_DECAY: 0.00001
+  VAL_EVERY_N_STEPS: 200
+  LOG_EVERT_N_STEPS: 50
+  DROP_LOSS: True
+  DROP_LOSS_IOU_THRESHOLD: 0.4
+  LOG_MEDIA_N_STEPS: 500
+  GRADIENT_CLIP_ALGORITHM: "norm"
+  GRADIENT_CLIP_VAL: 1.0
+
+SELF_TRAINING:
+  ROUND_STEPS: 4000
+  ROUNDS: 3
+  CONFIDENCE_STEP: 0.05
+  USE_DROP_LOSS: False
+  SEMANTIC_SEGMENTATION_THRESHOLD: 0.5
+  CLASS_THRESHOLD_ALPHA: 0.3
+  CLASS_FREQUENCIES:
+    - 3.30489841e-01
+    - 5.06482363e-02
+    - 6.32741451e-03
+    - 1.56909180e-03
+    - 1.99857380e-01
+    - 6.57570076e-03
+    - 7.78623772e-03
+    - 3.02487373e-04
+    - 2.11625957e-03
+    - 1.55002594e-04
+    - 1.09297848e-02
+    - 7.80897141e-05
+    - 2.00032711e-03
+    - 4.34155369e-03
+    - 1.42278225e-01
+    - 1.12963581e-02
+    - 3.66815948e-02
+    - 9.90688801e-03
+    - 1.26592636e-03
+    - 6.36131363e-02
+    - 1.95193195e-03
+    - 2.22380924e-03
+    - 2.42261887e-04
+    - 1.79514885e-04
+    - 2.21147919e-03
+    - 5.97167969e-04
+    - 3.30391884e-03
+
+VALIDATION:
+  CACHE_DEVICE: "cpu"
+  USE_TTA: False
+
+SYSTEM:
+  ACCELERATOR: "gpu"
+  NUM_GPUS: 1
+  NUM_NODES: 1
+  NUM_WORKERS: 4
+  RUN_NAME: "Stage3_from_L2A_proven"
+  LOG_PATH: "./output/Stage3_from_L2A_proven"
