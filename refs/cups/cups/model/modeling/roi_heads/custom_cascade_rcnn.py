@@ -46,6 +46,7 @@ class CustomCascadeROIHeads(CustomStandardROIHeads):
         box_heads: List[nn.Module],
         box_predictors: List[nn.Module],
         proposal_matchers: List[Matcher],
+        cfg=None,
         **kwargs,
     ):
         """
@@ -59,6 +60,9 @@ class CustomCascadeROIHeads(CustomStandardROIHeads):
                 match boxes with ground truth for each stage. The first matcher matches
                 RPN proposals with ground truth, the other matchers use boxes predicted
                 by the previous stage as proposals and match them with ground truth.
+            cfg (CfgNode, optional): config object for SSRCTS and other custom hooks.
+                Must be explicit so it is not passed to super().__init__ and trigger
+                the parent's @configurable wrapper recursively.
         """
         assert "proposal_matcher" not in kwargs, (
             "CustomCascadeROIHeads takes 'proposal_matchers=' for each stage instead " "of one 'proposal_matcher='."
@@ -70,6 +74,7 @@ class CustomCascadeROIHeads(CustomStandardROIHeads):
         box_predictors = nn.ModuleList(box_predictors)
         assert len(box_predictors) == num_stages, f"{len(box_predictors)} != {num_stages}!"
         assert len(proposal_matchers) == num_stages, f"{len(proposal_matchers)} != {num_stages}!"
+        self.cfg = cfg
         super().__init__(
             box_in_features=box_in_features,
             box_pooler=box_pooler,
