@@ -1,0 +1,21 @@
+# D1 Santosh: Conv-DoRA "Full-HighRank" on 2× GTX 1080 Ti (11 GB).
+# DDP with bs=1/GPU × 2 GPUs × accum=8 → effective batch 16.
+# Overrides D1 hardware settings for Pascal GPUs (no bf16).
+
+_BASE_: "D1_dora_full_highrank.yaml"
+
+DATA:
+  ROOT: "/home/santosh/datasets/cityscapes/"
+  ROOT_VAL: "/home/santosh/datasets/cityscapes/"
+  ROOT_PSEUDO: "/home/santosh/datasets/cityscapes/cups_pseudo_labels_dcfa_simcf_abc/"
+
+SYSTEM:
+  LOG_PATH: "/home/santosh/experiments/stage2_m2f/D1_dora_full_highrank"
+  RUN_NAME: "D1_dora_full_highrank_dcfa_santosh"
+  NUM_GPUS: 2
+  NUM_WORKERS: 4
+
+TRAINING:
+  BATCH_SIZE: 1                # per-GPU; 11 GB limit
+  ACCUMULATE_GRAD_BATCHES: 8   # 2 GPUs × 1 × 8 = 16 effective batch
+  PRECISION: "16-mixed"        # bf16 unsupported on Pascal; fp16 OK
