@@ -134,7 +134,7 @@ def main() -> None:
         instance_aware_crop=getattr(config.AUGMENTATION, "INSTANCE_AWARE_CROP", False),
         instance_aware_crop_prob=getattr(config.AUGMENTATION, "INSTANCE_AWARE_CROP_PROB", 0.5),
         dataset=config.DATA.DATASET,
-        only_use_non_empty_samples=True,
+        only_use_non_empty_samples=False,  # Skip slow omit_empty_labels scan — pseudo-labels all have instances
         # Approach B: depth + pseudo-onehot for stuff KD / depth FiLM
         depth_subdir=getattr(config.DATA, "DEPTH_SUBDIR", ""),
         num_pseudo_classes=config.DATA.NUM_PSEUDO_CLASSES,
