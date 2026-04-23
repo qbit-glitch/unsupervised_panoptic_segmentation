@@ -101,7 +101,12 @@ def _dav3_inference_batch(model, img_tensor, grad=False):
         depth: (B, H, W) tensor
     """
     # Detect patch size from the backbone's patch_embed layer
-    patch_size = getattr(model.model.backbone.patch_embed, "patch_size", (14, 14))
+    # DinoV2 wrapper: backbone.pretrained.patch_embed
+    try:
+        patch_embed = model.model.backbone.pretrained.patch_embed
+        patch_size = getattr(patch_embed, "patch_size", 14)
+    except AttributeError:
+        patch_size = 14  # Default for all DINOv2-based DA3 models
     if isinstance(patch_size, int):
         patch_h = patch_w = patch_size
     else:
