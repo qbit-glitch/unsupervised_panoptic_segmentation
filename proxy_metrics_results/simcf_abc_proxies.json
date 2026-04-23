@@ -1,0 +1,13 @@
+{
+  "num_images": 50,
+  "SIC_mean": 93.04236485639343,
+  "SIC_std": 7.490426689691438,
+  "fragments_per_image_mean": 17.36,
+  "fragments_per_image_std": 9.53259670813782,
+  "stuff_contamination_mean": 11.150998219636378,
+  "stuff_contamination_std": 7.171162432534928,
+  "LER_mean": 4.918522142008195,
+  "LER_std": 0.22525820576472877,
+  "DAS_mean": null,
+  "DAS_std": null
+}

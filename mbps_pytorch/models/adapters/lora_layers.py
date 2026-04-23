@@ -98,7 +98,6 @@ class DoRALinear(nn.Module):
         self.lora_magnitude = nn.Parameter(
             self.weight.data.norm(dim=1, keepdim=True).clone()
         )
-        self.register_buffer("_m_init_norm", self.lora_magnitude.data.norm().clone())
 
         dev = wrapped.weight.device
         self.lora_A = nn.Parameter(torch.empty(rank, self.in_features, device=dev))
@@ -296,9 +295,15 @@ def wrap_conv2d_if_match(
 
 
 def freeze_non_adapter_params(model: nn.Module) -> None:
-    """Freeze all parameters except adapter (LoRA/DoRA) parameters."""
+    """Freeze all parameters except adapter (LoRA/DoRA) parameters.
+
+    Uses suffix matching for robustness against accidental substring matches
+    in base model parameter names.
+    """
+    ADAPTER_SUFFIXES = (".lora_A", ".lora_B", ".lora_magnitude", ".dwconv.weight", ".conv_gate",
+                        ".lora_A.weight", ".lora_B.weight")
     for name, param in model.named_parameters():
-        if any(k in name for k in ("lora_", "dwconv", "conv_gate")):
+        if any(name.endswith(suffix) for suffix in ADAPTER_SUFFIXES):
             param.requires_grad = True
         else:
             param.requires_grad = False

@@ -26,6 +26,10 @@ from PIL import Image
 from sklearn.cluster import MiniBatchKMeans
 from tqdm import tqdm
 
+PROJECT_ROOT = str(Path(__file__).resolve().parent.parent)
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
 CAUSE_DIR = str(Path(__file__).resolve().parent.parent / "refs" / "cause")
 if CAUSE_DIR not in sys.path:
     sys.path.insert(0, CAUSE_DIR)

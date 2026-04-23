@@ -1,0 +1,18 @@
+{
+  "dataset": "cityscapes_val",
+  "checkpoint": "checkpoints/stage3_dcfa_simcf_abc/best_pq_step=003000.ckpt",
+  "num_images": 500,
+  "metrics": {
+    "PQ": 0.35832,
+    "SQ": 0.6279,
+    "RQ": 0.43783,
+    "PQ_things": 0.36259,
+    "SQ_things": 0.66339,
+    "RQ_things": 0.43172,
+    "PQ_stuff": 0.35564,
+    "SQ_stuff": 0.60573,
+    "RQ_stuff": 0.44165,
+    "mIoU": 0.44557,
+    "Acc": 0.87296
+  }
+}

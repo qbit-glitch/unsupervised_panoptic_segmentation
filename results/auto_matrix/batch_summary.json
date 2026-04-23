@@ -1,0 +1,27 @@
+[
+  {
+    "exp_id": "cause_k80_depthpro_tau020",
+    "success": false,
+    "path": "/Users/qbit-glitch/Desktop/coding-projects/mbps_panoptic_segmentation/results/auto_matrix/cause_k80_depthpro_tau020.json"
+  },
+  {
+    "exp_id": "cause_k80_depthpro_tau020_dcfa",
+    "success": false,
+    "path": "/Users/qbit-glitch/Desktop/coding-projects/mbps_panoptic_segmentation/results/auto_matrix/cause_k80_depthpro_tau020_dcfa.json"
+  },
+  {
+    "exp_id": "cause_k80_depthpro_tau020_simcfABC",
+    "success": false,
+    "path": "/Users/qbit-glitch/Desktop/coding-projects/mbps_panoptic_segmentation/results/auto_matrix/cause_k80_depthpro_tau020_simcfABC.json"
+  },
+  {
+    "exp_id": "cause_k80_depthpro_tau020_dcfa_simcfABC",
+    "success": false,
+    "path": "/Users/qbit-glitch/Desktop/coding-projects/mbps_panoptic_segmentation/results/auto_matrix/cause_k80_depthpro_tau020_dcfa_simcfABC.json"
+  },
+  {
+    "exp_id": "cause_k80_depthpro_tau020_simcfA",
+    "success": false,
+    "path": "/Users/qbit-glitch/Desktop/coding-projects/mbps_panoptic_segmentation/results/auto_matrix/cause_k80_depthpro_tau020_simcfA.json"
+  }
+]

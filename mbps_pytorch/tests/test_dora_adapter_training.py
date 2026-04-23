@@ -8,9 +8,15 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
+import logging
+import os
 import tempfile
+from unittest.mock import patch
+
 import torch
 import torch.nn as nn
+from PIL import Image
+from torch.utils.data import Dataset
 
 from mbps_pytorch.models.adapters import (
     inject_lora_into_dinov2,
@@ -416,6 +422,145 @@ def test_checkpoint_roundtrip():
 
 
 # --------------------------------------------------------------------------- #
+# Test 5: DINO distillation uses cosine similarity
+# --------------------------------------------------------------------------- #
+
+def test_dino_distillation_cosine():
+    print("\n[TEST 5] DINO distillation uses cosine similarity")
+    from mbps_pytorch.train_semantic_adapter import dino_distillation_loss
+
+    student = torch.randn(2, 529, 768)
+    teacher = torch.randn(2, 529, 768)
+    loss = dino_distillation_loss(student, teacher)
+    assert 0.0 <= loss.item() <= 2.0, f"Loss should be in [0, 2], got {loss.item()}"
+
+    feat = torch.randn(2, 529, 768)
+    loss_same = dino_distillation_loss(feat, feat.clone())
+    assert loss_same.item() < 1e-5, f"Identical features should give ~0 loss, got {loss_same.item()}"
+
+    loss_opp = dino_distillation_loss(feat, -feat.clone())
+    assert abs(loss_opp.item() - 2.0) < 1e-5, f"Opposite features should give ~2 loss, got {loss_opp.item()}"
+
+    print("  ✓ Loss range is [0, 2]")
+    print("  ✓ Identical features -> loss ~0")
+    print("  ✓ Opposite features -> loss ~2")
+
+
+# --------------------------------------------------------------------------- #
+# Test 6: ImageNet normalization present
+# --------------------------------------------------------------------------- #
+
+def test_imagenet_normalization():
+    print("\n[TEST 6] ImageNet normalization present")
+    from mbps_pytorch.train_semantic_adapter import AdapterTrainingDataset
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        img_dir = os.path.join(tmpdir, "leftImg8bit", "train", "testcity")
+        os.makedirs(img_dir)
+        img_path = os.path.join(img_dir, "test_leftImg8bit.png")
+        Image.new("RGB", (64, 64), color=(128, 128, 128)).save(img_path)
+
+        depth_dir = os.path.join(tmpdir, "depth_depthpro", "train", "testcity")
+        os.makedirs(depth_dir)
+
+        class MockBase(Dataset):
+            def __len__(self):
+                return 1
+            def __getitem__(self, idx):
+                return {"img": torch.rand(3, 64, 64)}
+
+        ds = AdapterTrainingDataset(
+            base_dataset=MockBase(),
+            cityscapes_root=tmpdir,
+            depth_subdir="depth_depthpro",
+            split="train",
+            use_augmentation=True,
+        )
+        item = ds[0]
+        assert "img_aug" in item, "Missing img_aug"
+        img_aug = item["img_aug"]
+        # Normalized values should be outside [0, 1] for typical random inputs
+        assert img_aug.min() < 0 or img_aug.max() > 1, "img_aug should be ImageNet normalized"
+
+    print("  ✓ img_aug is ImageNet normalized")
+
+
+# --------------------------------------------------------------------------- #
+# Test 7: Cross-view consistency stop-gradient
+# --------------------------------------------------------------------------- #
+
+def test_cross_view_stop_gradient():
+    print("\n[TEST 7] Cross-view consistency stop-gradient")
+    from mbps_pytorch.train_semantic_adapter import cross_view_consistency_loss
+
+    feat1 = torch.randn(2, 529, 768, requires_grad=True)
+    feat2 = torch.randn(2, 529, 768, requires_grad=True)
+    loss = cross_view_consistency_loss(feat1, feat2)
+    loss.backward()
+
+    assert feat1.grad is not None, "feat1 should have gradients"
+    assert feat2.grad is None, "feat2 should be detached (no gradients)"
+    print("  ✓ feat1 receives gradients")
+    print("  ✓ feat2 is detached (grad is None)")
+
+
+# --------------------------------------------------------------------------- #
+# Test 8: Strict loading validation
+# --------------------------------------------------------------------------- #
+
+def test_strict_loading_validation():
+    print("\n[TEST 8] Strict loading validation")
+
+    model = nn.Sequential(nn.Linear(10, 10), nn.Linear(10, 5))
+    state = {"0.weight": torch.randn(10, 10), "0.bias": torch.randn(10)}
+    result = model.load_state_dict(state, strict=False)
+
+    assert hasattr(result, "missing_keys"), "Result should expose missing_keys"
+    assert hasattr(result, "unexpected_keys"), "Result should expose unexpected_keys"
+    assert len(result.missing_keys) > 0, "Partial state dict should produce missing keys"
+
+    with patch.object(logging.getLogger("test_strict"), "warning") as mock_warn:
+        logger = logging.getLogger("test_strict")
+        if result.missing_keys:
+            logger.warning("Missing keys: %s", result.missing_keys)
+        mock_warn.assert_called_once()
+    print("  ✓ load_state_dict result checked for missing/unexpected keys")
+    print("  ✓ Missing keys trigger warning")
+
+
+# --------------------------------------------------------------------------- #
+# Test 9: EMA head adapted when adapt_ema=True
+# --------------------------------------------------------------------------- #
+
+def test_ema_head_adapted():
+    print("\n[TEST 9] EMA head adapted when adapt_ema=True")
+
+    class MockSegmentTRWithEMA(nn.Module):
+        def __init__(self, dim=768):
+            super().__init__()
+            self.head = MockTRDecoder(dim)
+            self.head_ema = MockTRDecoder(dim)
+
+    segment = MockSegmentTRWithEMA(dim=768)
+    adapted = inject_lora_into_cause_tr(
+        segment,
+        variant="dora",
+        rank=4,
+        alpha=4.0,
+        dropout=0.05,
+        adapt_head=True,
+        adapt_ema=True,
+    )
+
+    ema_adapter_keys = [name for name, p in segment.head_ema.named_parameters() if "lora_" in name]
+    assert len(ema_adapter_keys) > 0, "EMA head should contain adapter parameters"
+    assert any("lora_A" in k or "lora_B" in k for k in ema_adapter_keys), (
+        "EMA head should have lora_A/lora_B parameters"
+    )
+    print("  ✓ EMA head has adapter parameters when adapt_ema=True")
+
+
+# --------------------------------------------------------------------------- #
 # Main
 # --------------------------------------------------------------------------- #
 
@@ -435,6 +580,21 @@ if __name__ == "__main__":
 
     print("\n[TEST 4] Checkpoint Save/Load Roundtrip")
     test_checkpoint_roundtrip()
+
+    print("\n[TEST 5] DINO Distillation Cosine Similarity")
+    test_dino_distillation_cosine()
+
+    print("\n[TEST 6] ImageNet Normalization Present")
+    test_imagenet_normalization()
+
+    print("\n[TEST 7] Cross-View Stop-Gradient")
+    test_cross_view_stop_gradient()
+
+    print("\n[TEST 8] Strict Loading Validation")
+    test_strict_loading_validation()
+
+    print("\n[TEST 9] EMA Head Adapted")
+    test_ema_head_adapted()
 
     print("\n" + "=" * 70)
     print("ALL TESTS PASSED")

@@ -12,7 +12,7 @@ model:
   rank: 4
   alpha: 4.0
   dropout: 0.05
-  late_block_start: 6
+  late_block_start: 18
   adapt_decoder: false      # Keep decoder frozen for stability
 
 # Data configuration
@@ -31,10 +31,11 @@ training:
 
 # Loss configuration
 losses:
-  names: ["distillation", "ranking"]
+  names: ["distillation", "ranking", "scale_invariant"]
   weights:
     distillation: 1.0
     ranking: 0.1
+    scale_invariant: 0.5
 
 # Device
 device: "auto"

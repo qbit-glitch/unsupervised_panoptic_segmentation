@@ -8,7 +8,7 @@ THING_IDS = set(range(11, 19))
 
 
 def sobel_cc_instances(semantic, depth, thing_ids=THING_IDS,
-                       grad_threshold=0.20, min_area=1000,
+                       grad_threshold=0.03, min_area=1000,
                        dilation_iters=3, depth_blur_sigma=1.0,
                        features=None):
     """Baseline Sobel+CC depth-guided instance decomposition.

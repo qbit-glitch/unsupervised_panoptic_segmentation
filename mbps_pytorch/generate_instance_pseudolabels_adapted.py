@@ -16,6 +16,7 @@ from tqdm import tqdm
 
 from mbps_pytorch.models.adapters import (
     inject_lora_into_depth_model,
+    inject_lora_into_depthpro,
     freeze_non_adapter_params,
 )
 from mbps_pytorch.train_depth_adapter_lora import (
@@ -28,7 +29,7 @@ logger = logging.getLogger(__name__)
 THING_IDS = {11, 12, 13, 14, 15, 16, 17, 18}
 
 
-def depth_guided_instances(semantic, depth, tau=0.20, min_area=1000,
+def depth_guided_instances(semantic, depth, tau=0.03, min_area=1000,
                            dilation_iters=3, depth_blur_sigma=1.0):
     if depth_blur_sigma > 0:
         depth_smooth = gaussian_filter(depth.astype(np.float64), sigma=depth_blur_sigma)
@@ -87,7 +88,10 @@ def generate_adapted_instances(
     else:
         raise ValueError(f"Unknown model_type: {model_type}")
 
-    inject_lora_into_depth_model(model, variant="dora", rank=4, alpha=4.0)
+    if model_type == "depthpro":
+        inject_lora_into_depthpro(model, variant="dora", rank=4, alpha=4.0)
+    else:
+        inject_lora_into_depth_model(model, variant="dora", rank=4, alpha=4.0)
     freeze_non_adapter_params(model)
     ckpt = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
     model.load_state_dict(ckpt["model"], strict=False)

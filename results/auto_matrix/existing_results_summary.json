@@ -1,0 +1,121 @@
+{
+  "note": "Summary of existing evaluation results from local project files",
+  "pseudo_label_evaluations": {
+    "cause_k80_baseline": {
+      "file": "results/depth_adapter/orig_k80_eval.json",
+      "semantic": "CAUSE-TR k=80",
+      "instance": "none",
+      "dcfa": false,
+      "simcf": "",
+      "PQ": 26.08,
+      "mIoU": 52.69,
+      "PQ_things": null,
+      "PQ_stuff": null
+    },
+    "cause_k80_dcfa_v3": {
+      "file": "results/depth_adapter/V3_k80_eval.json",
+      "semantic": "CAUSE-TR k=80 + DCFA V3",
+      "instance": "none",
+      "dcfa": true,
+      "simcf": "",
+      "PQ": 26.44,
+      "mIoU": 55.29,
+      "PQ_things": null,
+      "PQ_stuff": null
+    },
+    "cause_k80_dcfa_v3_depthpro": {
+      "file": "results/depth_adapter/V3_k80_depthpro_panoptic_eval.json",
+      "semantic": "CAUSE-TR k=80 + DCFA V3",
+      "instance": "DepthPro",
+      "dcfa": true,
+      "simcf": "",
+      "PQ": 27.81,
+      "mIoU": 55.29,
+      "PQ_things": null,
+      "PQ_stuff": null
+    },
+    "cause_k80_dcfa_v3_depthpro_tau020": {
+      "file": "results/depth_adapter/V3_k80_depthpro_tau02_panoptic_eval.json",
+      "semantic": "CAUSE-TR k=80 + DCFA V3",
+      "instance": "DepthPro tau=0.20",
+      "dcfa": true,
+      "simcf": "",
+      "PQ": 26.13,
+      "mIoU": 55.29,
+      "PQ_things": null,
+      "PQ_stuff": null
+    },
+    "cause_k80_dcfa_adapter_c": {
+      "file": "results/depth_adapter/eval_adapter_c.json",
+      "semantic": "CAUSE-TR k=80 + DCFA (adapter C)",
+      "instance": "none",
+      "dcfa": true,
+      "simcf": "",
+      "PQ": 26.82,
+      "mIoU": 57.27,
+      "PQ_things": null,
+      "PQ_stuff": null
+    }
+  },
+  "model_evaluations": {
+    "dcfa_simcf_abc_step800": {
+      "file": "results/stage3_dcfa_simcf_abc_eval.json",
+      "checkpoint": "stage3_dcfa_simcf_abc/best_pq_step=000800.ckpt",
+      "PQ": 31.87,
+      "mIoU": 44.47,
+      "Acc": 88.35,
+      "PQ_things": 29.00,
+      "PQ_stuff": 33.67
+    },
+    "dcfa_simcf_abc_step1000": {
+      "file": "results/stage3_dcfa_simcf_abc_step1000_eval.json",
+      "checkpoint": "stage3_dcfa_simcf_abc/best_pq_step=001000.ckpt",
+      "PQ": 33.78,
+      "mIoU": 45.20,
+      "Acc": 88.64,
+      "PQ_things": 32.72,
+      "PQ_stuff": 34.43
+    },
+    "dcfa_simcf_abc_step2200": {
+      "file": "results/stage3_dcfa_simcf_abc_step2200_eval.json",
+      "checkpoint": "stage3_dcfa_simcf_abc/best_pq_step=002200.ckpt",
+      "PQ": 35.47,
+      "mIoU": 46.05,
+      "Acc": 89.67,
+      "PQ_things": 35.29,
+      "PQ_stuff": 35.59
+    },
+    "dcfa_simcf_abc_step3000": {
+      "file": "results/stage3_dcfa_simcf_abc_step3000_eval.json",
+      "checkpoint": "stage3_dcfa_simcf_abc/best_pq_step=003000.ckpt",
+      "PQ": 35.83,
+      "mIoU": 44.56,
+      "Acc": 87.30,
+      "PQ_things": 36.26,
+      "PQ_stuff": 35.56
+    }
+  },
+  "cross_dataset": {
+    "kitti": {
+      "file": "results/cross_dataset_eval/kitti_dcfa_simcf_abc.json",
+      "PQ": 34.85,
+      "mIoU": 46.87,
+      "PQ_things": 31.94,
+      "PQ_stuff": 36.40
+    },
+    "coco_stuff27": {
+      "file": "results/cross_dataset_eval/coco_stuff27_dcfa_simcf_abc.json",
+      "PQ": 7.83,
+      "mIoU": 14.22,
+      "PQ_things": 7.83,
+      "PQ_stuff": 7.84
+    },
+    "mots": {
+      "file": "results/cross_dataset_eval/mots_dcfa_simcf_abc.json",
+      "PQ": 61.10,
+      "mIoU": 92.10,
+      "PQ_things": 25.52,
+      "PQ_stuff": 96.68
+    }
+  }
+}

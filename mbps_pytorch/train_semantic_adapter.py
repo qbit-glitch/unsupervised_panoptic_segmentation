@@ -28,6 +28,10 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms as T
 from tqdm import tqdm
 
+PROJECT_ROOT = str(Path(__file__).resolve().parent.parent)
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
 CAUSE_DIR = str(Path(__file__).resolve().parent.parent / "refs" / "cause")
 if CAUSE_DIR not in sys.path:
     sys.path.insert(0, CAUSE_DIR)
@@ -63,6 +67,8 @@ def set_seed(seed=42):
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
     os.environ["PYTHONHASHSEED"] = str(seed)
 
 
@@ -109,18 +115,18 @@ def patch_cluster_for_device(cluster, device):
     cluster.bank_compute = types.MethodType(bank_compute_device, cluster)
 
 
-def dino_distillation_loss(student_feat, teacher_feat, temp_student=0.1, temp_teacher=0.07):
+def dino_distillation_loss(student_feat, teacher_feat):
+    """Cosine-similarity distillation between student and teacher features."""
     student_feat = F.normalize(student_feat, dim=-1)
     teacher_feat = F.normalize(teacher_feat, dim=-1).detach()
-    student_logits = student_feat / temp_student
-    teacher_probs = F.softmax(teacher_feat / temp_teacher, dim=-1)
-    loss = -(teacher_probs * F.log_softmax(student_logits, dim=-1)).sum(dim=-1)
-    return loss.mean()
+    # Per-token cosine similarity; maximize similarity = minimize (1 - cos)
+    loss = (1 - (student_feat * teacher_feat).sum(dim=-1)).mean()
+    return loss
 
 
 def cross_view_consistency_loss(feat1, feat2):
     feat1 = F.normalize(feat1, dim=-1)
-    feat2 = F.normalize(feat2, dim=-1)
+    feat2 = F.normalize(feat2, dim=-1).detach()  # Stop-gradient on augmented view
     return (1 - (feat1 * feat2).sum(dim=-1)).mean()
 
 
@@ -162,6 +168,8 @@ class AdapterTrainingDataset(Dataset):
             self.aug_transform = T.Compose([
                 T.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.1),
                 T.RandomGrayscale(p=0.2),
+                T.RandomHorizontalFlip(p=0.5),
+                T.GaussianBlur(kernel_size=5, sigma=(0.1, 2.0)),
             ])
         else:
             self.aug_transform = None
@@ -208,7 +216,10 @@ class AdapterTrainingDataset(Dataset):
             img = item["img"]
             if isinstance(img, torch.Tensor):
                 img_pil = T.ToPILImage()(img)
-                item["img_aug"] = T.ToTensor()(self.aug_transform(img_pil))
+                img_aug = T.ToTensor()(self.aug_transform(img_pil))
+                # Normalize to match training distribution
+                img_aug = T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])(img_aug)
+                item["img_aug"] = img_aug
             else:
                 item["img_aug"] = self.aug_transform(img)
         return item
@@ -217,7 +228,7 @@ class AdapterTrainingDataset(Dataset):
 def train_semantic_adapter(
     backbone, segment, cluster, train_loader, device, output_dir,
     losses, loss_weights, lr=1e-4, epochs=10, save_every=5,
-    lambda_depth=0.05, depth_shift=0.0, temp_student=0.1, temp_teacher=0.07,
+    lambda_depth=0.05, depth_shift=0.0,
     adapter_config=None, teacher_backbone=None, teacher_segment=None,
 ):
     logger.info("=== Semantic Adapter Training ===")
@@ -265,7 +276,7 @@ def train_semantic_adapter(
             loss_total = torch.tensor(0.0, device=device)
 
             if "distillation" in losses:
-                l_dist = dino_distillation_loss(feat_student, feat_teacher, temp_student, temp_teacher)
+                l_dist = dino_distillation_loss(feat_student, feat_teacher)
                 w = loss_weights.get("distillation", 1.0)
                 loss_total = loss_total + w * l_dist
                 totals["distillation"] += l_dist.item()
@@ -287,14 +298,8 @@ def train_semantic_adapter(
                 totals["depth_cluster"] += l_depth.item()
 
             if "cause_cluster" in losses:
-                with torch.no_grad():
-                    # Use teacher features (frozen original backbone) for EMA head
-                    feat_for_ema = teacher_backbone(img)[:, 1:, :] if teacher_backbone is not None else feat_teacher
-                    seg_feat_ema = segment.head_ema(feat_for_ema)
-                loss_cluster, _ = cluster.forward_centroid(seg_feat_ema)
-                w = loss_weights.get("cause_cluster", 1.0)
-                loss_total = loss_total + w * loss_cluster
-                totals["cause_cluster"] += loss_cluster.item()
+                logger.warning("cause_cluster loss is deprecated and skipped (zero gradient).")
+                totals["cause_cluster"] += 0.0
 
             optimizer.zero_grad()
             loss_total.backward()
@@ -374,12 +379,20 @@ def main():
     backbone_path = os.path.join(args.checkpoint_dir, "checkpoint", "dinov2_vit_base_14.pth")
     backbone = dinov2_vit_base_14()
     state = torch.load(backbone_path, map_location="cpu", weights_only=True)
-    backbone.load_state_dict(state, strict=False)
+    result = backbone.load_state_dict(state, strict=False)
+    if result.missing_keys:
+        logger.warning("Backbone missing keys: %s", result.missing_keys[:10])
+    if result.unexpected_keys:
+        logger.warning("Backbone unexpected keys: %s", result.unexpected_keys[:10])
 
     # Create frozen teacher backbone (original, no adapters)
     logger.info("Creating frozen teacher backbone...")
     teacher_backbone = dinov2_vit_base_14()
-    teacher_backbone.load_state_dict(state, strict=False)
+    result_teacher = teacher_backbone.load_state_dict(state, strict=False)
+    if result_teacher.missing_keys:
+        logger.warning("Teacher backbone missing keys: %s", result_teacher.missing_keys[:10])
+    if result_teacher.unexpected_keys:
+        logger.warning("Teacher backbone unexpected keys: %s", result_teacher.unexpected_keys[:10])
     teacher_backbone.eval()
     for p in teacher_backbone.parameters():
         p.requires_grad = False
@@ -403,12 +416,20 @@ def main():
         "dinov2_vit_base_14", "2048", "segment_tr.pth",
     )
     seg_state = torch.load(seg_path, map_location="cpu", weights_only=True)
-    segment.load_state_dict(seg_state, strict=False)
+    result_seg = segment.load_state_dict(seg_state, strict=False)
+    if result_seg.missing_keys:
+        logger.warning("Segment missing keys: %s", result_seg.missing_keys[:10])
+    if result_seg.unexpected_keys:
+        logger.warning("Segment unexpected keys: %s", result_seg.unexpected_keys[:10])
 
     # Create frozen teacher segment (original, no adapters)
     logger.info("Creating frozen teacher segment...")
     teacher_segment = Segment_TR(cause_args).to(device)
-    teacher_segment.load_state_dict(seg_state, strict=False)
+    result_teacher_seg = teacher_segment.load_state_dict(seg_state, strict=False)
+    if result_teacher_seg.missing_keys:
+        logger.warning("Teacher segment missing keys: %s", result_teacher_seg.missing_keys[:10])
+    if result_teacher_seg.unexpected_keys:
+        logger.warning("Teacher segment unexpected keys: %s", result_teacher_seg.unexpected_keys[:10])
     teacher_segment.eval()
     for p in teacher_segment.parameters():
         p.requires_grad = False
@@ -436,7 +457,7 @@ def main():
     cluster.bank_init()
     freeze_non_adapter_params(cluster)
     if "cause_cluster" in args.losses:
-        cluster.cluster_probe.requires_grad = True
+        logger.warning("cause_cluster is deprecated; cluster_probe will remain frozen.")
 
     total_trainable = count_adapter_params(backbone) + count_adapter_params(segment) + count_adapter_params(cluster)
     logger.info("Total trainable params: %d", total_trainable)
@@ -457,6 +478,7 @@ def main():
         T.Resize(TRAIN_RESOLUTION, interpolation=T.InterpolationMode.BILINEAR),
         T.CenterCrop(TRAIN_RESOLUTION),
         T.ToTensor(),
+        T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
     ])
     label_transform = T.Compose([
         T.Resize(TRAIN_RESOLUTION, interpolation=T.InterpolationMode.NEAREST),

@@ -1,0 +1,7 @@
+{
+  "split": "val",
+  "eval_resolution": [
+    512,
+    1024
+  ]
+}

@@ -38,6 +38,7 @@ from mbps_pytorch.models.adapters import (
     freeze_non_adapter_params,
     count_adapter_params,
 )
+from mbps_pytorch.models.adapters.lora_layers import LoRALinear, DoRALinear, ConvDoRALinear
 
 logging.basicConfig(format="%(asctime)s %(levelname)s: %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -52,6 +53,8 @@ def set_seed(seed=42):
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
     os.environ["PYTHONHASHSEED"] = str(seed)
 
 
@@ -60,14 +63,10 @@ def set_seed(seed=42):
 # --------------------------------------------------------------------------- #
 
 def load_dav3_model(model_name="depth-anything/DA3MONO-LARGE", device="cpu"):
-    try:
-        from depth_anything_3.api import DepthAnything3
-        model = DepthAnything3.from_pretrained(model_name)
-        model = model.to(device=torch.device(device))
-        return model
-    except ImportError:
-        logger.error("depth_anything_3 not installed. Falling back to DA2.")
-        return load_da2_model(device=device)
+    from depth_anything_3.api import DepthAnything3
+    model = DepthAnything3.from_pretrained(model_name)
+    model = model.to(device=torch.device(device))
+    return model
 
 
 def load_da2_model(model_name="depth-anything/Depth-Anything-V2-Large-hf", device="cpu"):
@@ -100,34 +99,46 @@ def self_distillation_loss(student_out, teacher_out, mask=None):
     return F.mse_loss(student_out, teacher_out.detach())
 
 
-def relative_depth_ranking_loss(depth_pred, num_pairs=1024):
-    """Encourage correct pairwise depth ordering.
+def relative_depth_ranking_loss(student_depth, teacher_depth, num_pairs=1024, margin=0.1):
+    """Encourage correct pairwise depth ordering using teacher as target.
 
-    Samples pairs of pixels and penalizes when the predicted depth order
+    Samples pairs of pixels and penalizes when the student's predicted depth order
     contradicts the teacher's order.
     """
-    B, H, W = depth_pred.shape
-    device = depth_pred.device
-    flat = depth_pred.view(B, -1)
+    B, H, W = student_depth.shape
+    device = student_depth.device
+    student_flat = student_depth.view(B, -1)
+    teacher_flat = teacher_depth.view(B, -1)
 
     loss = torch.tensor(0.0, device=device)
     for b in range(B):
         idx_i = torch.randint(0, H * W, (num_pairs // B,), device=device)
         idx_j = torch.randint(0, H * W, (num_pairs // B,), device=device)
-        d_i = flat[b, idx_i]
-        d_j = flat[b, idx_j]
-        # Ranking: if d_i > d_j, we want pred_i > pred_j
-        # Use margin ranking loss
-        target = torch.sign(d_i.detach() - d_j.detach())
-        margin = 0.1
-        l = F.margin_ranking_loss(d_i, d_j, target, margin=margin)
-        loss = loss + l
+        # Ensure no self-pairs
+        mask_same = idx_i == idx_j
+        while mask_same.any():
+            idx_j[mask_same] = torch.randint(0, H * W, (mask_same.sum(),), device=device)
+            mask_same = idx_i == idx_j
+
+        s_i = student_flat[b, idx_i]
+        s_j = student_flat[b, idx_j]
+        t_i = teacher_flat[b, idx_i]
+        t_j = teacher_flat[b, idx_j]
+        # Teacher defines the ground-truth ordering
+        target = torch.sign(t_i - t_j)
+        # Skip pairs where teacher has equal depth (target=0)
+        valid = target != 0
+        if valid.any():
+            l = F.margin_ranking_loss(s_i[valid], s_j[valid], target[valid], margin=margin)
+            loss = loss + l
     return loss / B
 
 
-def scale_invariant_loss(pred, target, lambda_si=0.5):
-    """Scale-invariant log loss (Eigen et al.)."""
-    diff = torch.log(pred + 1e-6) - torch.log(target.detach() + 1e-6)
+def scale_invariant_loss(pred, target, lambda_si=0.5, min_depth=1e-3):
+    """Scale-invariant log loss (Eigen et al.) with gradient clipping."""
+    pred_clamped = torch.clamp(pred, min=min_depth)
+    target_clamped = torch.clamp(target.detach(), min=min_depth)
+    diff = torch.log(pred_clamped) - torch.log(target_clamped)
     n = pred.numel()
     loss = (diff ** 2).mean() - lambda_si * (diff.sum() ** 2) / (n ** 2)
     return loss
@@ -198,7 +209,10 @@ def train_depth_adapter(
     best_loss = float("inf")
 
     for epoch in range(epochs):
-        model.train()
+        model.eval()  # Frozen base in eval mode
+        for m in model.modules():
+            if isinstance(m, (LoRALinear, DoRALinear, ConvDoRALinear)):
+                m.train()  # Only adapters in train mode
         totals = {k: 0.0 for k in losses + ["total"]}
         count = 0
         step = 0
@@ -207,21 +221,27 @@ def train_depth_adapter(
         optimizer.zero_grad()
         for batch in prog:
             img = batch["img"].to(device)
+            img_aug = batch.get("img_aug")
+            if img_aug is not None:
+                img_aug = img_aug.to(device)
 
-            # Teacher forward (no grad)
+            # Teacher forward on clean image (no grad)
             with torch.no_grad():
                 if model_type == "dav3":
                     teacher_out = teacher_model.inference_batch(img)
                 else:
-                    inputs = processor(images=[Image.fromarray((i.permute(1,2,0).cpu().numpy()*255).astype(np.uint8)) for i in img], return_tensors="pt")
-                    inputs = {k: v.to(device) for k, v in inputs.items()}
-                    teacher_out = teacher_model(**inputs).predicted_depth
+                    teacher_inputs = processor(images=[Image.fromarray((i.permute(1,2,0).cpu().numpy()*255).astype(np.uint8)) for i in img], return_tensors="pt")
+                    teacher_inputs = {k: v.to(device) for k, v in teacher_inputs.items()}
+                    teacher_out = teacher_model(**teacher_inputs).predicted_depth
 
-            # Student forward
+            # Student forward on augmented image if available
+            student_input = img_aug if img_aug is not None else img
             if model_type == "dav3":
-                student_out = model.inference_batch(img)
+                student_out = model.inference_batch(student_input)
             else:
-                student_out = model(**inputs).predicted_depth
+                student_inputs = processor(images=[Image.fromarray((i.permute(1,2,0).cpu().numpy()*255).astype(np.uint8)) for i in student_input], return_tensors="pt")
+                student_inputs = {k: v.to(device) for k, v in student_inputs.items()}
+                student_out = model(**student_inputs).predicted_depth
 
             loss_total = torch.tensor(0.0, device=device)
 
@@ -232,7 +252,7 @@ def train_depth_adapter(
                 totals["distillation"] += l_dist.item()
 
             if "ranking" in losses:
-                l_rank = relative_depth_ranking_loss(student_out)
+                l_rank = relative_depth_ranking_loss(student_out, teacher_out)
                 w = loss_weights.get("ranking", 0.1)
                 loss_total = loss_total + w * l_rank
                 totals["ranking"] += l_rank.item()
@@ -302,7 +322,7 @@ def main():
     parser.add_argument("--dropout", type=float, default=0.05)
     parser.add_argument("--late_block_start", type=int, default=6)
     parser.add_argument("--adapt_decoder", action="store_true")
-    parser.add_argument("--losses", type=str, default="distillation,ranking")
+    parser.add_argument("--losses", type=str, default="distillation,ranking,scale_invariant")
     parser.add_argument("--loss_weights", type=str, default="")
     parser.add_argument("--image_size", type=int, nargs=2, default=[512, 1024])
     parser.add_argument("--save_every", type=int, default=5)
@@ -310,6 +330,15 @@ def main():
     parser.add_argument("--grad_accum_steps", type=int, default=1,
                         help="Gradient accumulation steps (effective batch = batch_size * grad_accum)")
     args = parser.parse_args()
+
+    # Set sensible per-model defaults for late_block_start
+    if args.late_block_start == 6:  # user didn't override
+        if args.model_type in ("da2", "depthpro"):
+            args.late_block_start = 18
+            logger.info("Auto-set late_block_start=%d for %s (24-block model)", args.late_block_start, args.model_type)
+        elif args.model_type == "dav3":
+            args.late_block_start = 18
+            logger.info("Auto-set late_block_start=%d for %s", args.late_block_start, args.model_type)
 
     set_seed(args.seed)
     if args.device is None:
@@ -341,7 +370,12 @@ def main():
 
     # Create frozen teacher model (original, no adapters)
     logger.info("Creating frozen teacher model...")
-    teacher_model = copy.deepcopy(model)
+    if args.model_type == "dav3":
+        teacher_model = load_dav3_model(model_name, device="cpu")
+    elif args.model_type == "da2":
+        teacher_model = load_da2_model(model_name, device="cpu")
+    elif args.model_type == "depthpro":
+        teacher_model = load_depthpro_model(model_name, device="cpu")
     teacher_model.eval()
     for p in teacher_model.parameters():
         p.requires_grad = False

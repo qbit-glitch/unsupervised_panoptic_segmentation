@@ -1,0 +1,230 @@
+{
+  "semantic": {
+    "mIoU": 55.29,
+    "pixel_accuracy": 89.91,
+    "per_class_iou": {
+      "road": 95.07,
+      "sidewalk": 64.47,
+      "building": 82.21,
+      "wall": 48.53,
+      "fence": 47.62,
+      "pole": 11.45,
+      "traffic light": 0.0,
+      "traffic sign": 44.37,
+      "vegetation": 80.28,
+      "terrain": 51.64,
+      "sky": 80.38,
+      "person": 52.94,
+      "rider": 30.35,
+      "car": 81.58,
+      "truck": 77.85,
+      "bus": 80.33,
+      "train": 73.83,
+      "motorcycle": 0.0,
+      "bicycle": 47.7
+    }
+  },
+  "panoptic": {
+    "all": {
+      "PQ": 26.56,
+      "SQ": 61.38,
+      "RQ": 35.99,
+      "n_classes": 19
+    },
+    "stuff": {
+      "PQ": 32.32,
+      "SQ": 61.7,
+      "RQ": 44.52,
+      "n_classes": 11
+    },
+    "things": {
+      "PQ": 18.64,
+      "SQ": 60.96,
+      "RQ": 24.27,
+      "n_classes": 8
+    },
+    "per_class": {
+      "road": {
+        "PQ": 76.71,
+        "SQ": 78.55,
+        "RQ": 97.66,
+        "TP": 480,
+        "FP": 20,
+        "FN": 3,
+        "type": "stuff"
+      },
+      "sidewalk": {
+        "PQ": 38.84,
+        "SQ": 67.33,
+        "RQ": 57.68,
+        "TP": 276,
+        "FP": 217,
+        "FN": 188,
+        "type": "stuff"
+      },
+      "building": {
+        "PQ": 66.77,
+        "SQ": 75.34,
+        "RQ": 88.62,
+        "TP": 436,
+        "FP": 57,
+        "FN": 55,
+        "type": "stuff"
+      },
+      "wall": {
+        "PQ": 12.62,
+        "SQ": 67.66,
+        "RQ": 18.66,
+        "TP": 32,
+        "FP": 110,
+        "FN": 169,
+        "type": "stuff"
+      },
+      "fence": {
+        "PQ": 10.7,
+        "SQ": 61.98,
+        "RQ": 17.27,
+        "TP": 36,
+        "FP": 192,
+        "FN": 153,
+        "type": "stuff"
+      },
+      "pole": {
+        "PQ": 0.13,
+        "SQ": 53.89,
+        "RQ": 0.24,
+        "TP": 1,
+        "FP": 333,
+        "FN": 488,
+        "type": "stuff"
+      },
+      "traffic light": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 0,
+        "FN": 260,
+        "type": "stuff"
+      },
+      "traffic sign": {
+        "PQ": 13.05,
+        "SQ": 60.78,
+        "RQ": 21.48,
+        "TP": 93,
+        "FP": 304,
+        "FN": 376,
+        "type": "stuff"
+      },
+      "vegetation": {
+        "PQ": 66.99,
+        "SQ": 74.48,
+        "RQ": 89.94,
+        "TP": 438,
+        "FP": 50,
+        "FN": 48,
+        "type": "stuff"
+      },
+      "terrain": {
+        "PQ": 16.32,
+        "SQ": 65.81,
+        "RQ": 24.8,
+        "TP": 47,
+        "FP": 101,
+        "FN": 184,
+        "type": "stuff"
+      },
+      "sky": {
+        "PQ": 53.4,
+        "SQ": 72.83,
+        "RQ": 73.33,
+        "TP": 334,
+        "FP": 140,
+        "FN": 103,
+        "type": "stuff"
+      },
+      "person": {
+        "PQ": 3.2,
+        "SQ": 63.16,
+        "RQ": 5.07,
+        "TP": 102,
+        "FP": 545,
+        "FN": 3274,
+        "type": "thing"
+      },
+      "rider": {
+        "PQ": 2.82,
+        "SQ": 54.27,
+        "RQ": 5.2,
+        "TP": 18,
+        "FP": 133,
+        "FN": 523,
+        "type": "thing"
+      },
+      "car": {
+        "PQ": 17.75,
+        "SQ": 73.56,
+        "RQ": 24.14,
+        "TP": 684,
+        "FP": 349,
+        "FN": 3951,
+        "type": "thing"
+      },
+      "truck": {
+        "PQ": 35.32,
+        "SQ": 79.76,
+        "RQ": 44.29,
+        "TP": 31,
+        "FP": 16,
+        "FN": 62,
+        "type": "thing"
+      },
+      "bus": {
+        "PQ": 46.56,
+        "SQ": 81.48,
+        "RQ": 57.14,
+        "TP": 44,
+        "FP": 12,
+        "FN": 54,
+        "type": "thing"
+      },
+      "train": {
+        "PQ": 39.85,
+        "SQ": 76.37,
+        "RQ": 52.17,
+        "TP": 12,
+        "FP": 11,
+        "FN": 11,
+        "type": "thing"
+      },
+      "motorcycle": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 0,
+        "FN": 149,
+        "type": "thing"
+      },
+      "bicycle": {
+        "PQ": 3.65,
+        "SQ": 59.04,
+        "RQ": 6.18,
+        "TP": 48,
+        "FP": 343,
+        "FN": 1115,
+        "type": "thing"
+      }
+    }
+  },
+  "config": {
+    "sem_dir": "/Users/qbit-glitch/Desktop/datasets/cityscapes/pseudo_semantic_adapter_V3_k80/val",
+    "mode": "depth-guided (tau=0.15, sigma=0.0)",
+    "tau": 0.15,
+    "min_area": 1000,
+    "sigma": 0.0,
+    "dilation": 3,
+    "num_images": 500,
+    "avg_instances_per_image": 4.7
+  }
+}

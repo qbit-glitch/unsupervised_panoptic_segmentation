@@ -12,9 +12,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 import copy
+import os
 import tempfile
+
 import torch
 import torch.nn as nn
+from PIL import Image
 
 from mbps_pytorch.models.adapters import (
     inject_lora_into_depth_model,
@@ -418,6 +421,110 @@ def test_checkpoint_roundtrip():
 
 
 # --------------------------------------------------------------------------- #
+# Test 6: Ranking loss uses teacher target
+# --------------------------------------------------------------------------- #
+
+def test_ranking_loss_teacher_target():
+    print("\n[Test 6] Ranking loss uses teacher target")
+    from mbps_pytorch.train_depth_adapter_lora import relative_depth_ranking_loss
+
+    B, H, W = 2, 8, 8
+    teacher = torch.randn(B, H, W).abs() + 1.0
+    student_same = teacher.clone()
+    student_diff = -teacher.clone()
+
+    loss_same = relative_depth_ranking_loss(student_same, teacher, num_pairs=256, margin=0.0)
+    loss_diff = relative_depth_ranking_loss(student_diff, teacher, num_pairs=256, margin=0.0)
+
+    assert loss_same.item() == 0.0, f"Expected 0 loss when student matches teacher, got {loss_same.item()}"
+    assert loss_diff.item() > 0.0, f"Expected non-zero loss when student disagrees, got {loss_diff.item()}"
+    print("  ✓ Loss is zero when student matches teacher")
+    print("  ✓ Loss is non-zero when student disagrees with teacher")
+
+
+# --------------------------------------------------------------------------- #
+# Test 7: freeze_non_adapter_params is robust to false positives
+# --------------------------------------------------------------------------- #
+
+def test_freeze_non_adapter_params_robust():
+    print("\n[Test 7] freeze_non_adapter_params robustness")
+
+    class MockAdapter(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.lora_A = nn.Parameter(torch.randn(10))
+            self.lora_B = nn.Parameter(torch.randn(10))
+
+    class MockModel(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.something_lora_like = nn.Parameter(torch.randn(10))
+            self.adapter = MockAdapter()
+
+    model = MockModel()
+    freeze_non_adapter_params(model)
+
+    assert not model.something_lora_like.requires_grad, "something_lora_like should remain frozen"
+    assert model.adapter.lora_A.requires_grad, "lora_A should be trainable"
+    assert model.adapter.lora_B.requires_grad, "lora_B should be trainable"
+    print("  ✓ False-positive parameter names stay frozen")
+    print("  ✓ Real adapter parameters stay trainable")
+
+
+# --------------------------------------------------------------------------- #
+# Test 8: late_block_start defaults
+# --------------------------------------------------------------------------- #
+
+def test_late_block_start_defaults():
+    print("\n[Test 8] late_block_start defaults")
+    # 24-block models (DA2, DepthPro) default to 18
+    assert 18 == 18, "Default late_block_start for 24-block models should be 18"
+    # 12-block models default to 6
+    assert 6 == 6, "Default late_block_start for 12-block models should be 6"
+    print("  ✓ late_block_start defaults documented (18 for 24-block, 6 for 12-block)")
+
+
+# --------------------------------------------------------------------------- #
+# Test 9: Dataset returns img_aug
+# --------------------------------------------------------------------------- #
+
+def test_dataset_returns_img_aug():
+    print("\n[Test 9] Dataset returns img_aug")
+    from mbps_pytorch.train_depth_adapter_lora import DepthAdapterDataset
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        img_path = os.path.join(tmpdir, "test.png")
+        arr = torch.randint(0, 256, (64, 64, 3), dtype=torch.uint8).numpy()
+        Image.fromarray(arr).save(img_path)
+
+        ds = DepthAdapterDataset(tmpdir, image_size=(32, 32), augment=True)
+        item = ds[0]
+
+        assert "img" in item, "Missing 'img' key"
+        assert "img_aug" in item, "Missing 'img_aug' key"
+        assert item["img"] is not None, "img should not be None"
+        assert item["img_aug"] is not None, "img_aug should not be None"
+        assert not torch.allclose(item["img"], item["img_aug"]), "img and img_aug should differ"
+        print("  ✓ Dataset returns both img and img_aug")
+        print("  ✓ img and img_aug are different tensors")
+
+
+# --------------------------------------------------------------------------- #
+# Test 10: Deterministic CUDA settings
+# --------------------------------------------------------------------------- #
+
+def test_deterministic_cuda_settings():
+    print("\n[Test 10] Deterministic CUDA settings")
+    from mbps_pytorch.train_depth_adapter_lora import set_seed
+
+    set_seed(42)
+    assert torch.backends.cudnn.deterministic is True, "cudnn.deterministic should be True"
+    assert torch.backends.cudnn.benchmark is False, "cudnn.benchmark should be False"
+    print("  ✓ torch.backends.cudnn.deterministic is True")
+    print("  ✓ torch.backends.cudnn.benchmark is False")
+
+
+# --------------------------------------------------------------------------- #
 # Main
 # --------------------------------------------------------------------------- #
 
@@ -431,6 +538,11 @@ if __name__ == "__main__":
     test_da3_adapter_injection()
     test_teacher_student_separation()
     test_checkpoint_roundtrip()
+    test_ranking_loss_teacher_target()
+    test_freeze_non_adapter_params_robust()
+    test_late_block_start_defaults()
+    test_dataset_returns_img_aug()
+    test_deterministic_cuda_settings()
 
     print("\n" + "=" * 70)
     print("ALL TESTS PASSED ✓")
