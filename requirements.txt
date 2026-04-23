@@ -30,9 +30,12 @@ tensorboard>=2.15.0
 panopticapi>=0.1
 
 # Depth estimation (PyTorch, for precompute only)
-# torch>=2.0.0
-# torchvision>=0.15.0
-# timm>=0.9.0
+torch>=2.0.0
+torchvision>=0.15.0
+timm>=0.9.0
+
+# Adapter-specific dependencies (see requirements-adapters.txt)
+# transformers>=4.35.0  # HuggingFace models (DA2, DepthPro)
 
 # YAML config
 PyYAML>=6.0

@@ -172,4 +172,18 @@ def inject_lora_into_depthpro(
         variant.upper(), len(adapted), total_adapted,
         total_adapted / max(total_model, 1) * 100, total_model // 1_000_000,
     )
+    set_depthpro_spatial_dims(depthpro_model)
     return adapted
+
+
+def set_depthpro_spatial_dims(model, image_size=(518, 518), patch_size=14):
+    from mbps_pytorch.models.adapters.lora_layers import ConvDoRALinear
+    h_patches = image_size[0] // patch_size
+    w_patches = image_size[1] // patch_size
+    count = 0
+    for module in model.modules():
+        if isinstance(module, ConvDoRALinear):
+            module._spatial_dims = (h_patches, w_patches)
+            count += 1
+    if count > 0:
+        logger.info("Set _spatial_dims=(%d, %d) on %d ConvDoRALinear layers", h_patches, w_patches, count)

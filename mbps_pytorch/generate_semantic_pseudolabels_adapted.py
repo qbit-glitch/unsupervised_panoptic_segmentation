@@ -71,6 +71,10 @@ def preprocess_image(image_path, device, resize_to_crop=False, crop_size=322):
     img_np = (img_np - IMAGENET_MEAN) / IMAGENET_STD
     tensor = torch.from_numpy(img_np).permute(2, 0, 1).unsqueeze(0)
     H, W = tensor.shape[-2:]
+    # NOTE: Images are resized to the nearest multiple of patch_size (14).
+    # For Cityscapes 1024x2048, this becomes 1022x2044 (2 rows + 4 cols discarded).
+    # The cropped region is restored via bilinear interpolation during upsampling.
+    # Bottom-right pixels may be slightly degraded. Consider padding instead.
     new_H = (H // 14) * 14
     new_W = (W // 14) * 14
     if new_H != H or new_W != W:
@@ -108,6 +112,9 @@ def extract_features_single(backbone, segment, pixel_values, crop_size=322):
         x_positions.append(W - crop_size)
     x_positions = sorted(set(x_positions))
 
+    # NOTE: Non-uniform overlap: interior crops have exactly 50% overlap,
+    # but boundary crops may overlap up to ~77% with their neighbor.
+    # The visit-count accumulator ensures correct averaging regardless.
     code_sum = torch.zeros(90, h_patches, w_patches, device=pixel_values.device)
     count = torch.zeros(h_patches, w_patches, device=pixel_values.device)
 
@@ -195,6 +202,10 @@ def _load_state_checked(module, state_dict, component_name, require_lora):
         if base_missing:
             logger.warning("[%s] %d base params missing (expected 0). First few: %s",
                            component_name, len(base_missing), base_missing[:5])
+    if result.missing_keys:
+        logger.warning("[%s] Missing keys: %s", component_name, result.missing_keys[:10])
+    if result.unexpected_keys:
+        logger.warning("[%s] Unexpected keys: %s", component_name, result.unexpected_keys[:10])
     if require_lora:
         lora_loaded = sum(
             1
@@ -205,6 +216,13 @@ def _load_state_checked(module, state_dict, component_name, require_lora):
         )
         logger.info("[%s] %d LoRA-style parameters loaded successfully.",
                     component_name, lora_loaded)
+        # Verify all adapter keys in model are present in checkpoint
+        model_adapter_keys = {k for k in module.state_dict().keys() if any(x in k for x in ("lora_A", "lora_B", "lora_magnitude", "dwconv", "conv_gate"))}
+        ckpt_adapter_keys = {k for k in state_dict.keys() if any(x in k for x in ("lora_A", "lora_B", "lora_magnitude", "dwconv", "conv_gate"))}
+        missing_adapters = model_adapter_keys - ckpt_adapter_keys
+        if missing_adapters:
+            raise RuntimeError(f"[{component_name}] Adapter checkpoint missing keys: {sorted(missing_adapters)[:10]}. "
+                               f"Checkpoint may be from a non-adapted model. Expected {len(model_adapter_keys)} adapter params, found {len(ckpt_adapter_keys)}.")
 
 
 def generate_adapted_pseudolabels(
@@ -253,7 +271,11 @@ def generate_adapted_pseudolabels(
         str(cause_checkpoint_dir / "checkpoint" / "dinov2_vit_base_14.pth"),
         map_location="cpu", weights_only=True,
     )
-    backbone.load_state_dict(state, strict=False)
+    result_backbone = backbone.load_state_dict(state, strict=False)
+    if result_backbone.missing_keys:
+        logger.warning("Backbone missing keys: %s", result_backbone.missing_keys[:10])
+    if result_backbone.unexpected_keys:
+        logger.warning("Backbone unexpected keys: %s", result_backbone.unexpected_keys[:10])
 
     if use_adapter:
         inject_lora_into_dinov2(
@@ -275,10 +297,14 @@ def generate_adapted_pseudolabels(
     seg_path = cause_checkpoint_dir / "CAUSE" / "cityscapes" / \
         "dinov2_vit_base_14" / "2048" / "segment_tr.pth"
     if seg_path.exists():
-        segment.load_state_dict(
+        result_seg = segment.load_state_dict(
             torch.load(str(seg_path), map_location="cpu", weights_only=True),
             strict=False,
         )
+        if result_seg.missing_keys:
+            logger.warning("Segment missing keys: %s", result_seg.missing_keys[:10])
+        if result_seg.unexpected_keys:
+            logger.warning("Segment unexpected keys: %s", result_seg.unexpected_keys[:10])
         logger.info("Loaded CAUSE segment_tr baseline from %s", seg_path)
     else:
         logger.warning("CAUSE segment_tr.pth not found at %s — segment is randomly initialized",

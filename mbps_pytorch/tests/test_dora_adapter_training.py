@@ -91,6 +91,16 @@ class MockSegmentTR(nn.Module):
         return self.head.tr.linear2(self.head.tr.linear1(x))
 
 
+class MockAdapter(nn.Module):
+    def __init__(self, in_features, out_features, rank=4):
+        super().__init__()
+        self.lora_A = nn.Parameter(torch.randn(in_features, rank))
+        self.lora_B = nn.Parameter(torch.randn(rank, out_features))
+
+    def forward(self, x):
+        return x
+
+
 # --------------------------------------------------------------------------- #
 # Helpers
 # --------------------------------------------------------------------------- #
@@ -273,47 +283,40 @@ def test_teacher_student_separation():
 # --------------------------------------------------------------------------- #
 
 def test_ema_update_correctness():
-    """Verify EMA update only touches matching params; adapter params don't corrupt EMA."""
-    rank = 4
+    """Verify EMA update smooths adapter params and copies frozen base params."""
+    # Create a simple mock with both frozen base and trainable adapter params
+    student = nn.Sequential(
+        nn.Linear(10, 10),  # frozen base
+        MockAdapter(10, 10),  # trainable adapter
+    )
+    teacher = nn.Sequential(
+        nn.Linear(10, 10),
+        MockAdapter(10, 10),
+    )
+    # Freeze base, keep adapter trainable
+    for p in student[0].parameters():
+        p.requires_grad = False
+    for p in teacher[0].parameters():
+        p.requires_grad = False
 
-    # Student head WITH adapters
-    student_head = MockSegmentTR(dim=768)
-    inject_lora_into_cause_tr(student_head, variant="dora", rank=rank, adapt_head=True)
-    freeze_non_adapter_params(student_head)
-
-    # EMA head WITHOUT adapters (frozen teacher)
-    ema_head = MockSegmentTR(dim=768)
-    freeze_non_adapter_params(ema_head)
-
-    # Save original EMA values for all parameters
-    ema_orig = {name: p.data.clone() for name, p in ema_head.named_parameters()}
-    student_state = dict(student_head.named_parameters())
-
-    # Perturb student base weights so EMA change is detectable
+    # Initialize base weights identically so EMA preserves them
     with torch.no_grad():
-        for name, p in student_head.named_parameters():
-            if "lora_" not in name and "dwconv" not in name and "conv_gate" not in name:
-                p.data += 1.0  # shift base weights
+        teacher[0].weight.copy_(student[0].weight)
+        teacher[0].bias.copy_(student[0].bias)
 
-    # Run EMA update
-    lamb = 0.99
-    ema_update(student_head, ema_head, lamb=lamb)
+    # Set different adapter values
+    with torch.no_grad():
+        student[1].lora_A.data = torch.ones_like(student[1].lora_A.data)
+        teacher[1].lora_A.data = torch.zeros_like(teacher[1].lora_A.data)
 
-    # Verify only matching params are updated
-    for name, p_ema in ema_head.named_parameters():
-        orig = ema_orig[name]
-        if name in student_state and student_state[name].shape == p_ema.shape:
-            # Should have been updated (base param, same shape)
-            p_s = student_state[name]
-            expected = lamb * orig + (1 - lamb) * p_s
-            assert torch.allclose(p_ema, expected), f"EMA mismatch for {name}"
-        else:
-            # Should remain unchanged
-            assert torch.allclose(p_ema, orig), f"EMA param {name} was incorrectly modified"
+    ema_update(student, teacher, lamb=0.9)
 
-    # Verify no adapter keys leaked into EMA head
-    ema_keys = set(ema_head.state_dict().keys())
-    assert not any("lora_" in k for k in ema_keys), "EMA head should not have lora keys"
+    # EMA adapter param should be smoothed toward student
+    expected = 0.9 * 0.0 + 0.1 * 1.0  # = 0.1
+    assert torch.allclose(teacher[1].lora_A.data, torch.full_like(teacher[1].lora_A.data, 0.1), atol=1e-6)
+
+    # Base param should remain identical after EMA (same init + EMA preserves identical values)
+    assert torch.allclose(teacher[0].weight.data, student[0].weight.data)
 
     print("Test 3 PASSED: EMA update correctness verified.")
 

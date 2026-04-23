@@ -19,12 +19,12 @@ model:
 data:
   image_dir: "datasets/cityscapes/leftImg8bit/train"
   image_size: [512, 1024]
-  batch_size: 4
+  batch_size: 32
   num_workers: 4
 
 # Training configuration
 training:
-  epochs: 10
+  epochs: 50
   lr: 1.0e-4
   save_every: 5
   seed: 42
@@ -35,7 +35,7 @@ losses:
   weights:
     distillation: 1.0
     ranking: 0.1
-    scale_invariant: 0.5
+    scale_invariant: 0.1
 
 # Device
 device: "auto"

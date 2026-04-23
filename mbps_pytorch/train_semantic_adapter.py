@@ -12,6 +12,7 @@ Usage:
 
 import argparse
 import copy
+import json
 import logging
 import os
 import random
@@ -27,6 +28,8 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms as T
 from tqdm import tqdm
+
+import yaml
 
 PROJECT_ROOT = str(Path(__file__).resolve().parent.parent)
 if PROJECT_ROOT not in sys.path:
@@ -59,6 +62,13 @@ PROJECTION_DIM = 2048
 NUM_CODEBOOK = 2048
 N_CLASSES = 27
 EMA_MOMENTUM = 0.99
+
+IMAGENET_MEAN = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
+IMAGENET_STD = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
+
+
+def denormalize(tensor):
+    return tensor * IMAGENET_STD + IMAGENET_MEAN
 
 
 def set_seed(seed=42):
@@ -135,21 +145,29 @@ def sample_coords(batch_size, feature_samples, device):
 
 
 def grid_sample(t, coords):
-    return F.grid_sample(t, coords, padding_mode="zeros", align_corners=True, mode="bilinear")
+    return F.grid_sample(t, coords, padding_mode="zeros", align_corners=False, mode="bilinear")
 
 
 def depth_correlation_loss(code, depth, feature_samples=11, shift=0.0):
+    """Depth-aware correlation loss.
+
+    NOTE: This loss correlates segmentation code similarity with depth
+    discontinuity. It is a weak geometric signal and may not meaningfully
+    improve adaptation. Consider removing if training is unstable.
+    """
     B = code.shape[0]
     coords = sample_coords(B, feature_samples, code.device)
     code_sampled = grid_sample(code, coords)
     depth_sampled = grid_sample(depth, coords)
 
-    def norm(t):
-        return F.normalize(t, dim=1, eps=1e-10)
+    # Normalize code correlations but NOT depth
+    cd = torch.einsum("nchw,ncij->nhwij",
+                      F.normalize(code_sampled, dim=1, eps=1e-10),
+                      F.normalize(code_sampled, dim=1, eps=1e-10))
+    # Use actual depth values (not signs)
+    dd = torch.einsum("nchw,ncij->nhwij", depth_sampled, depth_sampled)
 
-    cd = torch.einsum("nchw,ncij->nhwij", norm(code_sampled), norm(code_sampled))
-    dd = torch.einsum("nchw,ncij->nhwij", norm(depth_sampled), norm(depth_sampled))
-    loss = -cd.clamp(0.0, 0.8) * (dd - shift)
+    loss = -cd * (dd - shift)
     return loss.mean()
 
 
@@ -170,6 +188,7 @@ class AdapterTrainingDataset(Dataset):
                 T.RandomGrayscale(p=0.2),
                 T.RandomHorizontalFlip(p=0.5),
                 T.GaussianBlur(kernel_size=5, sigma=(0.1, 2.0)),
+                T.RandomSolarize(threshold=0.5, p=0.2),
             ])
         else:
             self.aug_transform = None
@@ -200,6 +219,7 @@ class AdapterTrainingDataset(Dataset):
             depth_t = torch.from_numpy(depth).unsqueeze(0).unsqueeze(0)
             depth_patch = F.adaptive_avg_pool2d(depth_t, (self.patch_grid, self.patch_grid)).squeeze(0)
         else:
+            logger.warning("Depth file missing: %s", npy_path)
             depth_patch = torch.zeros(1, self.patch_grid, self.patch_grid)
         if len(self._depth_cache) < 5000:
             self._depth_cache[src_idx] = depth_patch
@@ -215,13 +235,19 @@ class AdapterTrainingDataset(Dataset):
         if self.use_augmentation and "img" in item:
             img = item["img"]
             if isinstance(img, torch.Tensor):
-                img_pil = T.ToPILImage()(img)
+                # Denormalize to [0,1], convert to PIL, augment, then re-normalize
+                img_denorm = denormalize(img).clamp(0, 1)
+                img_pil = T.ToPILImage()(img_denorm)
                 img_aug = T.ToTensor()(self.aug_transform(img_pil))
-                # Normalize to match training distribution
                 img_aug = T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])(img_aug)
                 item["img_aug"] = img_aug
             else:
-                item["img_aug"] = self.aug_transform(img)
+                # PIL image path: augment first, then ToTensor+Normalize
+                img_aug = self.aug_transform(img)
+                item["img_aug"] = T.Compose([
+                    T.ToTensor(),
+                    T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+                ])(img_aug)
         return item
 
 
@@ -339,9 +365,9 @@ def main():
     parser.add_argument("--checkpoint_dir", type=str, default=None)
     parser.add_argument("--output_dir", type=str, required=True)
     parser.add_argument("--device", type=str, default=None)
-    parser.add_argument("--batch_size", type=int, default=4)
+    parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--num_workers", type=int, default=4)
-    parser.add_argument("--epochs", type=int, default=10)
+    parser.add_argument("--epochs", type=int, default=50)
     parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--variant", type=str, default="dora", choices=["lora", "dora", "conv_dora"])
     parser.add_argument("--rank", type=int, default=4)
@@ -356,7 +382,35 @@ def main():
     parser.add_argument("--depth_subdir", type=str, default="depth_depthpro")
     parser.add_argument("--save_every", type=int, default=5)
     parser.add_argument("--seed", type=int, default=42)
-    args = parser.parse_args()
+    parser.add_argument("--config", type=str, default=None)
+
+    # Pre-parse to get config path
+    pre_parser = argparse.ArgumentParser(add_help=False)
+    pre_parser.add_argument("--config", type=str, default=None)
+    pre_args, remaining_argv = pre_parser.parse_known_args()
+
+    if pre_args.config and os.path.isfile(pre_args.config):
+        with open(pre_args.config, "r") as f:
+            config = yaml.safe_load(f)
+        config_defaults = {}
+        for section, values in config.items():
+            if isinstance(values, dict):
+                for k, v in values.items():
+                    if k == "names" and isinstance(v, list):
+                        config_defaults["losses"] = ",".join(str(x) for x in v)
+                    elif k == "weights" and isinstance(v, dict):
+                        config_defaults["loss_weights"] = json.dumps(v)
+                    elif k == "cause_checkpoint_dir":
+                        config_defaults["checkpoint_dir"] = v
+                    elif isinstance(v, list):
+                        config_defaults[k] = v
+                    else:
+                        config_defaults[k] = v
+            else:
+                config_defaults[section] = values
+        parser.set_defaults(**config_defaults)
+
+    args = parser.parse_args(remaining_argv)
 
     set_seed(args.seed)
     if args.device is None:
@@ -449,7 +503,7 @@ def main():
     if args.adapt_cause:
         inject_lora_into_cause_tr(
             segment, variant=args.variant, rank=args.rank, alpha=args.alpha,
-            dropout=args.dropout, adapt_head=True, adapt_projection=False, adapt_ema=False,
+            dropout=args.dropout, adapt_head=True, adapt_projection=False, adapt_ema=True,
         )
     freeze_non_adapter_params(segment)
 

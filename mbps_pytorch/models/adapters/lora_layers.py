@@ -37,11 +37,11 @@ class LoRALinear(nn.Module):
         self.rank = rank
         self.scaling = alpha / rank
 
-        self.weight = nn.Parameter(wrapped.weight.data.clone(), requires_grad=False)
+        self.register_buffer("weight", wrapped.weight.data)
         if wrapped.bias is not None:
-            self.bias = nn.Parameter(wrapped.bias.data.clone(), requires_grad=False)
+            self.register_buffer("bias", wrapped.bias.data)
         else:
-            self.register_parameter("bias", None)
+            self.bias = None
 
         dev = wrapped.weight.device
         self.lora_A = nn.Parameter(torch.empty(rank, self.in_features, device=dev))
@@ -89,11 +89,11 @@ class DoRALinear(nn.Module):
         self.rank = rank
         self.scaling = alpha / rank
 
-        self.weight = nn.Parameter(wrapped.weight.data.clone(), requires_grad=False)
+        self.register_buffer("weight", wrapped.weight.data)
         if wrapped.bias is not None:
-            self.bias = nn.Parameter(wrapped.bias.data.clone(), requires_grad=False)
+            self.register_buffer("bias", wrapped.bias.data)
         else:
-            self.register_parameter("bias", None)
+            self.bias = None
 
         self.lora_magnitude = nn.Parameter(
             self.weight.data.norm(dim=1, keepdim=True).clone()
@@ -205,11 +205,11 @@ class LoRAConv2d(nn.Module):
         self.scaling = alpha / rank
 
         # Frozen base weight and bias
-        self.weight = nn.Parameter(wrapped.weight.data.clone(), requires_grad=False)
+        self.register_buffer("weight", wrapped.weight.data)
         if wrapped.bias is not None:
-            self.bias = nn.Parameter(wrapped.bias.data.clone(), requires_grad=False)
+            self.register_buffer("bias", wrapped.bias.data)
         else:
-            self.register_parameter("bias", None)
+            self.bias = None
 
         dev = wrapped.weight.device
         self.lora_A = nn.Conv2d(

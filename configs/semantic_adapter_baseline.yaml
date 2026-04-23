@@ -20,12 +20,12 @@ data:
   data_dir: "datasets"
   cityscapes_root: "datasets/cityscapes"
   depth_subdir: "depth_depthpro"
-  batch_size: 4
+  batch_size: 32
   num_workers: 4
 
 # Training configuration
 training:
-  epochs: 10
+  epochs: 50
   lr: 1.0e-4
   save_every: 5
   seed: 42
@@ -38,8 +38,6 @@ losses:
     depth_cluster: 0.05
   lambda_depth: 0.05
   depth_shift: 0.0
-  temp_student: 0.1
-  temp_teacher: 0.07
 
 # Device
 device: "auto"   # auto, cuda, mps, cpu

@@ -4,7 +4,12 @@
 import argparse
 import logging
 import os
+import sys
 from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 import numpy as np
 import torch
@@ -30,7 +35,15 @@ THING_IDS = {11, 12, 13, 14, 15, 16, 17, 18}
 
 
 def depth_guided_instances(semantic, depth, tau=0.03, min_area=1000,
-                           dilation_iters=3, depth_blur_sigma=1.0):
+                           dilation_iters=3, depth_blur_sigma=1.0,
+                           min_area_ratio=None,
+                           use_adaptive_threshold=False, threshold_percentile=95):
+    img_area = semantic.shape[0] * semantic.shape[1]
+    if min_area_ratio is not None:
+        effective_min_area = max(min_area, int(min_area_ratio * img_area))
+    else:
+        effective_min_area = min_area
+
     if depth_blur_sigma > 0:
         depth_smooth = gaussian_filter(depth.astype(np.float64), sigma=depth_blur_sigma)
     else:
@@ -38,7 +51,17 @@ def depth_guided_instances(semantic, depth, tau=0.03, min_area=1000,
     gx = sobel(depth_smooth, axis=1)
     gy = sobel(depth_smooth, axis=0)
     grad_mag = np.sqrt(gx ** 2 + gy ** 2)
-    depth_edges = grad_mag > tau
+
+    if use_adaptive_threshold:
+        depth_range = depth_smooth.max() - depth_smooth.min()
+        if depth_range > 1e-6:
+            grad_mag_norm = grad_mag / depth_range
+            adaptive_tau = np.percentile(grad_mag_norm[grad_mag_norm > 0], threshold_percentile)
+            depth_edges = grad_mag_norm > max(adaptive_tau, tau)
+        else:
+            depth_edges = grad_mag > tau
+    else:
+        depth_edges = grad_mag > tau
 
     assigned = np.zeros(semantic.shape, dtype=bool)
     instances = []
@@ -53,10 +76,10 @@ def depth_guided_instances(semantic, depth, tau=0.03, min_area=1000,
         labeled, num = ndimage.label(fg)
         for inst_id in range(1, num + 1):
             mask = labeled == inst_id
-            if mask.sum() < min_area:
+            if mask.sum() < effective_min_area:
                 continue
             mask = mask & (~assigned)
-            if mask.sum() < min_area:
+            if mask.sum() < effective_min_area:
                 continue
             instances.append((mask, cls, 1.0))
             assigned |= mask
@@ -65,8 +88,11 @@ def depth_guided_instances(semantic, depth, tau=0.03, min_area=1000,
 
 def generate_adapted_instances(
     checkpoint_path, model_type, image_dir, output_dir, device,
-    semantic_dir=None, tau=0.20, min_area=1000, dilation_iters=3,
-    depth_blur_sigma=1.0, image_size=(512, 1024),
+    semantic_dir=None, tau=0.03, min_area=1000, min_area_ratio=None,
+    dilation_iters=3, depth_blur_sigma=1.0, image_size=(512, 1024),
+    variant_override=None, rank_override=None, alpha_override=None,
+    late_block_start_override=None,
+    use_adaptive_threshold=False, threshold_percentile=95,
 ):
     image_dir = Path(image_dir)
     output_dir = Path(output_dir)
@@ -88,12 +114,37 @@ def generate_adapted_instances(
     else:
         raise ValueError(f"Unknown model_type: {model_type}")
 
-    if model_type == "depthpro":
-        inject_lora_into_depthpro(model, variant="dora", rank=4, alpha=4.0)
-    else:
-        inject_lora_into_depth_model(model, variant="dora", rank=4, alpha=4.0)
-    freeze_non_adapter_params(model)
     ckpt = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+    adapter_config = ckpt.get("adapter_config", {})
+    logger.info("Checkpoint adapter_config: %s", adapter_config)
+
+    variant = variant_override if variant_override is not None else adapter_config.get("variant", "dora")
+    rank = rank_override if rank_override is not None else adapter_config.get("rank", 4)
+    alpha = alpha_override if alpha_override is not None else adapter_config.get("alpha", 4.0)
+    late_block_start = late_block_start_override if late_block_start_override is not None else adapter_config.get("late_block_start", 6)
+    adapt_decoder = adapter_config.get("adapt_decoder", False)
+
+    if model_type == "depthpro":
+        inject_lora_into_depthpro(
+            model, variant=variant, rank=rank, alpha=alpha,
+            late_block_start=late_block_start,
+            adapt_patch_encoder=True, adapt_image_encoder=True, adapt_fov_encoder=False,
+        )
+    else:
+        inject_lora_into_depth_model(
+            model, variant=variant, rank=rank, alpha=alpha,
+            late_block_start=late_block_start,
+            adapt_decoder=adapt_decoder,
+        )
+    freeze_non_adapter_params(model)
+
+    # Validate adapter keys are present in checkpoint
+    model_adapter_keys = {k for k in model.state_dict().keys() if any(x in k for x in ("lora_A", "lora_B", "lora_magnitude", "dwconv", "conv_gate"))}
+    ckpt_adapter_keys = {k for k in ckpt["model"].keys() if any(x in k for x in ("lora_A", "lora_B", "lora_magnitude", "dwconv", "conv_gate"))}
+    missing_adapters = model_adapter_keys - ckpt_adapter_keys
+    if missing_adapters:
+        raise RuntimeError(f"Adapter checkpoint missing keys: {sorted(missing_adapters)[:10]}")
+
     model.load_state_dict(ckpt["model"], strict=False)
     model = model.to(device).eval()
 
@@ -139,7 +190,10 @@ def generate_adapted_instances(
 
         instances = depth_guided_instances(
             semantic, depth, tau=tau, min_area=min_area,
+            min_area_ratio=min_area_ratio,
             dilation_iters=dilation_iters, depth_blur_sigma=depth_blur_sigma,
+            use_adaptive_threshold=use_adaptive_threshold,
+            threshold_percentile=threshold_percentile,
         )
 
         instance_map = np.zeros(image_size, dtype=np.int32)
@@ -156,6 +210,7 @@ def generate_adapted_instances(
             str(out_npz),
             masks=masks, scores=scores, classes=classes,
             num_valid=len(instances), tau=tau, min_area=min_area,
+            min_area_ratio=min_area_ratio,
         )
 
         stats["total_instances"] += len(instances)
@@ -175,12 +230,26 @@ def main():
     parser.add_argument("--image_dir", type=str, required=True)
     parser.add_argument("--output_dir", type=str, required=True)
     parser.add_argument("--semantic_dir", type=str, default=None)
-    parser.add_argument("--tau", type=float, default=0.20)
+    parser.add_argument("--tau", type=float, default=0.03)
     parser.add_argument("--min_area", type=int, default=1000)
+    parser.add_argument("--min_area_ratio", type=float, default=None,
+                        help="Minimum area as fraction of image area (e.g., 0.0005 = 0.05%%)")
     parser.add_argument("--dilation_iters", type=int, default=3)
     parser.add_argument("--depth_blur_sigma", type=float, default=1.0)
+    parser.add_argument("--use_adaptive_threshold", action="store_true",
+                        help="Use percentile-based adaptive thresholding for depth edges")
+    parser.add_argument("--threshold_percentile", type=float, default=95,
+                        help="Percentile for adaptive threshold (default: 95)")
     parser.add_argument("--image_size", type=int, nargs=2, default=[512, 1024])
     parser.add_argument("--device", type=str, default="auto")
+    parser.add_argument("--variant", type=str, default=None,
+                        help="Override adapter variant from checkpoint (lora/dora/conv_dora)")
+    parser.add_argument("--rank", type=int, default=None,
+                        help="Override LoRA rank from checkpoint")
+    parser.add_argument("--alpha", type=float, default=None,
+                        help="Override LoRA alpha from checkpoint")
+    parser.add_argument("--late_block_start", type=int, default=None,
+                        help="Override late_block_start from checkpoint")
     args = parser.parse_args()
 
     if args.device == "auto":
@@ -203,9 +272,16 @@ def main():
         semantic_dir=args.semantic_dir,
         tau=args.tau,
         min_area=args.min_area,
+        min_area_ratio=args.min_area_ratio,
         dilation_iters=args.dilation_iters,
         depth_blur_sigma=args.depth_blur_sigma,
         image_size=tuple(args.image_size),
+        variant_override=args.variant,
+        rank_override=args.rank,
+        alpha_override=args.alpha,
+        late_block_start_override=args.late_block_start,
+        use_adaptive_threshold=args.use_adaptive_threshold,
+        threshold_percentile=args.threshold_percentile,
     )
 
 

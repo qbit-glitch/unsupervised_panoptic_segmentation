@@ -21,6 +21,86 @@ from mbps_pytorch.models.adapters.lora_layers import (
 logger = logging.getLogger(__name__)
 
 
+def _fingerprint_attention_style(parent_module):
+    """Determine whether a block uses CAUSE-style (fused qkv) or HF-style (separate Q,K,V).
+    Returns: 'cause', 'hf', or 'unknown'
+    """
+    cause_score = 0
+    hf_score = 0
+    for name, child in parent_module.named_modules():
+        if hasattr(child, "qkv") and isinstance(child.qkv, nn.Linear):
+            cause_score += 1
+        if hasattr(child, "query") and isinstance(child.query, nn.Linear):
+            hf_score += 1
+        if hasattr(child, "attention") and hasattr(child.attention, "query"):
+            hf_score += 1
+    if cause_score > hf_score:
+        return "cause"
+    elif hf_score > cause_score:
+        return "hf"
+    return "unknown"
+
+
+def _fingerprint_attention_style(block: nn.Module) -> str:
+    """Detect whether a transformer block uses CAUSE-style or HF-style attention.
+
+    Checks for:
+        - "cause": fused qkv projection (e.g., CAUSE-TR, DINOv2 custom)
+        - "hf": separate query/key/value projections (e.g., HuggingFace BERT-style)
+        - "unknown": neither pattern detected
+    """
+    # CAUSE-style: fused qkv
+    if hasattr(block, "qkv") or hasattr(block, "attn_qkv"):
+        return "cause"
+    # Check nested paths commonly used in CAUSE-style blocks
+    for path in ("attn.qkv", "attention.qkv"):
+        parts = path.split(".")
+        obj = block
+        for p in parts:
+            obj = getattr(obj, p, None)
+            if obj is None:
+                break
+        if obj is not None:
+            return "cause"
+
+    # HF-style: separate Q, K, V
+    has_query = hasattr(block, "query") or hasattr(block, "self_attention") and hasattr(block.self_attention, "query")
+    has_key = hasattr(block, "key") or hasattr(block, "self_attention") and hasattr(block.self_attention, "key")
+    has_value = hasattr(block, "value") or hasattr(block, "self_attention") and hasattr(block.self_attention, "value")
+    # Also check common nested paths
+    for path in ("attention.attention.query", "attn.query"):
+        parts = path.split(".")
+        obj = block
+        for p in parts:
+            obj = getattr(obj, p, None)
+            if obj is None:
+                break
+        if obj is not None:
+            has_query = True
+    for path in ("attention.attention.key", "attn.key"):
+        parts = path.split(".")
+        obj = block
+        for p in parts:
+            obj = getattr(obj, p, None)
+            if obj is None:
+                break
+        if obj is not None:
+            has_key = True
+    for path in ("attention.attention.value", "attn.value"):
+        parts = path.split(".")
+        obj = block
+        for p in parts:
+            obj = getattr(obj, p, None)
+            if obj is None:
+                break
+        if obj is not None:
+            has_value = True
+
+    if has_query and has_key and has_value:
+        return "hf"
+    return "unknown"
+
+
 def _find_encoder_blocks(model: nn.Module) -> List[nn.Module]:
     """Heuristic to find transformer encoder blocks in depth models.
 
@@ -38,6 +118,9 @@ def _find_encoder_blocks(model: nn.Module) -> List[nn.Module]:
         "backbone.blocks",
         "encoder.layer",
         "backbone.encoder.layer",  # HF Depth Anything V2
+        "model.blocks",            # NEW
+        "vision_model.encoder.layers",  # NEW (CLIP-style)
+        "transformer.blocks",      # NEW (Swin-style)
     ]
     for path in candidates:
         parts = path.split(".")
@@ -103,35 +186,37 @@ def inject_lora_into_depth_model(
     for block_idx, block in enumerate(blocks):
         is_late = block_idx >= late_block_start
 
-        # Try both CAUSE-style and HF-style paths
-        target_groups = []
-
-        # Group 1: CAUSE-style (fused qkv)
+        # Define both CAUSE-style and HF-style target groups
         if is_late:
-            target_groups.append([
+            cause_style_group = [
                 ("attn.qkv", "qkv"),
                 ("attn.proj", "proj"),
                 ("mlp.fc1", "fc1"),
                 ("mlp.fc2", "fc2"),
-            ])
-        else:
-            target_groups.append([("attn.qkv", "qkv")])
-
-        # Group 2: HF-style (separate Q,K,V)
-        if is_late:
-            target_groups.append([
+            ]
+            hf_style_group = [
                 ("attention.attention.query", "query"),
                 ("attention.attention.value", "value"),
                 ("attention.attention.key", "key"),
                 ("attention.output.dense", "proj"),
                 ("mlp.fc1", "fc1"),
                 ("mlp.fc2", "fc2"),
-            ])
+            ]
         else:
-            target_groups.append([
+            cause_style_group = [("attn.qkv", "qkv")]
+            hf_style_group = [
                 ("attention.attention.query", "query"),
                 ("attention.attention.value", "value"),
-            ])
+            ]
+
+        # Before trying to inject into a block, fingerprint its attention style
+        style = _fingerprint_attention_style(block)
+        if style == "cause":
+            target_groups = [cause_style_group]
+        elif style == "hf":
+            target_groups = [hf_style_group]
+        else:
+            target_groups = [cause_style_group, hf_style_group]  # Try both as fallback
 
         found_any = False
         for group in target_groups:
@@ -170,6 +255,9 @@ def inject_lora_into_depth_model(
         decoder_adapted = _adapt_depth_decoder(model, adapter_cls, rank, alpha, dropout)
         adapted.update(decoder_adapted)
 
+    if variant == "conv_dora":
+        set_depth_model_spatial_dims(model)
+
     total_adapted = sum(adapted.values())
     total_model = count_total_params(model)
     logger.info(
@@ -178,6 +266,19 @@ def inject_lora_into_depth_model(
         total_adapted / max(total_model, 1) * 100,
     )
     return adapted
+
+
+def _get_block_ancestor(name: str) -> str:
+    """Get the block-level ancestor name from a full parameter path."""
+    parts = name.split(".")
+    # Walk up from the Linear's parent to find the block ancestor
+    parent = ".".join(parts[:-1])  # e.g., "encoder.blocks.0.attn"
+    # If parent ends with a known submodule, strip it to get the block
+    known_submodules = ("attn", "attention", "mlp", "ffn", "dense", "fc", "head")
+    parent_parts = parent.split(".")
+    if parent_parts[-1].lower() in known_submodules:
+        return ".".join(parent_parts[:-1])  # e.g., "encoder.blocks.0"
+    return parent
 
 
 def _inject_generic_vit(
@@ -190,7 +291,8 @@ def _inject_generic_vit(
 ) -> Dict[str, int]:
     """Fallback generic injection with approximate tiering for custom ViTs.
 
-    Groups attention-related linear layers by their parent module to
+    Groups attention-related linear layers by their block ancestor
+    (the module containing both attn and MLP submodules) to
     approximate transformer blocks, then applies tiered adaptation:
         - Early blocks: Q / V / qkv only
         - Late blocks:  Q + K + V + proj + fc1 + fc2
@@ -217,37 +319,37 @@ def _inject_generic_vit(
         return adapted
 
     # ------------------------------------------------------------------
-    # 2. Group by parent module to approximate blocks
+    # 2. Group by block ancestor (not immediate parent)
     # ------------------------------------------------------------------
     from collections import OrderedDict
     block_groups = OrderedDict()
     for name, module in candidates:
-        parent = ".".join(name.split(".")[:-1])
-        if parent not in block_groups:
-            block_groups[parent] = []
-        block_groups[parent].append((name, module))
+        block_ancestor = _get_block_ancestor(name)
+        if block_ancestor not in block_groups:
+            block_groups[block_ancestor] = []
+        block_groups[block_ancestor].append((name, module))
 
-    # Sort parent names to approximate depth ordering (natural sort)
-    sorted_parents = sorted(
+    # Sort block names to approximate depth ordering (natural sort)
+    sorted_blocks = sorted(
         block_groups.keys(),
         key=lambda s: [int(t) if t.isdigit() else t.lower() for t in re.split(r"(\d+)", s)],
     )
-    n_blocks = len(sorted_parents)
+    n_blocks = len(sorted_blocks)
 
     if n_blocks == 0:
         return adapted
 
     logger.info(
-        "Generic injection: %d candidate layers across %d approximate blocks",
+        "Generic injection: %d candidate layers across %d blocks",
         len(candidates), n_blocks,
     )
 
     # ------------------------------------------------------------------
     # 3. Tiered adaptation
     # ------------------------------------------------------------------
-    for block_idx, parent in enumerate(sorted_parents):
+    for block_idx, block_name in enumerate(sorted_blocks):
         is_late = block_idx >= min(late_block_start, max(n_blocks - 1, 1))
-        layers = block_groups[parent]
+        layers = block_groups[block_name]
 
         for full_name, module in layers:
             attr_name = full_name.split(".")[-1]
@@ -275,6 +377,7 @@ def _inject_generic_vit(
                 continue
 
             # Navigate to parent module
+            parent = ".".join(full_name.split(".")[:-1])
             parent_parts = parent.split(".")
             parent_module = model
             for p in parent_parts:
@@ -293,6 +396,19 @@ def _inject_generic_vit(
         adapter_cls.__name__, len(adapted), total_adapted,
     )
     return adapted
+
+
+def set_depth_model_spatial_dims(model, image_size=(512, 1024), patch_size=14):
+    from mbps_pytorch.models.adapters.lora_layers import ConvDoRALinear
+    h_patches = image_size[0] // patch_size
+    w_patches = image_size[1] // patch_size
+    count = 0
+    for module in model.modules():
+        if isinstance(module, ConvDoRALinear):
+            module._spatial_dims = (h_patches, w_patches)
+            count += 1
+    if count > 0:
+        logger.info("Set _spatial_dims=(%d, %d) on %d ConvDoRALinear layers", h_patches, w_patches, count)
 
 
 def _adapt_depth_decoder(

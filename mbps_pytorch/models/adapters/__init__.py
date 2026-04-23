@@ -27,10 +27,12 @@ from mbps_pytorch.models.adapters.cause_adapter import (
 
 from mbps_pytorch.models.adapters.depth_adapter import (
     inject_lora_into_depth_model,
+    set_depth_model_spatial_dims,
 )
 
 from mbps_pytorch.models.adapters.depthpro_adapter import (
     inject_lora_into_depthpro,
+    set_depthpro_spatial_dims,
 )
 
 __all__ = [
@@ -45,5 +47,7 @@ __all__ = [
     "set_dinov2_spatial_dims",
     "inject_lora_into_cause_tr",
     "inject_lora_into_depth_model",
+    "set_depth_model_spatial_dims",
     "inject_lora_into_depthpro",
+    "set_depthpro_spatial_dims",
 ]
