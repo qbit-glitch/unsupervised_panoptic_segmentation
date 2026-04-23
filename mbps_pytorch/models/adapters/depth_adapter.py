@@ -119,6 +119,7 @@ def _find_encoder_blocks(model: nn.Module) -> List[nn.Module]:
         "encoder.layer",
         "backbone.encoder.layer",  # HF Depth Anything V2
         "model.blocks",            # NEW
+        "model.backbone.blocks",   # DA3: DepthAnything3.model.backbone.blocks
         "vision_model.encoder.layers",  # NEW (CLIP-style)
         "transformer.blocks",      # NEW (Swin-style)
     ]

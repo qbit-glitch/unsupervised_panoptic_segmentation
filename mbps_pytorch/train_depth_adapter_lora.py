@@ -82,10 +82,47 @@ def _to_device(model, device):
     return model.to(device_obj)
 
 
+def _dav3_inference_batch(model, img_tensor, grad=False):
+    """Run DA3 inference on a batch of images, preserving gradients for student.
+
+    The official DepthAnything3.forward() is decorated with @torch.inference_mode()
+    and torch.no_grad(), which blocks gradient flow. This helper calls the
+    underlying model directly (model.model) to allow adapter gradients.
+
+    Args:
+        model: DepthAnything3 instance
+        img_tensor: (B, 3, H, W) tensor
+        grad: If True, run with gradient support (student). If False, no_grad (teacher).
+
+    Returns:
+        depth: (B, H, W) tensor
+    """
+    # DA3 expects (B, N, 3, H, W) where N=1 for monocular
+    if img_tensor.dim() == 4:
+        x = img_tensor.unsqueeze(1)  # (B, 1, 3, H, W)
+    else:
+        x = img_tensor
+
+    ctx = torch.enable_grad() if grad else torch.no_grad()
+    with ctx:
+        output = model.model(x, extrinsics=None, intrinsics=None)
+        # output is a Dict-like object; depth shape is (B, S, H, W) with S=1
+        depth = output.depth
+        if depth.dim() == 4 and depth.shape[1] == 1:
+            depth = depth.squeeze(1)  # (B, H, W)
+        elif depth.dim() == 3:
+            pass  # already (B, H, W)
+        else:
+            raise ValueError(f"Unexpected DA3 depth shape: {depth.shape}")
+    return depth
+
+
 def load_dav3_model(model_name="depth-anything/DA3MONO-LARGE", device="cpu"):
     from depth_anything_3.api import DepthAnything3
     model = DepthAnything3.from_pretrained(model_name)
     model = _to_device(model, device)
+    # Attach inference_batch helper for unified API
+    model.inference_batch = lambda img, grad=False, _model=model: _dav3_inference_batch(_model, img, grad)
     return model
 
 
@@ -272,8 +309,8 @@ def validate_depth_adapter(model, teacher_model, processor, val_loader, device, 
         for batch in val_loader:
             if model_type == "dav3":
                 img = batch["img"].to(device)
-                teacher_out = teacher_model.inference_batch(img)
-                student_out = model.inference_batch(img)
+                teacher_out = teacher_model.inference_batch(img, grad=False)
+                student_out = model.inference_batch(img, grad=False)
             else:
                 img = batch["img_pil"]
                 inputs = processor(images=img, return_tensors="pt")
@@ -366,7 +403,7 @@ def train_depth_adapter(
             # Teacher forward on clean image (no grad)
             with torch.no_grad():
                 if model_type == "dav3":
-                    teacher_out = teacher_model.inference_batch(img)
+                    teacher_out = teacher_model.inference_batch(img, grad=False)
                 else:
                     teacher_inputs = processor(images=img, return_tensors="pt")
                     teacher_inputs = {k: v.to(device) for k, v in teacher_inputs.items()}
@@ -378,7 +415,7 @@ def train_depth_adapter(
             amp_context = autocast() if scaler else nullcontext()
             with amp_context:
                 if model_type == "dav3":
-                    student_out = model.inference_batch(student_input)
+                    student_out = model.inference_batch(student_input, grad=True)
                 else:
                     student_inputs = processor(images=student_input, return_tensors="pt")
                     student_inputs = {k: v.to(device) for k, v in student_inputs.items()}
