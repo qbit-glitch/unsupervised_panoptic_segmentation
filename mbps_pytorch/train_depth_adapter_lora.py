@@ -89,6 +89,9 @@ def _dav3_inference_batch(model, img_tensor, grad=False):
     and torch.no_grad(), which blocks gradient flow. This helper calls the
     underlying model directly (model.model) to allow adapter gradients.
 
+    Automatically resizes inputs to dimensions divisible by the model's patch size
+    (typically 14 for DINOv2-based DA3) to avoid assertion errors in patch_embed.
+
     Args:
         model: DepthAnything3 instance
         img_tensor: (B, 3, H, W) tensor
@@ -97,11 +100,30 @@ def _dav3_inference_batch(model, img_tensor, grad=False):
     Returns:
         depth: (B, H, W) tensor
     """
+    # Detect patch size from the backbone's patch_embed layer
+    patch_size = getattr(model.model.backbone.patch_embed, "patch_size", (14, 14))
+    if isinstance(patch_size, int):
+        patch_h = patch_w = patch_size
+    else:
+        patch_h, patch_w = patch_size
+
     # DA3 expects (B, N, 3, H, W) where N=1 for monocular
     if img_tensor.dim() == 4:
         x = img_tensor.unsqueeze(1)  # (B, 1, 3, H, W)
     else:
         x = img_tensor
+
+    B, N, C, H, W = x.shape
+    # Ensure dimensions are divisible by patch size
+    h_valid = (H // patch_h) * patch_h
+    w_valid = (W // patch_w) * patch_w
+    if h_valid != H or w_valid != W:
+        x = F.interpolate(
+            x.view(B * N, C, H, W),
+            size=(h_valid, w_valid),
+            mode="bilinear",
+            align_corners=False,
+        ).view(B, N, C, h_valid, w_valid)
 
     ctx = torch.enable_grad() if grad else torch.no_grad()
     with ctx:

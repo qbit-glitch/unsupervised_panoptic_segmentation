@@ -257,3 +257,6 @@ ssh santosh@172.17.254.146 "ls -lt /home/santosh/cups/experiments/ | head -10"
 2. **Create the oracle GT config** (or decide on the proxy approach)
 3. **Launch the first two seed experiments today**
 4. While those run, I'll draft the self-training scaling theory section for the paper
+
+
+PYTHONHASHSEED=42 python mbps_pytorch/train_depth_adapter_lora.py --model_type dav3 --model_name depth-anything/DA3MONO-LARGE --data_dir /home/cvpr_ug_5/umesh/datasets/cityscapes/leftImg8bit/train --output_dir ./checkpoints/da3_dora_adapter --device cuda --batch_size 32 --epochs 50 --lr 1e-4 --variant dora --rank 4 --alpha 4.0 --dropout 0.05 --losses distillation,ranking,scale_invariant --loss_weights '{"distillation": 1.0, "ranking": 0.1, "scale_invariant": 0.1}' --distill_loss_type log_l1 --num_pairs 2048 --ranking_margin 0.05 --val_split 0.05 --val_every 1 --save_every 5 --seed 42
