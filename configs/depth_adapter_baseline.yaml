@@ -1,0 +1,40 @@
+# Depth Adapter Baseline Configuration
+# Depth Anything V3 / DepthPro with DoRA adapters
+
+experiment_name: "depth_adapter_dora_baseline"
+output_dir: "checkpoints/depth_adapter_dora_baseline"
+
+# Model configuration
+model:
+  model_type: "depthpro"    # dav3, da2, depthpro
+  model_name: "apple/DepthPro-hf"
+  variant: "dora"           # lora, dora, conv_dora
+  rank: 4
+  alpha: 4.0
+  dropout: 0.05
+  late_block_start: 6
+  adapt_decoder: false      # Keep decoder frozen for stability
+
+# Data configuration
+data:
+  image_dir: "datasets/cityscapes/leftImg8bit/train"
+  image_size: [512, 1024]
+  batch_size: 4
+  num_workers: 4
+
+# Training configuration
+training:
+  epochs: 10
+  lr: 1.0e-4
+  save_every: 5
+  seed: 42
+
+# Loss configuration
+losses:
+  names: ["distillation", "ranking"]
+  weights:
+    distillation: 1.0
+    ranking: 0.1
+
+# Device
+device: "auto"

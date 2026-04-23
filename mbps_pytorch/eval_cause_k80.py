@@ -44,6 +44,14 @@ from modules.segment import Segment_TR
 from modules.segment_module import transform, untransform
 from models.dinov2vit import dinov2_vit_base_14  # must import before MBPS_DIR is prepended
 
+from mbps_pytorch.models.adapters import (
+    inject_lora_into_dinov2,
+    inject_lora_into_cause_tr,
+    freeze_non_adapter_params,
+    count_adapter_params,
+    set_dinov2_spatial_dims,
+)
+
 # ── Cityscapes panoptic helpers (inlined to avoid FalconKwayCut import chain) ─
 
 _THING_IDS = set(range(11, 19))   # person … bicycle
@@ -226,8 +234,62 @@ def _remap(gt: np.ndarray) -> np.ndarray:
 
 # ─── Model loading ───────────────────────────────────────────────────────────
 
-def load_dinov2(device: torch.device):
-    """CAUSE DINOv2 ViT-B/14 + Segment_TR."""
+def _has_lora_keys(state_dict) -> bool:
+    """Detect whether a checkpoint was saved from an adapter-wrapped model."""
+    return any(
+        k.endswith(("lora_A", "lora_B", "lora_magnitude"))
+        or ".lora_" in k
+        or "dwconv" in k
+        or "conv_gate" in k
+        for k in state_dict.keys()
+    )
+
+
+def _load_state_checked(module, state_dict, component_name, require_lora):
+    """Load state_dict and fail loudly if LoRA/DoRA keys were silently dropped."""
+    result = module.load_state_dict(state_dict, strict=False)
+    missing = list(result.missing_keys)
+    unexpected = list(result.unexpected_keys)
+    dropped_lora = [
+        k for k in unexpected
+        if k.endswith(("lora_A", "lora_B", "lora_magnitude"))
+        or ".lora_" in k
+        or "dwconv" in k
+        or "conv_gate" in k
+    ]
+    if dropped_lora:
+        raise RuntimeError(
+            f"[{component_name}] {len(dropped_lora)} LoRA/DoRA parameters were dropped because "
+            f"the receiver has no adapter wrappers. First few: {dropped_lora[:5]}. "
+            f"Call inject_lora_into_* BEFORE load_state_dict."
+        )
+    if missing:
+        base_missing = [k for k in missing if ".lora_" not in k]
+        if base_missing:
+            print(f"WARNING [{component_name}] {len(base_missing)} base params missing (expected 0). "
+                  f"First few: {base_missing[:5]}")
+    if require_lora:
+        lora_loaded = sum(
+            1
+            for k in state_dict.keys()
+            if k.endswith(("lora_A", "lora_B", "lora_magnitude"))
+            or "dwconv" in k
+            or "conv_gate" in k
+        )
+        print(f"[{component_name}] {lora_loaded} LoRA-style parameters loaded successfully.")
+
+
+def load_dinov2(
+    device: torch.device,
+    adapter_checkpoint: str = None,
+    variant: str = "dora",
+    rank: int = 4,
+    alpha: float = 4.0,
+    dropout: float = 0.0,
+    late_block_start: int = 6,
+    adapt_cause: bool = False,
+):
+    """CAUSE DINOv2 ViT-B/14 + Segment_TR. Optionally load DoRA adapter checkpoint."""
     from models.dinov2vit import dinov2_vit_base_14
 
     cause_args = SimpleNamespace(
@@ -242,15 +304,11 @@ def load_dinov2(device: torch.device):
     state = torch.load(ckpt_root / "checkpoint" / "dinov2_vit_base_14.pth",
                        map_location="cpu", weights_only=True)
     net.load_state_dict(state, strict=False)
-    net = net.to(device).eval()
-    for p in net.parameters():
-        p.requires_grad = False
 
     # Segment_TR
     seg_path = ckpt_root / "CAUSE" / "cityscapes" / "dinov2_vit_base_14" / "2048" / "segment_tr.pth"
     segment = Segment_TR(cause_args).to(device)
     segment.load_state_dict(torch.load(seg_path, map_location="cpu", weights_only=True), strict=False)
-    segment.eval()
 
     # Codebook
     mod_path = ckpt_root / "CAUSE" / "cityscapes" / "modularity" / "dinov2_vit_base_14" / "2048" / "modular.npy"
@@ -259,8 +317,76 @@ def load_dinov2(device: torch.device):
         segment.head.codebook    = cb
         segment.head_ema.codebook = cb
 
+    # ── Inject DoRA adapters if requested ────────────────────────────────────
+    use_adapter = adapter_checkpoint is not None
+    if use_adapter:
+        print(f"Loading adapter checkpoint: {adapter_checkpoint}")
+        ckpt = torch.load(adapter_checkpoint, map_location="cpu", weights_only=True)
+
+        # Resolve adapter config: checkpoint metadata > CLI defaults
+        ckpt_config = ckpt.get("adapter_config", {}) if isinstance(ckpt, dict) else {}
+        cfg_variant = ckpt_config.get("variant", variant)
+        cfg_rank = ckpt_config.get("rank", rank)
+        cfg_alpha = ckpt_config.get("alpha", alpha)
+        cfg_dropout = ckpt_config.get("dropout", dropout)
+        cfg_late_block_start = ckpt_config.get("late_block_start", late_block_start)
+        cfg_adapt_cause = ckpt_config.get("adapt_cause", adapt_cause)
+
+        ckpt_has_lora = _has_lora_keys(ckpt.get("backbone", {}))
+        if ckpt_has_lora and not ckpt_config:
+            raise RuntimeError(
+                "Checkpoint contains LoRA weights but no adapter_config metadata. "
+                "Pass --variant/--rank/--alpha/--late_block_start matching training."
+            )
+
+        # Inject into backbone
+        inject_lora_into_dinov2(
+            net,
+            variant=cfg_variant,
+            rank=cfg_rank,
+            alpha=cfg_alpha,
+            dropout=cfg_dropout,
+            late_block_start=cfg_late_block_start,
+        )
+        freeze_non_adapter_params(net)
+
+        # Inject into CAUSE-TR head if configured
+        if cfg_adapt_cause:
+            inject_lora_into_cause_tr(
+                segment,
+                variant=cfg_variant,
+                rank=cfg_rank,
+                alpha=cfg_alpha,
+                dropout=cfg_dropout,
+                adapt_head=True,
+                adapt_projection=False,
+                adapt_ema=False,
+            )
+        freeze_non_adapter_params(segment)
+
+        # Load trained adapter weights
+        _load_state_checked(net, ckpt["backbone"], "backbone", require_lora=True)
+        _load_state_checked(segment, ckpt["segment"], "segment",
+                            require_lora=cfg_adapt_cause)
+
+        # Re-pin codebook (checkpoint may carry stale copy)
+        segment.head.codebook = cb.clone().to(device)
+        segment.head_ema.codebook = cb.clone().to(device)
+
+        n_adapter = count_adapter_params(net) + count_adapter_params(segment)
+        print(f"Adapter params loaded: {n_adapter:,}")
+        if n_adapter == 0:
+            raise RuntimeError("use_adapter=True but 0 adapter params after injection+load.")
+
+    net = net.to(device).eval()
+    for p in net.parameters():
+        p.requires_grad = False
+    segment = segment.to(device).eval()
+    for p in segment.parameters():
+        p.requires_grad = False
+
     print(f"DINOv2 ViT-B/14 backbone: {sum(p.numel() for p in net.parameters())/1e6:.1f}M params")
-    return net, segment, cause_args
+    return net, segment, cause_args, use_adapter
 
 
 def load_dinov3(device: torch.device, ckpt_dir: str = None):
@@ -305,22 +431,28 @@ def load_dinov3(device: torch.device, ckpt_dir: str = None):
 
 # ─── Feature extraction ──────────────────────────────────────────────────────
 
-def _extract_single_crop(net, segment, crop_tensor: torch.Tensor) -> torch.Tensor:
+def _extract_single_crop(net, segment, crop_tensor: torch.Tensor, use_adapter: bool = False) -> torch.Tensor:
     """
     Run backbone + Segment_TR on exactly one crop_size×crop_size image tensor.
     Returns (90, ph, pw) CAUSE features.
+
+    When adapters are active, use segment.head (student) instead of head_ema (frozen teacher),
+    since adapters were injected into the student head only.
     """
+    head = segment.head if use_adapter else segment.head_ema
     with torch.no_grad():
         img4 = crop_tensor.unsqueeze(0)
+        set_dinov2_spatial_dims(net, h_patches=23, w_patches=23)
         feat      = net(img4)[:, 1:, :]
+        set_dinov2_spatial_dims(net, h_patches=23, w_patches=23)
         feat_flip = net(img4.flip(dims=[3]))[:, 1:, :]
-        seg      = transform(segment.head_ema(feat))
-        seg_flip = transform(segment.head_ema(feat_flip))
+        seg      = transform(head(feat))
+        seg_flip = transform(head(feat_flip))
         seg = (seg + seg_flip.flip(dims=[3])) / 2  # (1, 90, ph, pw)
     return seg.squeeze(0)  # (90, ph, pw)
 
 
-def extract_all_features(net, segment, cause_args, val_imgs, val_gts, device):
+def extract_all_features(net, segment, cause_args, val_imgs, val_gts, device, use_adapter: bool = False):
     """
     Sliding-window feature extraction. Cityscapes 1024×2048 is processed in
     non-overlapping crop_size×crop_size crops. CAUSE Segment_TR needs exactly
@@ -365,7 +497,7 @@ def extract_all_features(net, segment, cause_args, val_imgs, val_gts, device):
                 y0, y1 = iy * crop_size, (iy + 1) * crop_size
                 x0, x1 = ix * crop_size, (ix + 1) * crop_size
                 crop = img_t[:, y0:y1, x0:x1]
-                f = _extract_single_crop(net, segment, crop)  # (90, ph, ph)
+                f = _extract_single_crop(net, segment, crop, use_adapter=use_adapter)  # (90, ph, ph)
                 fy0, fy1 = iy * ph, (iy + 1) * ph
                 fx0, fx1 = ix * ph, (ix + 1) * ph
                 feat_grid[:, fy0:fy1, fx0:fx1] = f
@@ -580,7 +712,7 @@ def get_val_files(cs_root: str):
 # ─── Main ────────────────────────────────────────────────────────────────────
 
 def parse_args():
-    p = argparse.ArgumentParser(description="CAUSE K=80 eval: DINOv2 vs DINOv3")
+    p = argparse.ArgumentParser(description="CAUSE K=80 eval: DINOv2 vs DINOv3 (+ DoRA adapters)")
     p.add_argument("--backbone", choices=["dinov2", "dinov3"], required=True)
     p.add_argument(
         "--checkpoint_dir",
@@ -595,6 +727,23 @@ def parse_args():
     p.add_argument("--device", type=str, default="mps")
     p.add_argument("--limit", type=int, default=0,
                    help="Limit val images for quick test (0 = all)")
+
+    # Adapter checkpoint arguments
+    p.add_argument("--adapter_checkpoint", type=str, default=None,
+                   help="Path to adapter checkpoint (.pt) from train_semantic_adapter.py")
+    p.add_argument("--variant", type=str, default="dora",
+                   choices=["lora", "dora", "conv_dora"],
+                   help="Adapter variant (fallback if not in checkpoint metadata)")
+    p.add_argument("--rank", type=int, default=4,
+                   help="LoRA rank (fallback if not in checkpoint metadata)")
+    p.add_argument("--alpha", type=float, default=4.0,
+                   help="LoRA alpha scaling (fallback if not in checkpoint metadata)")
+    p.add_argument("--dropout", type=float, default=0.0,
+                   help="Dropout on adapter path (inference usually 0)")
+    p.add_argument("--late_block_start", type=int, default=6,
+                   help="First block for full adapter injection (fallback)")
+    p.add_argument("--adapt_cause", action="store_true",
+                   help="CAUSE-TR head was adapted during training (fallback)")
     return p.parse_args()
 
 
@@ -607,9 +756,20 @@ def main():
 
     # Load model
     if args.backbone == "dinov2":
-        net, segment, cause_args = load_dinov2(device)
-        backbone_name = "DINOv2 ViT-B/14"
+        net, segment, cause_args, use_adapter = load_dinov2(
+            device,
+            adapter_checkpoint=args.adapter_checkpoint,
+            variant=args.variant,
+            rank=args.rank,
+            alpha=args.alpha,
+            dropout=args.dropout,
+            late_block_start=args.late_block_start,
+            adapt_cause=args.adapt_cause,
+        )
+        backbone_name = "DINOv2 ViT-B/14 + DoRA" if use_adapter else "DINOv2 ViT-B/14"
     else:
+        if args.adapter_checkpoint is not None:
+            raise NotImplementedError("DoRA adapter evaluation is only supported for DINOv2 backbone.")
         net, segment, cause_args = load_dinov3(device, ckpt_dir=args.checkpoint_dir)
         backbone_name = "DINOv3 ViT-L/16"
 
@@ -623,7 +783,7 @@ def main():
     print(f"\nExtracting CAUSE features (crop={cause_args.crop_size}, "
           f"patch={cause_args.patch_size}, reduced_dim=90)...")
     feat_maps, gt_maps = extract_all_features(
-        net, segment, cause_args, val_imgs, val_gts, device
+        net, segment, cause_args, val_imgs, val_gts, device, use_adapter=use_adapter
     )
 
     # Evaluate at each K

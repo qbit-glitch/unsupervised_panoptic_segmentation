@@ -62,18 +62,18 @@ class MockMultiheadAttention(nn.Module):
 
 
 class MockTRDecoder(nn.Module):
-    """TRDecoder-like module with dims matching the spec's stated param counts."""
+    """TRDecoder-like module with dims matching the actual CAUSE-TR architecture."""
 
     def __init__(self, dim=768):
         super().__init__()
         self.tr = nn.Module()
         self.tr.self_attn = MockSelfAttention(dim)
         self.tr.multihead_attn = MockMultiheadAttention(dim)
-        # Using 3072 hidden dim so DoRA param counts match spec:
-        # linear1: 768->3072 => 18,432 params  (spec table value)
-        # linear2: 3072->768 => 16,128 params  (spec table value)
-        self.tr.linear1 = nn.Linear(dim, dim * 4)
-        self.tr.linear2 = nn.Linear(dim * 4, dim)
+        # Actual CAUSE-TR uses 2048 hidden dim (not 3072):
+        # linear1: 768->2048 => 13,312 DoRA params
+        # linear2: 2048->768 => 12,032 DoRA params
+        self.tr.linear1 = nn.Linear(dim, 2048)
+        self.tr.linear2 = nn.Linear(2048, dim)
 
 
 class MockSegmentTR(nn.Module):
@@ -127,14 +127,14 @@ def test_parameter_counts():
     late_total = 6 * (qkv_params + proj_params + fc1_params + fc2_params)  # 336,384
     dinov2_subtotal = early_total + late_total       # 423,936
 
-    # CAUSE-TR expected totals (using dim*4=3072 to match spec counts)
+    # CAUSE-TR expected totals (actual architecture: 2048 hidden dim)
     cause_self_attn = _dora_params(768, 768, rank)   # 6,912
     cause_multihead = _dora_params(768, 768, rank)   # 6,912
-    cause_linear1 = _dora_params(768, 3072, rank)    # 18,432
-    cause_linear2 = _dora_params(3072, 768, rank)    # 16,128
-    cause_total = cause_self_attn + cause_multihead + cause_linear1 + cause_linear2  # 48,384
+    cause_linear1 = _dora_params(768, 2048, rank)    # 13,312
+    cause_linear2 = _dora_params(2048, 768, rank)    # 12,032
+    cause_total = cause_self_attn + cause_multihead + cause_linear1 + cause_linear2  # 39,168
 
-    grand_total = dinov2_subtotal + cause_total      # ~472,320
+    grand_total = dinov2_subtotal + cause_total      # ~463,104
 
     # Build and inject
     model = MockDINOv2(num_blocks=12, dim=768)

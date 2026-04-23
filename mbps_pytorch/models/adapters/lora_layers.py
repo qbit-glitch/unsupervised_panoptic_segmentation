@@ -43,8 +43,9 @@ class LoRALinear(nn.Module):
         else:
             self.register_parameter("bias", None)
 
-        self.lora_A = nn.Parameter(torch.empty(rank, self.in_features))
-        self.lora_B = nn.Parameter(torch.zeros(self.out_features, rank))
+        dev = wrapped.weight.device
+        self.lora_A = nn.Parameter(torch.empty(rank, self.in_features, device=dev))
+        self.lora_B = nn.Parameter(torch.zeros(self.out_features, rank, device=dev))
         nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
 
         self.lora_dropout = nn.Dropout(p=dropout) if dropout > 0 else nn.Identity()
@@ -99,8 +100,9 @@ class DoRALinear(nn.Module):
         )
         self.register_buffer("_m_init_norm", self.lora_magnitude.data.norm().clone())
 
-        self.lora_A = nn.Parameter(torch.empty(rank, self.in_features))
-        self.lora_B = nn.Parameter(torch.zeros(self.out_features, rank))
+        dev = wrapped.weight.device
+        self.lora_A = nn.Parameter(torch.empty(rank, self.in_features, device=dev))
+        self.lora_B = nn.Parameter(torch.zeros(self.out_features, rank, device=dev))
         nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
 
         self.lora_dropout = nn.Dropout(p=dropout) if dropout > 0 else nn.Identity()
@@ -131,11 +133,12 @@ class ConvDoRALinear(DoRALinear):
     ) -> None:
         super().__init__(wrapped, rank=rank, alpha=alpha, dropout=dropout)
 
+        dev = wrapped.weight.device
         self.dwconv = nn.Conv2d(
             rank, rank, kernel_size=3, padding=1, groups=rank, bias=False,
-        )
+        ).to(dev)
         nn.init.zeros_(self.dwconv.weight)
-        self.conv_gate = nn.Parameter(torch.zeros(1))
+        self.conv_gate = nn.Parameter(torch.zeros(1, device=dev))
         self._spatial_dims: Optional[Tuple[int, int]] = None
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -209,12 +212,13 @@ class LoRAConv2d(nn.Module):
         else:
             self.register_parameter("bias", None)
 
+        dev = wrapped.weight.device
         self.lora_A = nn.Conv2d(
             self.in_channels, rank, kernel_size=1, bias=False,
-        )
+        ).to(dev)
         self.lora_B = nn.Conv2d(
             rank, self.out_channels, kernel_size=1, bias=False,
-        )
+        ).to(dev)
         nn.init.kaiming_uniform_(self.lora_A.weight, a=math.sqrt(5))
         nn.init.zeros_(self.lora_B.weight)
 

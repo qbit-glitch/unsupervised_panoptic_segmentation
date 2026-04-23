@@ -422,6 +422,8 @@ def main():
     cluster.codebook.requires_grad = False
     segment.head.codebook = cb
     segment.head_ema.codebook = cb
+    teacher_segment.head.codebook = cb
+    teacher_segment.head_ema.codebook = cb
 
     if args.adapt_cause:
         inject_lora_into_cause_tr(
