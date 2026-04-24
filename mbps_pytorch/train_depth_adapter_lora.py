@@ -366,7 +366,7 @@ def train_depth_adapter(
     losses, loss_weights, lr=1e-4, epochs=10, save_every=5,
     model_type="dav3", grad_accum_steps=1, adapter_config=None,
     val_loader=None, val_every=1, distill_loss_type="log_l1",
-    num_pairs=2048, ranking_margin=0.05,
+    num_pairs=2048, ranking_margin=0.05, top_k_checkpoints=6,
 ):
     logger.info("=== Depth Adapter Training ===")
     logger.info("Losses: %s", losses)
@@ -405,6 +405,7 @@ def train_depth_adapter(
     scaler = GradScaler() if device.type == "cuda" else None
     best_loss = float("inf")
     best_val_mae = float("inf")
+    top_k_list = []  # list of (val_mae, epoch, path) for top-K checkpoint tracking
 
     for epoch in range(epochs):
         model.eval()  # Frozen base in eval mode
@@ -525,14 +526,32 @@ def train_depth_adapter(
                 "Validation epoch %d: MSE=%.4f MAE=%.4f RMSE=%.4f",
                 epoch + 1, val_metrics["mse"], val_metrics["mae"], val_metrics["rmse"],
             )
-            if val_metrics["mae"] < best_val_mae:
-                best_val_mae = val_metrics["mae"]
+            val_mae = val_metrics["mae"]
+            if val_mae < best_val_mae:
+                best_val_mae = val_mae
                 ckpt_path = os.path.join(output_dir, "best_val.pt")
                 torch.save(
                     {"model": model.state_dict(), "epoch": epoch + 1, "adapter_config": adapter_config, "val_mae": best_val_mae},
                     ckpt_path,
                 )
                 logger.info("New best val MAE=%.4f, saved to %s", best_val_mae, ckpt_path)
+
+            # Top-K checkpoint tracking: keep K best checkpoints by validation MAE
+            if top_k_checkpoints > 0:
+                ckpt_path = os.path.join(output_dir, f"topk_epoch_{epoch + 1:03d}_mae{val_mae:.4f}.pt")
+                torch.save(
+                    {"model": model.state_dict(), "epoch": epoch + 1, "adapter_config": adapter_config, "val_mae": val_mae},
+                    ckpt_path,
+                )
+                top_k_list.append((val_mae, epoch + 1, ckpt_path))
+                top_k_list.sort(key=lambda x: x[0])  # sort by val_mae ascending
+                if len(top_k_list) > top_k_checkpoints:
+                    # Remove worst checkpoint
+                    worst_mae, worst_epoch, worst_path = top_k_list.pop()
+                    if os.path.exists(worst_path):
+                        os.remove(worst_path)
+                        logger.info("Removed checkpoint %s (MAE=%.4f) from top-%d", worst_path, worst_mae, top_k_checkpoints)
+                logger.info("Top-%d checkpoints: %s", top_k_checkpoints, ", ".join([f"E{e}:MAE={m:.4f}" for m, e, _ in top_k_list]))
 
         if (epoch + 1) % save_every == 0 or epoch == epochs - 1:
             ckpt_path = os.path.join(output_dir, f"epoch_{epoch + 1:03d}.pt")
@@ -585,6 +604,8 @@ def _build_parser():
     parser.add_argument("--cache_dir", type=str, default=None, help="HuggingFace cache directory")
     parser.add_argument("--num_pairs", type=int, default=2048, help="Number of pixel pairs for ranking loss")
     parser.add_argument("--ranking_margin", type=float, default=0.05, help="Margin for ranking loss (in log-space if using log-depth)")
+    parser.add_argument("--top_k_checkpoints", type=int, default=6,
+                        help="Keep top-K checkpoints by validation MAE (0 to disable)")
     return parser
 
 
@@ -744,6 +765,7 @@ def main():
         val_loader=val_loader, val_every=args.val_every,
         distill_loss_type=args.distill_loss_type,
         num_pairs=args.num_pairs, ranking_margin=args.ranking_margin,
+        top_k_checkpoints=args.top_k_checkpoints,
     )
 
     logger.info("Training complete! Checkpoints in %s", args.output_dir)
