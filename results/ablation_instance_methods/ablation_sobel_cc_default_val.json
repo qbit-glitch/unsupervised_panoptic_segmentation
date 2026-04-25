@@ -5,11 +5,11 @@
     512,
     1024
   ],
-  "semantic_subdir": "pseudo_semantic_raw_dinov3_k80",
-  "depth_subdir": "depth_dav3",
+  "semantic_subdir": "pseudo_semantic_dora_k80_raw",
+  "depth_subdir": "depth_spidepth",
   "feature_subdir": "dinov2_features",
   "n_images": 500,
-  "total_seconds": 30.7,
+  "total_seconds": 33.9,
   "results": [
     {
       "method": "sobel_cc",
@@ -19,39 +19,39 @@
         "dilation_iters": 3,
         "depth_blur_sigma": 1.0
       },
-      "PQ": 16.53,
-      "PQ_stuff": 25.72,
-      "PQ_things": 3.9,
-      "SQ": 74.04,
-      "RQ": 32.1,
-      "avg_instances": 3.6,
-      "seconds_per_image": 0.025,
+      "PQ": 12.28,
+      "PQ_stuff": 17.18,
+      "PQ_things": 5.53,
+      "SQ": 68.78,
+      "RQ": 24.92,
+      "avg_instances": 4.0,
+      "seconds_per_image": 0.027,
       "n_images": 500,
       "errors": 0,
       "per_class": {
         "road": {
-          "PQ": 75.73,
-          "SQ": 77.55,
-          "RQ": 97.66,
-          "TP": 480,
-          "FP": 20,
-          "FN": 3
+          "PQ": 70.8,
+          "SQ": 73.41,
+          "RQ": 96.44,
+          "TP": 474,
+          "FP": 26,
+          "FN": 9
         },
         "sidewalk": {
-          "PQ": 30.36,
-          "SQ": 64.47,
-          "RQ": 47.1,
-          "TP": 227,
-          "FP": 273,
-          "FN": 237
+          "PQ": 12.17,
+          "SQ": 55.36,
+          "RQ": 21.99,
+          "TP": 106,
+          "FP": 394,
+          "FN": 358
         },
         "building": {
-          "PQ": 61.52,
-          "SQ": 74.35,
-          "RQ": 82.74,
-          "TP": 410,
-          "FP": 90,
-          "FN": 81
+          "PQ": 47.31,
+          "SQ": 67.75,
+          "RQ": 69.83,
+          "TP": 346,
+          "FP": 154,
+          "FN": 145
         },
         "wall": {
           "PQ": 0.0,
@@ -86,20 +86,20 @@
           "FN": 260
         },
         "traffic sign": {
-          "PQ": 4.37,
-          "SQ": 60.84,
-          "RQ": 7.18,
-          "TP": 33,
-          "FP": 417,
-          "FN": 436
+          "PQ": 3.67,
+          "SQ": 56.63,
+          "RQ": 6.48,
+          "TP": 28,
+          "FP": 367,
+          "FN": 441
         },
         "vegetation": {
-          "PQ": 62.86,
-          "SQ": 73.71,
-          "RQ": 85.28,
-          "TP": 420,
-          "FP": 79,
-          "FN": 66
+          "PQ": 38.24,
+          "SQ": 64.34,
+          "RQ": 59.43,
+          "TP": 293,
+          "FP": 207,
+          "FN": 193
         },
         "terrain": {
           "PQ": 0.0,
@@ -110,20 +110,20 @@
           "FN": 231
         },
         "sky": {
-          "PQ": 48.09,
-          "SQ": 71.97,
-          "RQ": 66.81,
-          "TP": 307,
-          "FP": 175,
-          "FN": 130
+          "PQ": 16.82,
+          "SQ": 61.44,
+          "RQ": 27.37,
+          "TP": 127,
+          "FP": 364,
+          "FN": 310
         },
         "person": {
-          "PQ": 5.55,
-          "SQ": 66.57,
-          "RQ": 8.34,
-          "TP": 155,
-          "FP": 185,
-          "FN": 3221
+          "PQ": 3.56,
+          "SQ": 59.88,
+          "RQ": 5.95,
+          "TP": 113,
+          "FP": 310,
+          "FN": 3263
         },
         "rider": {
           "PQ": 0.0,
@@ -134,12 +134,12 @@
           "FN": 541
         },
         "car": {
-          "PQ": 25.65,
-          "SQ": 76.71,
-          "RQ": 33.44,
-          "TP": 1021,
-          "FP": 451,
-          "FN": 3614
+          "PQ": 20.15,
+          "SQ": 73.9,
+          "RQ": 27.26,
+          "TP": 787,
+          "FP": 351,
+          "FN": 3848
         },
         "truck": {
           "PQ": 0.0,
@@ -150,12 +150,12 @@
           "FN": 93
         },
         "bus": {
-          "PQ": 0.0,
-          "SQ": 0.0,
-          "RQ": 0.0,
-          "TP": 0,
-          "FP": 0,
-          "FN": 98
+          "PQ": 13.17,
+          "SQ": 67.1,
+          "RQ": 19.63,
+          "TP": 21,
+          "FP": 95,
+          "FN": 77
         },
         "train": {
           "PQ": 0.0,
@@ -174,12 +174,12 @@
           "FN": 149
         },
         "bicycle": {
-          "PQ": 0.0,
-          "SQ": 0.0,
-          "RQ": 0.0,
-          "TP": 0,
-          "FP": 0,
-          "FN": 1163
+          "PQ": 7.36,
+          "SQ": 59.5,
+          "RQ": 12.37,
+          "TP": 91,
+          "FP": 217,
+          "FN": 1072
         }
       }
     }

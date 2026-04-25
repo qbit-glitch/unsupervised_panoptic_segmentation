@@ -25,11 +25,15 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader, Dataset, DistributedSampler
+from torch.nn.parallel import DistributedDataParallel as DDP
+import torch.distributed as dist
+from torch.cuda.amp import autocast
 from torchvision import transforms as T
 from tqdm import tqdm
 
 import yaml
+from contextlib import nullcontext
 
 PROJECT_ROOT = str(Path(__file__).resolve().parent.parent)
 if PROJECT_ROOT not in sys.path:
@@ -50,6 +54,7 @@ from mbps_pytorch.models.adapters import (
     count_adapter_params,
     set_dinov2_spatial_dims,
 )
+from mbps_pytorch.losses.feature_consistency import PredictionConsistencyLoss
 
 logging.basicConfig(format="%(asctime)s %(levelname)s: %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -251,24 +256,56 @@ class AdapterTrainingDataset(Dataset):
         return item
 
 
+def is_main_process():
+    return not dist.is_initialized() or dist.get_rank() == 0
+
 def train_semantic_adapter(
     backbone, segment, cluster, train_loader, device, output_dir,
     losses, loss_weights, lr=1e-4, epochs=10, save_every=5,
     lambda_depth=0.05, depth_shift=0.0,
     adapter_config=None, teacher_backbone=None, teacher_segment=None,
+    gradient_accumulation_steps=1,
+    adapter_lr_mult=5.0,
+    use_amp=False,
+    confidence_filter=False,
+    confidence_p=0.5,
 ):
-    logger.info("=== Semantic Adapter Training ===")
-    logger.info("Losses: %s", losses)
-    logger.info("Weights: %s", loss_weights)
-    logger.info("LR=%.1e, epochs=%d", lr, epochs)
+    if is_main_process():
+        logger.info("=== Semantic Adapter Training ===")
+        logger.info("Losses: %s", losses)
+        logger.info("Weights: %s", loss_weights)
+        logger.info("LR=%.1e, epochs=%d", lr, epochs)
 
     adapter_params = [p for p in backbone.parameters() if p.requires_grad]
     adapter_params += [p for p in segment.parameters() if p.requires_grad]
     adapter_params += [p for p in cluster.parameters() if p.requires_grad]
-    logger.info("Trainable adapter params: %d", sum(p.numel() for p in adapter_params))
+    if is_main_process():
+        logger.info("Trainable adapter params: %d", sum(p.numel() for p in adapter_params))
 
-    optimizer = torch.optim.AdamW(adapter_params, lr=lr, weight_decay=1e-4)
+    # Uni-UVPT-style LR multiplier: adapters get higher LR
+    other_params = [p for n, p in backbone.named_parameters() if p.requires_grad and not any(s in n for s in (".lora_A", ".lora_B", ".lora_magnitude", ".dwconv", ".conv_gate"))]
+    other_params += [p for n, p in segment.named_parameters() if p.requires_grad and not any(s in n for s in (".lora_A", ".lora_B", ".lora_magnitude", ".dwconv", ".conv_gate"))]
+    other_params += [p for n, p in cluster.named_parameters() if p.requires_grad and not any(s in n for s in (".lora_A", ".lora_B", ".lora_magnitude", ".dwconv", ".conv_gate"))]
+    # Deduplicate
+    seen_ids = set()
+    deduped_other = []
+    for p in other_params:
+        if id(p) not in seen_ids:
+            seen_ids.add(id(p))
+            deduped_other.append(p)
+
+    param_groups = [
+        {"params": adapter_params, "lr": lr * adapter_lr_mult, "weight_decay": 1e-4},
+    ]
+    if deduped_other:
+        param_groups.append({"params": deduped_other, "lr": lr, "weight_decay": 1e-4})
+
+    optimizer = torch.optim.AdamW(param_groups)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
+    scaler = torch.cuda.amp.GradScaler() if use_amp and device.type == "cuda" else None
+    if is_main_process() and scaler is not None:
+        logger.info("Using AMP with GradScaler")
+    pred_consistency_fn = PredictionConsistencyLoss() if "prediction_consistency" in losses else None
     best_loss = float("inf")
 
     for epoch in range(epochs):
@@ -279,7 +316,8 @@ def train_semantic_adapter(
         count = 0
 
         prog = tqdm(train_loader, desc=f"Epoch {epoch + 1}/{epochs}")
-        for batch in prog:
+        optimizer.zero_grad()
+        for step, batch in enumerate(prog):
             img = batch["img"].to(device)
             depth = batch.get("depth")
             if depth is not None:
@@ -287,73 +325,111 @@ def train_semantic_adapter(
 
             set_dinov2_spatial_dims(backbone, h_patches=23, w_patches=23)
 
-            with torch.no_grad():
-                if teacher_backbone is not None and teacher_segment is not None:
-                    feat_teacher = teacher_backbone(img)[:, 1:, :]
-                    seg_feat_teacher = teacher_segment.head(feat_teacher)
+            amp_context = autocast() if scaler else nullcontext()
+            with amp_context:
+                with torch.no_grad():
+                    if teacher_backbone is not None and teacher_segment is not None:
+                        feat_teacher = teacher_backbone(img)[:, 1:, :]
+                        seg_feat_teacher = teacher_segment.head(feat_teacher)
+                    else:
+                        # Fallback for backward compatibility (should not happen in normal usage)
+                        feat_teacher = backbone(img)[:, 1:, :]
+                        seg_feat_teacher = segment.head(feat_teacher)
+
+                feat_student = backbone(img)[:, 1:, :]
+                seg_feat_student = segment.head(feat_student)
+
+                loss_total = torch.tensor(0.0, device=device)
+
+                if "distillation" in losses:
+                    l_dist = dino_distillation_loss(feat_student, feat_teacher)
+                    # Optional confidence filtering
+                    if confidence_filter and confidence_p < 1.0:
+                        from mbps_pytorch.losses.confidence_filtering import select_confident_samples, avg_entropy
+                        # Use per-patch feature similarity as proxy for confidence
+                        sim = (feat_student * feat_teacher).sum(dim=-1)  # (B, N)
+                        conf_logits = torch.stack([sim, 1 - sim], dim=-1)  # (B, N, 2)
+                        B, N, _ = conf_logits.shape
+                        conf_logits_flat = conf_logits.reshape(B * N, 2)
+                        selected_logits, selected_idx = select_confident_samples(conf_logits_flat, confidence_p)
+                        if selected_logits.shape[0] > 0:
+                            l_dist = (1 - selected_logits[:, 0]).mean()
+                        # else keep full loss
+                    w = loss_weights.get("distillation", 1.0)
+                    loss_total = loss_total + w * l_dist
+                    totals["distillation"] += l_dist.item()
+
+                if "cross_view" in losses and "img_aug" in batch:
+                    img_aug = batch["img_aug"].to(device)
+                    set_dinov2_spatial_dims(backbone, h_patches=23, w_patches=23)
+                    feat_aug = backbone(img_aug)[:, 1:, :]
+                    l_cv = cross_view_consistency_loss(feat_student, feat_aug)
+                    w = loss_weights.get("cross_view", 1.0)
+                    loss_total = loss_total + w * l_cv
+                    totals["cross_view"] += l_cv.item()
+
+                if "prediction_consistency" in losses and pred_consistency_fn is not None:
+                    # Consistency between student and teacher predictions
+                    l_pc = pred_consistency_fn(seg_feat_student, seg_feat_teacher)
+                    w = loss_weights.get("prediction_consistency", 0.1)
+                    loss_total = loss_total + w * l_pc
+                    totals["prediction_consistency"] += l_pc.item()
+
+                if "depth_cluster" in losses and depth is not None:
+                    code_student = transform(seg_feat_student)
+                    l_depth = depth_correlation_loss(code_student, depth, shift=depth_shift)
+                    w = loss_weights.get("depth_cluster", lambda_depth)
+                    loss_total = loss_total + w * l_depth
+                    totals["depth_cluster"] += l_depth.item()
+
+                if "cause_cluster" in losses:
+                    logger.warning("cause_cluster loss is deprecated and skipped (zero gradient).")
+                    totals["cause_cluster"] += 0.0
+
+                # Gradient accumulation with optional AMP
+                loss_total = loss_total / gradient_accumulation_steps
+                if scaler is not None:
+                    scaler.scale(loss_total).backward()
                 else:
-                    # Fallback for backward compatibility (should not happen in normal usage)
-                    feat_teacher = backbone(img)[:, 1:, :]
-                    seg_feat_teacher = segment.head(feat_teacher)
+                    loss_total.backward()
 
-            feat_student = backbone(img)[:, 1:, :]
-            seg_feat_student = segment.head(feat_student)
+            if (step + 1) % gradient_accumulation_steps == 0:
+                all_trainable = [p for group in optimizer.param_groups for p in group["params"]]
+                if scaler is not None:
+                    scaler.unscale_(optimizer)
+                torch.nn.utils.clip_grad_norm_(all_trainable, max_norm=1.0)
+                if scaler is not None:
+                    scaler.step(optimizer)
+                    scaler.update()
+                else:
+                    optimizer.step()
+                ema_update(segment.head, segment.head_ema, lamb=EMA_MOMENTUM)
+                optimizer.zero_grad()
 
-            loss_total = torch.tensor(0.0, device=device)
-
-            if "distillation" in losses:
-                l_dist = dino_distillation_loss(feat_student, feat_teacher)
-                w = loss_weights.get("distillation", 1.0)
-                loss_total = loss_total + w * l_dist
-                totals["distillation"] += l_dist.item()
-
-            if "cross_view" in losses and "img_aug" in batch:
-                img_aug = batch["img_aug"].to(device)
-                set_dinov2_spatial_dims(backbone, h_patches=23, w_patches=23)
-                feat_aug = backbone(img_aug)[:, 1:, :]
-                l_cv = cross_view_consistency_loss(feat_student, feat_aug)
-                w = loss_weights.get("cross_view", 1.0)
-                loss_total = loss_total + w * l_cv
-                totals["cross_view"] += l_cv.item()
-
-            if "depth_cluster" in losses and depth is not None:
-                code_student = transform(seg_feat_student)
-                l_depth = depth_correlation_loss(code_student, depth, shift=depth_shift)
-                w = loss_weights.get("depth_cluster", lambda_depth)
-                loss_total = loss_total + w * l_depth
-                totals["depth_cluster"] += l_depth.item()
-
-            if "cause_cluster" in losses:
-                logger.warning("cause_cluster loss is deprecated and skipped (zero gradient).")
-                totals["cause_cluster"] += 0.0
-
-            optimizer.zero_grad()
-            loss_total.backward()
-            torch.nn.utils.clip_grad_norm_(adapter_params, max_norm=1.0)
-            optimizer.step()
-            ema_update(segment.head, segment.head_ema, lamb=EMA_MOMENTUM)
-
-            totals["total"] += loss_total.item()
+            totals["total"] += loss_total.item() * gradient_accumulation_steps
             count += 1
-            prog.set_postfix(total=f"{loss_total.item():.4f}")
+            prog.set_postfix(total=f"{loss_total.item() * gradient_accumulation_steps:.4f}")
 
         avg_total = totals["total"] / max(count, 1)
-        logger.info("Epoch %d: total=%.4f", epoch + 1, avg_total)
-        for k in losses:
-            logger.info("  %s: %.4f", k, totals[k] / max(count, 1))
+        if is_main_process():
+            logger.info("Epoch %d: total=%.4f", epoch + 1, avg_total)
+            for k in losses:
+                logger.info("  %s: %.4f", k, totals[k] / max(count, 1))
         scheduler.step()
 
-        if (epoch + 1) % save_every == 0 or epoch == epochs - 1:
+        if is_main_process() and ((epoch + 1) % save_every == 0 or epoch == epochs - 1):
             ckpt_path = os.path.join(output_dir, f"epoch_{epoch + 1:03d}.pt")
-            torch.save({"backbone": backbone.state_dict(), "segment": segment.state_dict(),
+            state_dict = backbone.module.state_dict() if isinstance(backbone, DDP) else backbone.state_dict()
+            torch.save({"backbone": state_dict, "segment": segment.state_dict(),
                         "cluster": cluster.state_dict(), "epoch": epoch + 1,
                         "adapter_config": adapter_config}, ckpt_path)
             logger.info("Saved checkpoint: %s", ckpt_path)
 
-        if avg_total < best_loss:
+        if is_main_process() and avg_total < best_loss:
             best_loss = avg_total
             ckpt_path = os.path.join(output_dir, "best.pt")
-            torch.save({"backbone": backbone.state_dict(), "segment": segment.state_dict(),
+            state_dict = backbone.module.state_dict() if isinstance(backbone, DDP) else backbone.state_dict()
+            torch.save({"backbone": state_dict, "segment": segment.state_dict(),
                         "cluster": cluster.state_dict(), "epoch": epoch + 1,
                         "adapter_config": adapter_config}, ckpt_path)
             logger.info("New best loss=%.4f, saved to %s", best_loss, ckpt_path)
@@ -383,6 +459,18 @@ def main():
     parser.add_argument("--save_every", type=int, default=5)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--config", type=str, default=None)
+    parser.add_argument("--gradient_accumulation_steps", type=int, default=1,
+                        help="Number of mini-batches to accumulate before optimizer step")
+    parser.add_argument("--adapter_lr_mult", type=float, default=5.0,
+                        help="LR multiplier for adapter parameters (Uni-UVPT style)")
+    parser.add_argument("--use_amp", action="store_true",
+                        help="Use automatic mixed precision (AMP) training")
+    parser.add_argument("--confidence_filter", action="store_true",
+                        help="Enable entropy-based confidence filtering on distillation loss")
+    parser.add_argument("--confidence_p", type=float, default=0.5,
+                        help="Fraction of samples to keep in confidence filtering")
+    parser.add_argument("--use_prediction_consistency", action="store_true",
+                        help="Add prediction consistency loss (Uni-UVPT style)")
 
     # Pre-parse to get config path
     pre_parser = argparse.ArgumentParser(add_help=False)
@@ -412,17 +500,30 @@ def main():
 
     args = parser.parse_args(remaining_argv)
 
-    set_seed(args.seed)
-    if args.device is None:
-        if torch.backends.mps.is_available():
-            device = torch.device("mps")
-        elif torch.cuda.is_available():
-            device = torch.device("cuda")
-        else:
-            device = torch.device("cpu")
+    # DDP setup
+    ddp_enabled = "LOCAL_RANK" in os.environ
+    if ddp_enabled:
+        local_rank = int(os.environ["LOCAL_RANK"])
+        dist.init_process_group(backend="nccl")
+        torch.cuda.set_device(local_rank)
+        device = torch.device(f"cuda:{local_rank}")
+        if is_main_process():
+            logger.info("DDP enabled: rank=%d, world_size=%d", dist.get_rank(), dist.get_world_size())
     else:
-        device = torch.device(args.device)
-    os.makedirs(args.output_dir, exist_ok=True)
+        if args.device is None:
+            if torch.backends.mps.is_available():
+                device = torch.device("mps")
+            elif torch.cuda.is_available():
+                device = torch.device("cuda")
+            else:
+                device = torch.device("cpu")
+        else:
+            device = torch.device(args.device)
+
+    if is_main_process():
+        os.makedirs(args.output_dir, exist_ok=True)
+    if ddp_enabled:
+        dist.barrier()
 
     if args.checkpoint_dir is None:
         args.checkpoint_dir = str(Path(__file__).resolve().parent.parent / "refs" / "cause")
@@ -458,7 +559,21 @@ def main():
         dropout=args.dropout, late_block_start=args.late_block_start,
     )
     freeze_non_adapter_params(backbone)
+
+    # Break symmetry: lora_B starts at zero → distillation loss = 0 → no gradients.
+    # Random perturbation ensures non-zero loss from step 1.  std=0.01 is small
+    # enough that distillation can pull the adapter back, large enough to escape
+    # the zero-gradient flat region at init.
+    for name, param in backbone.named_parameters():
+        if "lora_B" in name:
+            param.data.normal_(std=0.01)
+            if is_main_process():
+                logger.info("Perturbed %s (std=0.01)", name)
+
     backbone = backbone.to(device)
+    if ddp_enabled:
+        backbone = DDP(backbone, device_ids=[local_rank], output_device=local_rank,
+                       find_unused_parameters=False)
 
     logger.info("Loading CAUSE Segment_TR...")
     cause_args = build_cause_args()
@@ -514,9 +629,11 @@ def main():
         logger.warning("cause_cluster is deprecated; cluster_probe will remain frozen.")
 
     total_trainable = count_adapter_params(backbone) + count_adapter_params(segment) + count_adapter_params(cluster)
-    logger.info("Total trainable params: %d", total_trainable)
+    if is_main_process():
+        logger.info("Total trainable params: %d", total_trainable)
 
-    logger.info("Building training dataset...")
+    if is_main_process():
+        logger.info("Building training dataset...")
     if "pydensecrf" not in sys.modules:
         import types
         mock_crf = types.ModuleType("pydensecrf")
@@ -557,12 +674,21 @@ def main():
 
     nw = 0 if device.type == "mps" else args.num_workers
     pin = device.type == "cuda"
-    train_loader = DataLoader(
-        train_dataset, batch_size=args.batch_size, shuffle=True,
-        num_workers=nw, pin_memory=pin, drop_last=True,
-    )
+    if ddp_enabled:
+        sampler = DistributedSampler(train_dataset, shuffle=True, drop_last=True)
+        train_loader = DataLoader(
+            train_dataset, batch_size=args.batch_size, sampler=sampler,
+            num_workers=nw, pin_memory=pin, drop_last=False,
+        )
+    else:
+        train_loader = DataLoader(
+            train_dataset, batch_size=args.batch_size, shuffle=True,
+            num_workers=nw, pin_memory=pin, drop_last=True,
+        )
 
     loss_list = [x.strip() for x in args.losses.split(",")]
+    if args.use_prediction_consistency and "prediction_consistency" not in loss_list:
+        loss_list.append("prediction_consistency")
     loss_weights = {}
     if args.loss_weights:
         import json
@@ -583,12 +709,21 @@ def main():
         save_every=args.save_every, lambda_depth=args.lambda_depth,
         depth_shift=args.depth_shift, adapter_config=adapter_config,
         teacher_backbone=teacher_backbone, teacher_segment=teacher_segment,
+        gradient_accumulation_steps=args.gradient_accumulation_steps,
+        adapter_lr_mult=args.adapter_lr_mult,
+        use_amp=args.use_amp,
+        confidence_filter=args.confidence_filter,
+        confidence_p=args.confidence_p,
     )
 
-    logger.info("Training complete! Checkpoints in %s", args.output_dir)
-    logger.info("Next: generate adapted pseudo-labels with:")
-    logger.info("  python mbps_pytorch/generate_semantic_pseudolabels_adapted.py \\")
-    logger.info("    --checkpoint %s/best.pt --data_dir %s", args.output_dir, args.data_dir)
+    if ddp_enabled:
+        dist.destroy_process_group()
+
+    if is_main_process():
+        logger.info("Training complete! Checkpoints in %s", args.output_dir)
+        logger.info("Next: generate adapted pseudo-labels with:")
+        logger.info("  python mbps_pytorch/generate_semantic_pseudolabels_adapted.py \\")
+        logger.info("    --checkpoint %s/best.pt --data_dir %s", args.output_dir, args.data_dir)
 
 
 if __name__ == "__main__":

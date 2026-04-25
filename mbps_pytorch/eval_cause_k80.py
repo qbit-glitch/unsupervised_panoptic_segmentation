@@ -364,7 +364,7 @@ def load_dinov2(
                 dropout=cfg_dropout,
                 adapt_head=True,
                 adapt_projection=False,
-                adapt_ema=False,
+                adapt_ema=True,
             )
         freeze_non_adapter_params(segment)
 
@@ -374,8 +374,9 @@ def load_dinov2(
                             require_lora=cfg_adapt_cause)
 
         # Re-pin codebook (checkpoint may carry stale copy)
-        segment.head.codebook = cb.clone().to(device)
-        segment.head_ema.codebook = cb.clone().to(device)
+        if mod_path.exists():
+            segment.head.codebook = cb.clone().to(device)
+            segment.head_ema.codebook = cb.clone().to(device)
 
         n_adapter = count_adapter_params(net) + count_adapter_params(segment)
         print(f"Adapter params loaded: {n_adapter:,}")
@@ -667,9 +668,10 @@ def evaluate_kmeans(feat_maps, gt_maps, k: int, backbone_name: str,
             pq_iou += pq_img["iou_sum"]
 
         # Aggregate PQ
-        sq_per = np.where(pq_tp > 0, pq_iou / pq_tp, 0.0)
-        rq_per = np.where((pq_tp + 0.5*pq_fp + 0.5*pq_fn) > 0,
-                          pq_tp / (pq_tp + 0.5*pq_fp + 0.5*pq_fn), 0.0)
+        with np.errstate(divide='ignore', invalid='ignore'):
+            sq_per = np.where(pq_tp > 0, pq_iou / pq_tp, 0.0)
+            rq_per = np.where((pq_tp + 0.5*pq_fp + 0.5*pq_fn) > 0,
+                              pq_tp / (pq_tp + 0.5*pq_fp + 0.5*pq_fn), 0.0)
         pq_per = sq_per * rq_per
 
         def _agg(ids):

@@ -97,15 +97,6 @@ def inject_lora_into_cause_tr(
                 elif isinstance(conv_mod, nn.Sequential):
                     for idx, layer in enumerate(conv_mod):
                         if isinstance(layer, nn.Conv2d):
-                            adapter = nn.Sequential(
-                                *[
-                                    wrap_conv2d_if_match(
-                                        nn.Module(), "", rank, alpha, dropout
-                                    ) if j == idx else conv_mod[j]
-                                    for j in range(len(conv_mod))
-                                ]
-                            )
-                            # Simpler: just wrap the specific layer in-place
                             wrapped = wrap_conv2d_if_match(
                                 conv_mod, str(idx), rank, alpha, dropout
                             )

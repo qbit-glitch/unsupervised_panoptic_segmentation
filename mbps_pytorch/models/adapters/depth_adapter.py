@@ -21,26 +21,6 @@ from mbps_pytorch.models.adapters.lora_layers import (
 logger = logging.getLogger(__name__)
 
 
-def _fingerprint_attention_style(parent_module):
-    """Determine whether a block uses CAUSE-style (fused qkv) or HF-style (separate Q,K,V).
-    Returns: 'cause', 'hf', or 'unknown'
-    """
-    cause_score = 0
-    hf_score = 0
-    for name, child in parent_module.named_modules():
-        if hasattr(child, "qkv") and isinstance(child.qkv, nn.Linear):
-            cause_score += 1
-        if hasattr(child, "query") and isinstance(child.query, nn.Linear):
-            hf_score += 1
-        if hasattr(child, "attention") and hasattr(child.attention, "query"):
-            hf_score += 1
-    if cause_score > hf_score:
-        return "cause"
-    elif hf_score > cause_score:
-        return "hf"
-    return "unknown"
-
-
 def _fingerprint_attention_style(block: nn.Module) -> str:
     """Detect whether a transformer block uses CAUSE-style or HF-style attention.
 

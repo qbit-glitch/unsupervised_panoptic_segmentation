@@ -3,13 +3,14 @@
 # ============================================
 checkpoints/
 weights/
-*.pth
-*.ckpt
-*.pt
-*.bin
-*.safetensors
-*.npz
-*.npy
+**/*.pth
+**/*.ckpt
+**/*.pt
+**/*.bin
+**/*.safetensors
+**/*.npz
+**/*.npy
+**/*.pkl
 
 # ============================================
 # Reference repos (19GB) — cloned externally
@@ -17,22 +18,14 @@ weights/
 refs/
 
 # ============================================
-# Experiment outputs & pseudo-labels
-# ============================================
-experiments/
-pseudo_instances_cutler/
-pseudo_instances_cuvler/
-
-# ============================================
 # External project clone
 # ============================================
 unsupervised-panoptic-segmentation/
 
 # ============================================
-# Logs
+# Logs directory (root .log files kept)
 # ============================================
 logs/
-*.log
 nohup.out
 
 # ============================================
@@ -44,12 +37,14 @@ package-lock.json
 # ============================================
 # Research papers (PDFs)
 # ============================================
+papers/
 research_papers/
 
 # ============================================
-# Python
+# Python cache & environments
 # ============================================
 __pycache__/
+**/__pycache__/
 *.py[cod]
 *$py.class
 *.egg-info/
@@ -57,7 +52,12 @@ __pycache__/
 dist/
 build/
 .eggs/
-*.so
+**/*.so
+**/*.o
+**/*.a
+**/*.dylib
+**/*.exe
+**/*.dll
 .venv/
 venv/
 env/
@@ -65,8 +65,14 @@ env/
 # ============================================
 # Jupyter Notebooks (checkpoints)
 # ============================================
-notebooks/.ipynb_checkpoints/
 .ipynb_checkpoints/
+**/.ipynb_checkpoints/
+
+# ============================================
+# Pytest cache
+# ============================================
+.pytest_cache/
+**/.pytest_cache/
 
 # ============================================
 # OS & IDE
@@ -80,33 +86,17 @@ Thumbs.db
 *~
 
 # ============================================
-# Claude Code project memory (private)
+# Claude worktrees (large, excluded)
 # ============================================
-.claude/
-.ccr/
+.claude/worktrees/
 
 # ============================================
-# Obsidian vault (local knowledge base)
+# Large generated files
 # ============================================
-.obsidian/
-Research/
-Archive/
-
-# ============================================
-# Eval result JSONs (root-level, generated)
-# ============================================
-eval_*.json
-postproc_results.json
-
-# ============================================
-# Large files (PDFs, generated graph data)
-# ============================================
-papers/**/*.pdf
 graphify-out/graph.json
 paper_bmvc2026/bmvc_template/.git/
 
 # ============================================
-# Debug / scratch scripts
+# Nested git repos
 # ============================================
-debug_*.py
-sample.py
+**/.git/

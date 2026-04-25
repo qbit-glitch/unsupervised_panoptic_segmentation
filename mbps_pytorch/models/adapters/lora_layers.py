@@ -49,11 +49,14 @@ class LoRALinear(nn.Module):
         nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
 
         self.lora_dropout = nn.Dropout(p=dropout) if dropout > 0 else nn.Identity()
+        self.merged = False
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # Ensure weight dtype matches input (for mixed-precision training)
         weight = self.weight.to(x.dtype)
         bias = self.bias.to(x.dtype) if self.bias is not None else None
+        if self.merged:
+            return F.linear(x, weight, bias)
         base_out = F.linear(x, weight, bias)
         lora_A = self.lora_A.to(x.dtype)
         lora_B = self.lora_B.to(x.dtype)
@@ -61,6 +64,22 @@ class LoRALinear(nn.Module):
             F.linear(F.linear(x, lora_A), lora_B) * self.scaling
         )
         return base_out + lora_out
+
+    def merge(self) -> None:
+        """Merge LoRA weights into base weight for efficient inference."""
+        if self.merged or self.rank == 0:
+            return
+        delta = (self.lora_B @ self.lora_A) * self.scaling
+        self.weight.data += delta.to(self.weight.dtype)
+        self.merged = True
+
+    def unmerge(self) -> None:
+        """Unmerge LoRA weights from base weight to resume training."""
+        if not self.merged or self.rank == 0:
+            return
+        delta = (self.lora_B @ self.lora_A) * self.scaling
+        self.weight.data -= delta.to(self.weight.dtype)
+        self.merged = False
 
     def trainable_count(self) -> int:
         return self.lora_A.numel() + self.lora_B.numel()
@@ -105,8 +124,13 @@ class DoRALinear(nn.Module):
         nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
 
         self.lora_dropout = nn.Dropout(p=dropout) if dropout > 0 else nn.Identity()
+        self.merged = False
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if self.merged:
+            weight = self.weight.to(x.dtype)
+            bias = self.bias.to(x.dtype) if self.bias is not None else None
+            return F.linear(x, weight, bias)
         lora_A = self.lora_A.to(x.dtype)
         lora_B = self.lora_B.to(x.dtype)
         delta_V = self.lora_dropout(self.scaling * (lora_B @ lora_A))
@@ -115,6 +139,27 @@ class DoRALinear(nn.Module):
         W_prime = self.lora_magnitude.to(x.dtype) * (V_prime / V_norm.detach())
         bias = self.bias.to(x.dtype) if self.bias is not None else None
         return F.linear(x, W_prime, bias)
+
+    def merge(self) -> None:
+        """Merge DoRA weights into base weight for efficient inference."""
+        if self.merged or self.rank == 0:
+            return
+        # Store original weight before merge so unmerge is exact
+        self.register_buffer("_original_weight", self.weight.data.clone())
+        delta_V = self.scaling * (self.lora_B @ self.lora_A)
+        V_prime = self.weight.data + delta_V.to(self.weight.dtype)
+        V_norm = V_prime.norm(dim=1, keepdim=True).clamp(min=1e-8)
+        W_prime = self.lora_magnitude.data * (V_prime / V_norm)
+        self.weight.data.copy_(W_prime)
+        self.merged = True
+
+    def unmerge(self) -> None:
+        """Unmerge DoRA weights from base weight to resume training."""
+        if not self.merged or self.rank == 0:
+            return
+        if hasattr(self, "_original_weight"):
+            self.weight.data.copy_(self._original_weight)
+        self.merged = False
 
     def trainable_count(self) -> int:
         return self.lora_A.numel() + self.lora_B.numel() + self.lora_magnitude.numel()
@@ -141,6 +186,10 @@ class ConvDoRALinear(DoRALinear):
         self._spatial_dims: Optional[Tuple[int, int]] = None
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if self.merged:
+            weight = self.weight.to(x.dtype)
+            bias = self.bias.to(x.dtype) if self.bias is not None else None
+            return F.linear(x, weight, bias)
         lora_A = self.lora_A.to(x.dtype)
         lora_B = self.lora_B.to(x.dtype)
         delta_V = self.lora_dropout(self.scaling * (lora_B @ lora_A))
@@ -169,6 +218,19 @@ class ConvDoRALinear(DoRALinear):
             dora_out = dora_out + self.conv_gate * conv_out
 
         return dora_out
+
+    def merge(self) -> None:
+        """Merge DoRA weights into base weight for efficient inference.
+
+        Note: the DWConv path cannot be merged into the weight matrix because
+        it operates on intermediate activations. Only the linear DoRA part is
+        merged; the conv path continues to run in forward().
+        """
+        super().merge()
+
+    def unmerge(self) -> None:
+        """Unmerge DoRA weights from base weight to resume training."""
+        super().unmerge()
 
     def trainable_count(self) -> int:
         base = super().trainable_count()
@@ -231,6 +293,36 @@ class LoRAConv2d(nn.Module):
             self.lora_B(self.lora_A(x)) * self.scaling
         )
         return base_out + lora_out
+
+    def merge(self) -> None:
+        """Merge LoRA Conv2d weights into base weight for efficient inference.
+
+        For 1x1 convolutions, the merged delta is:
+            delta = conv2d(lora_A.weight, lora_B.weight)
+        which produces (out_channels, in_channels, 1, 1).
+        """
+        if getattr(self, "merged", False) or self.rank == 0:
+            return
+        self.merged = True
+        self.register_buffer("_original_weight", self.weight.data.clone())
+        # Compute equivalent full-rank kernel via 1x1 conv of B over A
+        # lora_A: (rank, in_channels, 1, 1)
+        # lora_B: (out_channels, rank, 1, 1)
+        # We want (out_channels, in_channels, 1, 1)
+        # This is a matrix multiply: B @ A
+        a = self.lora_A.weight.squeeze(-1).squeeze(-1)  # (rank, in_channels)
+        b = self.lora_B.weight.squeeze(-1).squeeze(-1)  # (out_channels, rank)
+        delta = (b @ a) * self.scaling  # (out_channels, in_channels)
+        delta = delta.unsqueeze(-1).unsqueeze(-1)  # (out_channels, in_channels, 1, 1)
+        self.weight.data += delta.to(self.weight.dtype)
+
+    def unmerge(self) -> None:
+        """Unmerge LoRA Conv2d weights from base weight to resume training."""
+        if not getattr(self, "merged", False) or self.rank == 0:
+            return
+        if hasattr(self, "_original_weight"):
+            self.weight.data.copy_(self._original_weight)
+        self.merged = False
 
     def trainable_count(self) -> int:
         return sum(p.numel() for p in [self.lora_A.weight, self.lora_B.weight])
@@ -317,3 +409,31 @@ def count_adapter_params(model: nn.Module) -> int:
 def count_total_params(model: nn.Module) -> int:
     """Count total parameters."""
     return sum(p.numel() for p in model.parameters())
+
+
+def merge_all_adapters(model: nn.Module) -> None:
+    """Merge all adapter weights into base weights for efficient inference.
+    
+    Call before eval() / inference. Reversible via unmerge_all_adapters().
+    """
+    merged_count = 0
+    for module in model.modules():
+        if hasattr(module, "merge") and callable(getattr(module, "merge")):
+            module.merge()
+            merged_count += 1
+    if merged_count > 0:
+        logging.getLogger(__name__).info("Merged %d adapter layers for inference.", merged_count)
+
+
+def unmerge_all_adapters(model: nn.Module) -> None:
+    """Unmerge all adapter weights from base weights to resume training.
+    
+    Call before train() / resuming training after merge_all_adapters().
+    """
+    unmerged_count = 0
+    for module in model.modules():
+        if hasattr(module, "unmerge") and callable(getattr(module, "unmerge")):
+            module.unmerge()
+            unmerged_count += 1
+    if unmerged_count > 0:
+        logging.getLogger(__name__).info("Unmerged %d adapter layers for training.", unmerged_count)

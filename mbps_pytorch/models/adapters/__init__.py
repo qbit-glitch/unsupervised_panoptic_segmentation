@@ -14,6 +14,14 @@ from mbps_pytorch.models.adapters.lora_layers import (
     freeze_non_adapter_params,
     count_adapter_params,
     count_total_params,
+    merge_all_adapters,
+    unmerge_all_adapters,
+)
+
+from mbps_pytorch.models.adapters.slr_layers import (
+    ScaledLowRankAdapter,
+    ScaledLowRankConvAdapter,
+    wrap_with_slr,
 )
 
 from mbps_pytorch.models.adapters.dinov2_adapter import (
@@ -40,9 +48,14 @@ __all__ = [
     "DoRALinear",
     "ConvDoRALinear",
     "LoRAConv2d",
+    "ScaledLowRankAdapter",
+    "ScaledLowRankConvAdapter",
     "freeze_non_adapter_params",
     "count_adapter_params",
     "count_total_params",
+    "merge_all_adapters",
+    "unmerge_all_adapters",
+    "wrap_with_slr",
     "inject_lora_into_dinov2",
     "set_dinov2_spatial_dims",
     "inject_lora_into_cause_tr",

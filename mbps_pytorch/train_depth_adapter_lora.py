@@ -367,6 +367,9 @@ def train_depth_adapter(
     model_type="dav3", grad_accum_steps=1, adapter_config=None,
     val_loader=None, val_every=1, distill_loss_type="log_l1",
     num_pairs=2048, ranking_margin=0.05, top_k_checkpoints=6,
+    adapter_lr_mult=5.0,
+    confidence_filter=False,
+    confidence_p=0.5,
 ):
     logger.info("=== Depth Adapter Training ===")
     logger.info("Losses: %s", losses)
@@ -389,7 +392,11 @@ def train_depth_adapter(
     adapter_params = [p for p in model.parameters() if p.requires_grad]
     logger.info("Trainable adapter params: %d", sum(p.numel() for p in adapter_params))
 
-    optimizer = torch.optim.AdamW(adapter_params, lr=lr, weight_decay=1e-4)
+    # Uni-UVPT-style LR multiplier
+    param_groups = [
+        {"params": adapter_params, "lr": lr * adapter_lr_mult, "weight_decay": 1e-4},
+    ]
+    optimizer = torch.optim.AdamW(param_groups)
 
     # Warmup + cosine schedule
     total_steps = epochs * len(train_loader)
@@ -453,6 +460,24 @@ def train_depth_adapter(
 
                 if "distillation" in losses:
                     l_dist = self_distillation_loss(student_out, teacher_out, loss_type=distill_loss_type)
+                    # Optional confidence filtering
+                    if confidence_filter and confidence_p < 1.0:
+                        from mbps_pytorch.losses.confidence_filtering import select_confident_samples
+                        # Flatten spatial dims for confidence selection
+                        B = student_out.shape[0]
+                        s_flat = student_out.reshape(B, -1)
+                        t_flat = teacher_out.reshape(B, -1)
+                        diff = (s_flat - t_flat).abs()  # (B, HW)
+                        # Lower diff = higher confidence
+                        conf = -diff  # (B, HW)
+                        # Select confident pixels per sample
+                        l_dist_filtered = 0.0
+                        for b in range(B):
+                            sample_conf = conf[b]  # (HW,)
+                            k = max(1, int(sample_conf.numel() * confidence_p))
+                            _, top_idx = torch.topk(sample_conf, k)
+                            l_dist_filtered += diff[b, top_idx].mean()
+                        l_dist = l_dist_filtered / B
                     w = loss_weights.get("distillation", 1.0)
                     loss_total = loss_total + w * l_dist
                     totals["distillation"] += l_dist.item()
@@ -724,17 +749,33 @@ def main():
         train_dataset = full_dataset
         val_dataset = None
 
+    # Custom collate for HF models that return PIL Images
+    def _collate_fn(batch):
+        elem = batch[0]
+        result = {}
+        for key in elem:
+            values = [d[key] for d in batch]
+            if isinstance(values[0], torch.Tensor):
+                result[key] = torch.stack(values)
+            else:
+                result[key] = values
+        return result
+
+    collate_fn = _collate_fn if return_pil else None
+
     nw = 0 if device.type == "mps" else args.num_workers
     pin = device.type == "cuda"
     train_loader = DataLoader(
         train_dataset, batch_size=args.batch_size, shuffle=True,
         num_workers=nw, pin_memory=pin, drop_last=True,
+        collate_fn=collate_fn,
     )
     val_loader = None
     if val_dataset is not None:
         val_loader = DataLoader(
             val_dataset, batch_size=args.batch_size, shuffle=False,
             num_workers=nw, pin_memory=pin, drop_last=False,
+            collate_fn=collate_fn,
         )
         logger.info("Train: %d samples, Val: %d samples", train_size, val_size)
     else:
