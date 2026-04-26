@@ -1,0 +1,158 @@
+# E1 — Hugging Face Upload Layout & A6000 Run Recipe
+
+This is the operational checklist for E1 (same-backbone CUPS rerun). It
+covers (a) the populated public HF repo the A6000 box pulls from with
+`wget` (no auth), (b) how to launch Stage-1 pseudo-label regeneration, and
+(c) the Stage-2 hand-off.
+
+## 1. Public Hugging Face repo (already populated)
+
+Repo: <https://huggingface.co/qbit-glitch/mbps-cups-e1>
+
+| File | Size | SHA256 |
+|---|---|---|
+| `depthg.ckpt`   | 352 639 220 B | `09556e83b791a8177a369c218800d54bc8bfa77a61759840d9758f6211ecab39` |
+| `raft_smurf.pt` |  21 049 890 B | `692f1deece783ae69d058608b18ddeb97096c2505bd4529a1a08b8f5cab20d47` |
+| `README.md`     | provenance + license | — |
+
+Anonymous wget URL pattern:
+
+```
+https://huggingface.co/qbit-glitch/mbps-cups-e1/resolve/main/<filename>
+```
+
+**Not mirrored** (intentionally):
+
+- `cups.ckpt` — the AFTER-Stage-3 final panoptic checkpoint. Using it as a
+  Stage-1 input would be circular.
+- `dino_RN50_pretrain_d2_format.pkl` — only needed for Stage-2 backbone init
+  in CUPS-original. E1 swaps in DINOv3 ViT-B/16 instead.
+
+If a future control experiment needs them, fetch directly from TUdatalib.
+
+## 2. A6000 Stage-1 launch
+
+### 2a. Generic A6000 box
+
+```bash
+export HF_REPO_BASE="https://huggingface.co/qbit-glitch/mbps-cups-e1/resolve/main"
+export CITYSCAPES_ROOT=/data/cityscapes      # must contain leftImg8bit_sequence/, rightImg8bit_sequence/, camera/, gtFine/
+export WORK_DIR=$HOME/mbps_e1
+export GPU_ID=0
+export NUM_SUBSPLITS=2                       # 2 parallel processes share the 48 GB
+
+bash scripts/e1_stage1_pseudolabel_gen_a6000.sh
+```
+
+### 2b. Anydesk box `cvpr_ug_5@gpunode2` (RTX A6000 48 GB, venv `~/umesh/ups_env`)
+
+The venv, CUDA 12.1, and the cloned repo at
+`/home/cvpr_ug_5/umesh/unsupervised_panoptic_segmentation` already exist,
+so we skip the conda/pip steps and just feed env vars into the launcher.
+
+Open the Anydesk terminal and paste:
+
+```bash
+# 1. Pull the new E1 launcher + verifier into the existing repo clone.
+cd /home/cvpr_ug_5/umesh/unsupervised_panoptic_segmentation
+git fetch origin implement-dora-adapters && git checkout implement-dora-adapters && git pull --ff-only
+
+# 2. Activate the existing venv and load the toolchain raft_smurf/sf2se3 need.
+module load gcc-9.3.0
+source ~/umesh/ups_env/bin/activate
+export PATH=$HOME/cuda-12.1/bin:$PATH
+export LD_LIBRARY_PATH=$HOME/cuda-12.1/lib64:$LD_LIBRARY_PATH
+export CUDA_HOME=$HOME/cuda-12.1
+
+# 3. Launch (resume-friendly — safe to re-run).
+export HF_REPO_BASE="https://huggingface.co/qbit-glitch/mbps-cups-e1/resolve/main"
+export CITYSCAPES_ROOT=/home/cvpr_ug_5/umesh/datasets/cityscapes
+export WORK_DIR=/home/cvpr_ug_5/umesh
+export OUTPUT_DIR=/home/cvpr_ug_5/umesh/cups_pseudo_labels_e1
+export REPO_BRANCH=implement-dora-adapters
+export GPU_ID=0
+export NUM_SUBSPLITS=2
+export NUM_WORKERS=6
+export SKIP_DEPS=1                # venv already has PyTorch 2.5.1+cu121
+export PYTHON_BIN="$(which python)"
+
+# 4. Detach so it survives Anydesk session timeouts.
+nohup bash scripts/e1_stage1_pseudolabel_gen_a6000.sh \
+    > /home/cvpr_ug_5/umesh/e1_stage1.out 2>&1 &
+echo "PID=$!"
+```
+
+Then monitor with:
+
+```bash
+tail -f /home/cvpr_ug_5/umesh/e1_stage1.out
+nvidia-smi  # confirm both processes are on GPU 0 with healthy memory
+```
+
+> If the venv doesn't actually have CUPS deps (kornia, pykeops, opencv,
+> open3d, etc.), drop `SKIP_DEPS=1` for the first run so the launcher pulls
+> them via `pip install -r refs/cups/requirements.txt`.
+
+### 2c. Wall-clock + resume notes
+
+Wall-clock estimate on a single A6000: **~6–8 h** for 2975 train images
+(was ~10 h ETA on 1080 Ti before the OOMs).
+
+The launcher is resume-friendly. Re-running skips already-downloaded
+checkpoints and any image whose `*_semantic.png` + `*_instance.png` pair
+already exists in `OUTPUT_DIR`.
+
+## 3. What this script enforces (and why)
+
+These were the four failure modes from our prior 1080 Ti run; the script
+either fixes them upfront or gates on them post-run.
+
+| Issue | How it manifested | Fix in this run |
+|---|---|---|
+| 11 GB VRAM ceiling | `CUDA out of memory. Tried to allocate 2.41 GiB` in SF2SE3 | Pre-flight checks reject GPUs <16 GB; A6000 has 48 GB. |
+| 84.5% empty instance maps | OOM caught silently, instance map = all-zeros, downstream PQ_things=0% | `e1_verify_pseudolabels.py` requires `<=1%` empty instances. |
+| 461 non-empty training samples (vs 2975) | Same root cause | Verifier requires `>=2975` matched pairs. |
+| 3 config drifts vs CUPS-original | `MAX_NUM_PASTED_OBJECTS=3`, `NUM_STEPS_STARTUP=500`, `IGNORE_UNKNOWN_THING_REGIONS=True` | Launcher writes `config_pseudo_labels_e1.yaml` with CUPS defaults `8`, `1000`, `False`. |
+
+## 4. Stage-2 hand-off (separate, after Stage-1 PASSES verify)
+
+Stage-2 has a known bug in the training-time dataloader that is unrelated
+to Stage-1 generation but blocks training:
+
+**Bug**: `refs/cups/cups/data/pseudo_label_dataset.py` lines 355–382 apply
+`scale_factor=self.ground_truth_scale` (=0.625) to labels that are already
+generated at `640×1280`. The result is `400×800`, then `CenterCrop(640,1280)`
+fails because the input is smaller than the crop.
+
+**Fix** (apply once before launching Stage-2):
+
+```python
+# In refs/cups/cups/data/pseudo_label_dataset.py, replace each F.interpolate
+# call that uses scale_factor=self.ground_truth_scale with an explicit size
+# matching the labels' native resolution, e.g.:
+#   F.interpolate(label[None, None].float(), size=(target_h, target_w), mode="nearest")
+```
+
+After patching, launch Stage-2:
+
+```bash
+python refs/cups/train.py \
+    --config refs/cups/configs/train_cityscapes_dinov3_vitb_cups_official_1gpu.yaml \
+    DATA.ROOT_PSEUDO $WORK_DIR/cups_pseudo_labels_e1 \
+    DATA.ROOT $CITYSCAPES_ROOT
+```
+
+then Stage-3 self-training using the matching `train_self_*` config.
+
+## 5. Decision matrix (NeurIPS Limitation #1 in the paper)
+
+After Stage-3 reports PQ on Cityscapes val:
+
+| CUPS+DINOv3 (E1) PQ | Interpretation | Paper action |
+|---|---|---|
+| **>33 PQ** | Backbone alone explains most of the 35.83 vs 27.80 gap | Pivot to analysis paper, reframe contributions around backbone scaling |
+| **30–33 PQ** | Backbone explains ~half; pseudo-label source genuinely contributes | Reframe contributions; keep DCFA + SIMCF-ABC as the "what we add on top" story |
+| **<30 PQ** | Our pseudo-labels are the dominant lever | Strengthen method claims; this is the strongest outcome for the current title |
+
+Our final number (35.83 PQ on Cityscapes val) becomes meaningful only
+relative to this E1 baseline.
