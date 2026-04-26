@@ -44,54 +44,94 @@ export NUM_SUBSPLITS=2                       # 2 parallel processes share the 48
 bash scripts/e1_stage1_pseudolabel_gen_a6000.sh
 ```
 
-### 2b. Anydesk box `cvpr_ug_5@gpunode2` (RTX A6000 48 GB, venv `~/umesh/ups_env`)
+### 2b. Air-gapped `gpunode2` (RTX A6000 48 GB, NO internet) + master login node (internet, no GPU)
 
-The venv, CUDA 12.1, and the cloned repo at
-`/home/cvpr_ug_5/umesh/unsupervised_panoptic_segmentation` already exist,
-so we skip the conda/pip steps and just feed env vars into the launcher.
+This is the cluster topology in use: gpunode2 has the A6000 but no
+external network; the master/login node has internet but no GPU. We
+two-step it: master *stages* (downloads HF assets + git pulls), then
+gpunode runs the offline launcher. This works as long as `/home` is
+mounted on both nodes (typical NFS layout). For non-shared FS, see § 3.
 
-Open the Anydesk terminal and paste:
+#### Step 1 — master node (internet, no GPU)
 
 ```bash
-# 1. Pull the new E1 launcher + verifier into the existing repo clone.
-cd /home/cvpr_ug_5/umesh/unsupervised_panoptic_segmentation
-git fetch origin implement-dora-adapters && git checkout implement-dora-adapters && git pull --ff-only
+# Anything with /home/cvpr_ug_5 mounted will do.
+cd /home/cvpr_ug_5/umesh
+# Get the stager onto the box. If the repo is already cloned anywhere on
+# shared FS, just `git pull` there; otherwise the stager will clone for you.
+REPO_ROOT=/home/cvpr_ug_5/umesh/unsupervised_panoptic_segmentation \
+bash /home/cvpr_ug_5/umesh/unsupervised_panoptic_segmentation/scripts/e1_master_stage_assets.sh
+```
 
-# 2. Activate the existing venv and load the toolchain raft_smurf/sf2se3 need.
+If the repo isn't on the box yet, prime it once (one-shot, master node only):
+
+```bash
+git clone -b implement-dora-adapters \
+    https://github.com/qbit-glitch/unsupervised_panoptic_segmentation.git \
+    /home/cvpr_ug_5/umesh/unsupervised_panoptic_segmentation
+```
+
+Stager output ends with the exact paste-block for the GPU node, with the
+right `REPO_ROOT`, `SKIP_GIT=1`, `SKIP_DOWNLOAD=1` already filled in.
+
+#### Step 2 — Anydesk into `gpunode2` (offline)
+
+The stager prints these commands; copy them verbatim:
+
+```bash
+cd /home/cvpr_ug_5/umesh/unsupervised_panoptic_segmentation
 module load gcc-9.3.0
 source ~/umesh/ups_env/bin/activate
 export PATH=$HOME/cuda-12.1/bin:$PATH
 export LD_LIBRARY_PATH=$HOME/cuda-12.1/lib64:$LD_LIBRARY_PATH
 export CUDA_HOME=$HOME/cuda-12.1
 
-# 3. Launch (resume-friendly — safe to re-run).
-export HF_REPO_BASE="https://huggingface.co/qbit-glitch/mbps-cups-e1/resolve/main"
+export REPO_ROOT=/home/cvpr_ug_5/umesh/unsupervised_panoptic_segmentation
 export CITYSCAPES_ROOT=/home/cvpr_ug_5/umesh/datasets/cityscapes
 export WORK_DIR=/home/cvpr_ug_5/umesh
 export OUTPUT_DIR=/home/cvpr_ug_5/umesh/cups_pseudo_labels_e1
-export REPO_BRANCH=implement-dora-adapters
 export GPU_ID=0
 export NUM_SUBSPLITS=2
 export NUM_WORKERS=6
-export SKIP_DEPS=1                # venv already has PyTorch 2.5.1+cu121
+export SKIP_DEPS=1
+export SKIP_GIT=1
+export SKIP_DOWNLOAD=1
 export PYTHON_BIN="$(which python)"
 
-# 4. Detach so it survives Anydesk session timeouts.
 nohup bash scripts/e1_stage1_pseudolabel_gen_a6000.sh \
     > /home/cvpr_ug_5/umesh/e1_stage1.out 2>&1 &
 echo "PID=$!"
 ```
 
-Then monitor with:
+Monitor:
 
 ```bash
 tail -f /home/cvpr_ug_5/umesh/e1_stage1.out
-nvidia-smi  # confirm both processes are on GPU 0 with healthy memory
+nvidia-smi   # both processes on GPU 0
 ```
 
-> If the venv doesn't actually have CUPS deps (kornia, pykeops, opencv,
-> open3d, etc.), drop `SKIP_DEPS=1` for the first run so the launcher pulls
-> them via `pip install -r refs/cups/requirements.txt`.
+> If the venv lacks CUPS deps (kornia, pykeops, opencv, open3d, etc.),
+> drop `SKIP_DEPS=1` on the first attempt — the launcher will
+> `pip install -r refs/cups/requirements.txt` against the venv, and that
+> step does need internet, so do it on a node that has it (or use
+> `pip download` from master and `pip install --no-index`).
+
+## 3. Plan B — `/home` is NOT shared between master and gpunode
+
+Stage on master to a local path, then rsync over the cluster's internal
+network to the GPU node:
+
+```bash
+# On master:
+LOCAL_STAGE=/scratch/$USER/e1_stage REPO_ROOT=$LOCAL_STAGE/unsupervised_panoptic_segmentation \
+    bash scripts/e1_master_stage_assets.sh
+rsync -avh --progress $LOCAL_STAGE/unsupervised_panoptic_segmentation/ \
+    gpunode2:/home/cvpr_ug_5/umesh/unsupervised_panoptic_segmentation/
+```
+
+The rsync transfers the freshly-staged repo (≈600 MB with the two HF
+checkpoints) over the cluster LAN — usually a few seconds. After that,
+gpunode2 commands are unchanged.
 
 ### 2c. Wall-clock + resume notes
 

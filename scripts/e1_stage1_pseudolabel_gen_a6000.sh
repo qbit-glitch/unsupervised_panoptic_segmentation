@@ -43,6 +43,8 @@ SEED="${SEED:-42}"
 GPU_ID="${GPU_ID:-0}"
 CONDA_ENV="${CONDA_ENV:-cups_e1}"
 SKIP_DEPS="${SKIP_DEPS:-0}"
+SKIP_GIT="${SKIP_GIT:-0}"      # set 1 on air-gapped GPU nodes (master has already pulled)
+SKIP_DOWNLOAD="${SKIP_DOWNLOAD:-0}"  # set 1 on air-gapped GPU nodes (master has already staged)
 
 OUTPUT_DIR="${OUTPUT_DIR:-$WORK_DIR/cups_pseudo_labels_e1}"
 LOG_DIR="${LOG_DIR:-$WORK_DIR/logs}"
@@ -101,17 +103,22 @@ if (( DISK_FREE_GB < 30 )); then
 fi
 
 # ---------------------------------------------------------------------------
-# 3. Clone repo + reset to known branch
+# 3. Clone repo + reset to known branch (skipped on offline GPU node)
 # ---------------------------------------------------------------------------
-REPO_ROOT="$WORK_DIR/unsupervised_panoptic_segmentation"
-if [[ ! -d "$REPO_ROOT/.git" ]]; then
-    log "Cloning $REPO_URL (branch=$REPO_BRANCH) into $REPO_ROOT ..."
-    git clone -b "$REPO_BRANCH" "$REPO_URL" "$REPO_ROOT"
+REPO_ROOT="${REPO_ROOT:-$WORK_DIR/unsupervised_panoptic_segmentation}"
+if [[ "$SKIP_GIT" == "1" ]]; then
+    [[ -d "$REPO_ROOT/.git" ]] || { log "ERROR: SKIP_GIT=1 but no repo at $REPO_ROOT — run e1_master_stage_assets.sh on the master node first."; exit 1; }
+    log "SKIP_GIT=1 — using existing repo at $REPO_ROOT"
 else
-    log "Repo already cloned at $REPO_ROOT — fetching latest $REPO_BRANCH"
-    git -C "$REPO_ROOT" fetch origin "$REPO_BRANCH"
-    git -C "$REPO_ROOT" checkout "$REPO_BRANCH"
-    git -C "$REPO_ROOT" pull --ff-only origin "$REPO_BRANCH"
+    if [[ ! -d "$REPO_ROOT/.git" ]]; then
+        log "Cloning $REPO_URL (branch=$REPO_BRANCH) into $REPO_ROOT ..."
+        git clone -b "$REPO_BRANCH" "$REPO_URL" "$REPO_ROOT"
+    else
+        log "Repo already cloned at $REPO_ROOT — fetching latest $REPO_BRANCH"
+        git -C "$REPO_ROOT" fetch origin "$REPO_BRANCH"
+        git -C "$REPO_ROOT" checkout "$REPO_BRANCH"
+        git -C "$REPO_ROOT" pull --ff-only origin "$REPO_BRANCH"
+    fi
 fi
 COMMIT="$(git -C "$REPO_ROOT" rev-parse --short HEAD)"
 log "Repo at commit $COMMIT"
@@ -157,14 +164,18 @@ fetch_if_missing() {
         log "[skip] $label already at $dest ($(du -h "$dest" | cut -f1))"
         return 0
     fi
+    if [[ "$SKIP_DOWNLOAD" == "1" ]]; then
+        log "ERROR: SKIP_DOWNLOAD=1 but $label is missing at $dest. Stage on master first."
+        return 2
+    fi
     log "[fetch] $label  <-  $url"
     wget -q --show-progress -O "$dest.partial" "$url"
     mv "$dest.partial" "$dest"
     log "[done]  $label  ($(du -h "$dest" | cut -f1))"
 }
 
-fetch_if_missing "$HF_REPO_BASE/depthg.ckpt"      "$WEIGHTS_DIR/depthg.ckpt"        "depthg.ckpt"
-fetch_if_missing "$HF_REPO_BASE/raft_smurf.pt"    "$SMURF_DIR/raft_smurf.pt"        "raft_smurf.pt"
+fetch_if_missing "$HF_REPO_BASE/depthg.ckpt"      "$WEIGHTS_DIR/depthg.ckpt"        "depthg.ckpt"   || exit $?
+fetch_if_missing "$HF_REPO_BASE/raft_smurf.pt"    "$SMURF_DIR/raft_smurf.pt"        "raft_smurf.pt" || exit $?
 
 # ---------------------------------------------------------------------------
 # 6. Patch the 3 config drifts CUPS-original vs our prior run
