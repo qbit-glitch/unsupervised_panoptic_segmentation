@@ -23,6 +23,18 @@
 #
 # Resume-friendly: re-running with a partial archive resumes the download
 # (wget -c). Already-extracted folders are detected and skipped.
+#
+# To delete the .zip immediately after a successful extract (saves ~half
+# the disk for the huge sequence packages):
+#   DELETE_ZIPS=1 bash scripts/e1_download_cityscapes.sh 4 8 14 15
+#
+# WARNING — leftImg8bit_sequence "stubs": if your existing
+# leftImg8bit_sequence/train/<city>/ only contains files with frame index
+# 000019 (the labeled frame), the full sequence package was never
+# extracted there. The downloader detects an existing directory and would
+# skip pkg 14, so DELETE the stub first:
+#   rm -rf $CITYSCAPES_ROOT/leftImg8bit_sequence
+# then run with packageID=14.
 
 set -euo pipefail
 
@@ -93,7 +105,12 @@ for pid in "$@"; do
 
     echo "[cs] extracting $name -> $CITYSCAPES_ROOT ..."
     ( cd "$CITYSCAPES_ROOT" && unzip -q -o "$zip" )
-    echo "[cs] [done] $name extracted; archive kept at $zip (rm to free disk)."
+    if [[ "${DELETE_ZIPS:-0}" == "1" ]]; then
+        echo "[cs] [done] $name extracted; deleting $zip to free disk."
+        rm -f "$zip"
+    else
+        echo "[cs] [done] $name extracted; archive kept at $zip (set DELETE_ZIPS=1 to auto-rm)."
+    fi
 done
 
 echo "[cs] all requested packages processed. Re-run e1_check_cityscapes.sh to verify."
