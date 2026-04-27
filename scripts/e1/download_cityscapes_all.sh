@@ -16,10 +16,19 @@
 #                                       --------
 #                                       ~260 GB total on disk
 #
-# By default this script symlinks the three packages already on /home
-# (left, leftImg8bit_sequence, gtFine) into /Data1/cityscapes/ rather than
-# re-downloading them — saves ~120 GB / ~6 h of bandwidth. Override with
-# FRESH=1 to ignore /home entirely.
+# By DEFAULT this script downloads ALL six packages fresh into
+# $CITYSCAPES_ROOT — no symlinks, no skipped packages. Rationale: /Data1
+# is presumed to be a fast local volume, while /home on this HPC node
+# is typically NFS-mounted; symlinking the 119 GB leftImg8bit_sequence
+# from /home would force every CUPS pseudo-label read to hit NFS and
+# slow the multi-hour Stage-1 run substantially. Local /Data1 reads
+# avoid that bottleneck. With 1.8 TB free there is no reason to skip
+# anything.
+#
+# Set USE_HOME_SYMLINKS=1 to opt back into the symlink optimisation if
+# you specifically want to save the ~120 GB of left/seq/gtFine
+# bandwidth and you know /Data1 and /home share the same physical
+# volume (or NFS performance is acceptable for your run).
 #
 # ============================================================================
 # REQUIRED ENV VARS (export before invocation; never paste on command line)
@@ -31,43 +40,34 @@
 # OPTIONAL ENV VARS
 # ============================================================================
 #   CITYSCAPES_ROOT       — destination root. Default: /Data1/cityscapes
-#   EXISTING_CITYSCAPES   — source for /home symlinks. Default:
+#   USE_HOME_SYMLINKS     — 1 ⇒ symlink left/leftImg8bit_sequence/gtFine
+#                           from $EXISTING_CITYSCAPES instead of
+#                           downloading them. Default: 0 (full fresh
+#                           download on /Data1).
+#   EXISTING_CITYSCAPES   — source for /home symlinks (only used if
+#                           USE_HOME_SYMLINKS=1). Default:
 #                           /home/cvpr_ug_5/umesh/datasets/cityscapes
-#   FRESH                 — 1 ⇒ skip the symlink stage, force fresh download
-#                           of every package. Default: 0.
-#   DELETE_ZIPS           — 1 ⇒ delete each .zip after successful extract.
-#                           Default: 1.
-#   LIGHT                 — 1 ⇒ skip pkg 15 (rightImg8bit_sequence, 119 GB).
-#                           CUPS Stage-1 will then run with reduced flow
-#                           quality on the right camera; emergency fallback
-#                           only if /Data1 fills up. Default: 0.
-#   PACKAGES              — explicit space-separated pkg-ID list (overrides
-#                           the default "1 3 4 8 14 15" computed below).
+#   DELETE_ZIPS           — 1 ⇒ delete each .zip after successful
+#                           extract. Default: 1.
+#   PACKAGES              — explicit space-separated pkg-ID list
+#                           (overrides the default "1 3 4 8 14 15").
 #
 # ============================================================================
 # USAGE
 # ============================================================================
 #
-# Standard run on the A6000 (uses /home symlinks for left/seq/gtFine,
-# downloads right/right_seq/camera onto /Data1):
+# Standard run on the A6000 — full fresh download, all 6 packages on /Data1:
 #
 #   export CITYSCAPES_USER='your_login'
 #   export CITYSCAPES_PASS='your_password'
-#   bash scripts/e1/download_cityscapes_all.sh
-#
-# Long-running ⇒ background it:
-#
 #   nohup bash scripts/e1/download_cityscapes_all.sh \
 #       > /Data1/e1_cityscapes_download.log 2>&1 &
 #   echo $! > /Data1/e1_cityscapes_download.pid
+#   tail -f /Data1/e1_cityscapes_download.log
 #
-# Force fresh re-download of everything onto /Data1:
+# Save bandwidth by symlinking left/leftImg8bit_sequence/gtFine from /home:
 #
-#   FRESH=1 bash scripts/e1/download_cityscapes_all.sh
-#
-# Emergency: skip the giant right-sequence package:
-#
-#   LIGHT=1 bash scripts/e1/download_cityscapes_all.sh
+#   USE_HOME_SYMLINKS=1 bash scripts/e1/download_cityscapes_all.sh
 #
 set -uo pipefail
 
@@ -79,9 +79,8 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 CITYSCAPES_ROOT="${CITYSCAPES_ROOT:-/Data1/cityscapes}"
 EXISTING_CITYSCAPES="${EXISTING_CITYSCAPES:-/home/cvpr_ug_5/umesh/datasets/cityscapes}"
-FRESH="${FRESH:-0}"
+USE_HOME_SYMLINKS="${USE_HOME_SYMLINKS:-0}"
 DELETE_ZIPS="${DELETE_ZIPS:-1}"
-LIGHT="${LIGHT:-0}"
 
 GRN=$'\033[32m'; YLW=$'\033[33m'; RED=$'\033[31m'; CYN=$'\033[36m'; RST=$'\033[0m'
 log()  { echo "${CYN}[cs-all $(date +%H:%M:%S)]${RST} $*"; }
@@ -89,23 +88,17 @@ ok()   { echo "  ${GRN}OK${RST}  $*"; }
 warn() { echo "  ${YLW}!!${RST}  $*"; }
 err()  { echo "  ${RED}--${RST}  $*" >&2; }
 
-# Build default package list
-if [ -z "${PACKAGES:-}" ]; then
-    if [ "$LIGHT" = "1" ]; then
-        PACKAGES="1 3 4 8 14"   # everything but rightImg8bit_sequence
-    else
-        PACKAGES="1 3 4 8 14 15"
-    fi
-fi
+# Always download all six packages by default (full Cityscapes Stereo+Video
+# set required by CUPS Stage-1).
+PACKAGES="${PACKAGES:-1 3 4 8 14 15}"
 
 log "================================================================"
 log "E1 Cityscapes complete-download wrapper"
 log "  CITYSCAPES_ROOT     = $CITYSCAPES_ROOT"
-log "  EXISTING_CITYSCAPES = $EXISTING_CITYSCAPES"
 log "  PACKAGES            = $PACKAGES"
-log "  FRESH               = $FRESH"
+log "  USE_HOME_SYMLINKS   = $USE_HOME_SYMLINKS"
+[ "$USE_HOME_SYMLINKS" = "1" ] && log "  EXISTING_CITYSCAPES = $EXISTING_CITYSCAPES"
 log "  DELETE_ZIPS         = $DELETE_ZIPS"
-log "  LIGHT               = $LIGHT"
 log "================================================================"
 
 # ---------------------------------------------------------------------------
@@ -127,30 +120,30 @@ done
 
 mkdir -p "$CITYSCAPES_ROOT"
 
-# Disk-space sanity. /Data1 needs ~280 GB free for full set + zips, ~160 GB
-# free if DELETE_ZIPS=1 (zips are removed as we go).
+# Disk-space sanity. Full unpacked set is ~260 GB. With DELETE_ZIPS=1 the
+# peak headroom we need on top of the unpacked tree is the size of the
+# largest single zip (~119 GB for leftImg8bit_sequence). Recommend ≥350 GB
+# free as a comfortable working margin.
 DEST_FREE_GB=$(df -BG "$CITYSCAPES_ROOT" 2>/dev/null | awk 'NR==2 {gsub(/G/,"",$4); print $4}')
 log "Free disk in $CITYSCAPES_ROOT: ${DEST_FREE_GB:-unknown} GB"
 if [ -n "${DEST_FREE_GB:-}" ]; then
-    NEED=160
-    [ "$DELETE_ZIPS" = "1" ] || NEED=280
-    [ "$LIGHT" = "1" ] && NEED=$((NEED - 119))
-    [ "$FRESH" = "1" ] || NEED=$((NEED - 120))   # symlinks save ~120 GB
+    NEED=350
+    [ "$DELETE_ZIPS" = "1" ] || NEED=520
+    [ "$USE_HOME_SYMLINKS" = "1" ] && NEED=$((NEED - 130))   # symlinks save ~130 GB
     if (( DEST_FREE_GB < NEED )); then
         warn "free space (${DEST_FREE_GB} GB) is below the recommended ${NEED} GB."
-        warn "set LIGHT=1 to skip rightImg8bit_sequence, or DELETE_ZIPS=1 (already on)."
+        warn "set USE_HOME_SYMLINKS=1 to reuse left/seq/gtFine from /home,"
+        warn "or set PACKAGES='1 3 4 8 14' to skip rightImg8bit_sequence (~119 GB)."
     fi
 fi
 
 # ---------------------------------------------------------------------------
-# 2. Symlink existing /home packages (unless FRESH=1)
+# 2. Optional: symlink existing /home packages (off by default)
 # ---------------------------------------------------------------------------
-if [ "$FRESH" = "1" ]; then
-    log "FRESH=1 — skipping symlink stage; will re-download every package."
-else
-    log "Stage 1/3 — symlinking existing /home packages into $CITYSCAPES_ROOT ..."
+if [ "$USE_HOME_SYMLINKS" = "1" ]; then
+    log "Stage 1/3 — USE_HOME_SYMLINKS=1, symlinking existing /home packages ..."
     if [ ! -d "$EXISTING_CITYSCAPES" ]; then
-        warn "EXISTING_CITYSCAPES=$EXISTING_CITYSCAPES not present — skipping symlink stage."
+        warn "EXISTING_CITYSCAPES=$EXISTING_CITYSCAPES not present — falling through to full download."
     else
         for sub in leftImg8bit leftImg8bit_sequence gtFine; do
             src="$EXISTING_CITYSCAPES/$sub"
@@ -167,13 +160,15 @@ else
                 warn "$dst points elsewhere — replacing"
                 rm "$dst"
             elif [ -d "$dst" ]; then
-                warn "$dst is a real directory — leaving it. Set FRESH=1 to override."
+                warn "$dst is a real directory — leaving it. Remove first to re-link."
                 continue
             fi
             ln -s "$src" "$dst"
             ok "$sub linked  ($dst -> $src)"
         done
     fi
+else
+    log "Stage 1/3 — full fresh download (USE_HOME_SYMLINKS=0). All 6 packages will land on $CITYSCAPES_ROOT."
 fi
 echo
 

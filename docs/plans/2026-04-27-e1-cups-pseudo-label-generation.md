@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Regenerate the full CUPS pseudo-label set (semantic + instance) for Cityscapes on the RTX A6000 48 GB machine, using the upstream CUPS pipeline at `refs/cups/cups/pseudo_labels/gen_pseudo_labels.py`. New downloads land on the **/Data1** drive (1.8 TB free); existing left/seq/gtFine on `/home` are symlinked into the unified root.
+**Goal:** Regenerate the full CUPS pseudo-label set (semantic + instance) for Cityscapes on the RTX A6000 48 GB machine, using the upstream CUPS pipeline at `refs/cups/cups/pseudo_labels/gen_pseudo_labels.py`. All 6 Cityscapes packages (~260 GB unpacked) and the pseudo-label outputs live on the **/Data1** drive (1.8 TB free) — keeping every read off NFS so the multi-hour Stage-1 run stays I/O-fast.
 
 **Architecture:** Two-pass per-image pipeline:
 

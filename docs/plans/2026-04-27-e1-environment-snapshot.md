@@ -27,16 +27,18 @@ Captured from `scripts/e1/discover_a6000_environment.sh` run.
 
 CUPS Stage-1 (`CityscapesStereoVideo`) needs **6** packages:
 
-| Package | pkgID | Status | Action |
+| Package | pkgID | Status (on /home) | Action (default) |
 |---|---|---|---|
-| `leftImg8bit/{train,val,test}` | 3 | ✅ present (2975/500/1525) | symlink into `/Data1/cityscapes/` |
-| `leftImg8bit_sequence/{train,val,test}` | 14 | ✅ present (2975/500/1525) | symlink — but **verify per-image frame count** (warning in `e1_download_cityscapes.sh` re: 30-frame vs 1-frame stubs) |
-| `gtFine/{train,val,test}` | 1 | ✅ present (11 900/2000/6100) | symlink into `/Data1/cityscapes/` |
-| `rightImg8bit/{train,val,test}` | 4 | ❌ **MISSING** | download to `/Data1/cityscapes/rightImg8bit/` (~11 GB) |
-| `rightImg8bit_sequence/{train,val,test}` | 15 | ❌ **MISSING** | download to `/Data1/cityscapes/rightImg8bit_sequence/` (~324 GB) |
-| `camera/{train,val,test}` | 8 | ❌ **MISSING** | download to `/Data1/cityscapes/camera/` (~2 MB) |
+| `leftImg8bit/{train,val,test}` | 3 | ✅ present (2975/500/1525) | download fresh to `/Data1/cityscapes/` (~11 GB) |
+| `leftImg8bit_sequence/{train,val,test}` | 14 | ✅ present (2975/500/1525) | download fresh to `/Data1/cityscapes/` (~119 GB) |
+| `gtFine/{train,val,test}` | 1 | ✅ present (11 900/2000/6100) | download fresh to `/Data1/cityscapes/` (~0.25 GB) |
+| `rightImg8bit/{train,val,test}` | 4 | ❌ MISSING | download to `/Data1/cityscapes/` (~11 GB) |
+| `rightImg8bit_sequence/{train,val,test}` | 15 | ❌ MISSING | download to `/Data1/cityscapes/` (~119 GB) |
+| `camera/{train,val,test}` | 8 | ❌ MISSING | download to `/Data1/cityscapes/` (~2 MB) |
 
-Total missing download: **~335 GB**. Comfortable on `/Data1` (1.8 TB free).
+Total fresh download: **~260 GB unpacked**. Comfortable on `/Data1` (1.8 TB free).
+
+**Default = full fresh download** (no symlinks): `/home` is presumed to be NFS on this HPC node, so symlinking the 119 GB `leftImg8bit_sequence` would force every CUPS pseudo-label read to traverse NFS during the multi-hour Stage-1 run. Local `/Data1` reads avoid that bottleneck. The symlink optimisation is opt-in via `USE_HOME_SYMLINKS=1`.
 
 ## Existing CUPS asset state
 
@@ -53,7 +55,7 @@ Total missing download: **~335 GB**. Comfortable on `/Data1` (1.8 TB free).
 ```bash
 export A6000_HOST="cvpr_ug_5@gpunode2"   # or login node `master` if SSH alias resolves there
 export REPO_ROOT="/home/cvpr_ug_5/umesh/unsupervised_panoptic_segmentation"
-export CITYSCAPES_ROOT="/Data1/cityscapes"   # after layout setup; existing left/seq/gtFine symlinked in
+export CITYSCAPES_ROOT="/Data1/cityscapes"   # full fresh download by default
 export WORK_DIR="/Data1"                      # pseudo-labels + temp on Data1
 export OUTPUT_DIR="/Data1/cups_pseudo_labels_e1"
 export VENV_ACTIVATE="$HOME/umesh/ups_env/bin/activate"   # NOT a conda env
@@ -66,7 +68,7 @@ export NUM_WORKERS=6
 
 ## Decisions taken (auto mode, can be overridden)
 
-1. **Cityscapes layout = symlink-existing + download-missing-on-Data1.** Saves ~120 GB I/O versus a full move. New canonical root: `/Data1/cityscapes/`.
+1. **Cityscapes layout = full fresh download onto /Data1.** All 6 packages (~260 GB unpacked) downloaded into `/Data1/cityscapes/`. No symlinks to `/home` (NFS read bottleneck would slow CUPS Stage-1 substantially). Single canonical root: `/Data1/cityscapes/`. Symlink optimisation is opt-in via `USE_HOME_SYMLINKS=1` if your `/home` and `/Data1` share the same physical volume.
 2. **Reuse the existing `scripts/e1_*.sh` toolchain** (master_stage_assets, stage1_pseudolabel_gen, check_cityscapes, download_cityscapes, verify_pseudolabels). The new `scripts/e1/` directory holds *only* the discovery script + a small Data1-layout helper.
 3. **Plan revision** (`docs/plans/2026-04-27-e1-cups-pseudo-label-generation.md`) trims duplicate tasks and points at the existing scripts.
 
