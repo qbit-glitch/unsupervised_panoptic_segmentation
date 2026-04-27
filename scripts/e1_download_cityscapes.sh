@@ -72,18 +72,34 @@ mkdir -p "$DL_DIR" "$CITYSCAPES_ROOT"
 
 trap 'rm -f "$COOKIE"' EXIT
 
-echo "[cs] logging in as $CITYSCAPES_USER ..."
-wget --quiet \
-     --keep-session-cookies --save-cookies="$COOKIE" \
-     --post-data="username=${CITYSCAPES_USER}&password=${CITYSCAPES_PASS}&submit=Login" \
-     -O /dev/null \
-     "https://www.cityscapes-dataset.com/login/"
+# Re-login per package. The Cityscapes PHPSESSID expires after ~30-60
+# minutes of inactivity AND on long downloads — so a multi-package run
+# that takes hours will fail on the second+ package with a 302 redirect
+# to /login/ that silently saves the login HTML in place of the .zip.
+# Calling do_login() before every package is cheap (sub-second) and
+# fully eliminates that failure mode.
+do_login() {
+    rm -f "$COOKIE"
+    wget --quiet \
+         --keep-session-cookies --save-cookies="$COOKIE" \
+         --post-data="username=${CITYSCAPES_USER}&password=${CITYSCAPES_PASS}&submit=Login" \
+         -O /dev/null \
+         "https://www.cityscapes-dataset.com/login/"
+    grep -q PHPSESSID "$COOKIE"
+}
 
-if ! grep -q PHPSESSID "$COOKIE"; then
+echo "[cs] initial login as $CITYSCAPES_USER ..."
+if ! do_login; then
     echo "[cs] ERROR: login failed — check CITYSCAPES_USER / CITYSCAPES_PASS." >&2
     exit 2
 fi
 echo "[cs] login ok."
+
+# Smallest legitimate Cityscapes package (camera_trainvaltest) is ~35 KB
+# of HTML when the server redirects us to /login/. The smallest real zip
+# (camera_trainvaltest) is ~2 MB. So any pre-existing zip < 1 MB is
+# certainly a corrupt auth-redirect; nuke it before resume.
+SUSPICIOUS_MIN_BYTES=1000000
 
 for pid in "$@"; do
     name="${PKG_NAMES[$pid]:-}"
@@ -97,11 +113,42 @@ for pid in "$@"; do
         continue
     fi
     zip="$DL_DIR/${name}.zip"
+
+    # Clean up any pre-existing tiny zip that is almost certainly the
+    # login HTML page from a prior cookie-expiry failure. wget -c
+    # would otherwise try to "resume" appending to it — useless.
+    if [[ -f "$zip" ]]; then
+        sz=$(stat -c%s "$zip" 2>/dev/null || stat -f%z "$zip" 2>/dev/null || echo 0)
+        if (( sz < SUSPICIOUS_MIN_BYTES )); then
+            echo "[cs] [cleanup] $zip is only $sz bytes — likely an auth-redirect HTML; deleting before retry."
+            rm -f "$zip"
+        fi
+    fi
+
+    # Re-login before every package so the cookie is fresh.
+    if ! do_login; then
+        echo "[cs] ERROR: re-login failed before $name (pkg=$pid)." >&2
+        exit 2
+    fi
+
     echo "[cs] downloading $name (packageID=$pid) ..."
     wget -c --content-disposition \
          --load-cookies "$COOKIE" \
          -O "$zip" \
          "https://www.cityscapes-dataset.com/file-handling/?packageID=${pid}"
+
+    # Defensive: validate the .zip is a real archive before extracting.
+    # If unzip can't open it, the server returned login HTML again.
+    if ! unzip -tq "$zip" >/dev/null 2>&1; then
+        sz=$(stat -c%s "$zip" 2>/dev/null || stat -f%z "$zip" 2>/dev/null || echo 0)
+        echo "[cs] ERROR: $zip ($sz bytes) failed zip-integrity check." >&2
+        echo "[cs]   first 200 bytes of the saved file:" >&2
+        head -c 200 "$zip" >&2 || true
+        echo >&2
+        echo "[cs]   deleting and aborting; re-run will re-login and retry this package." >&2
+        rm -f "$zip"
+        exit 9
+    fi
 
     echo "[cs] extracting $name -> $CITYSCAPES_ROOT ..."
     ( cd "$CITYSCAPES_ROOT" && unzip -q -o "$zip" )
