@@ -101,6 +101,17 @@ log "  USE_HOME_SYMLINKS   = $USE_HOME_SYMLINKS"
 log "  DELETE_ZIPS         = $DELETE_ZIPS"
 log "================================================================"
 
+# Loud warning if CITYSCAPES_ROOT was overridden away from /Data1.
+case "$CITYSCAPES_ROOT" in
+    /Data1/*) ;;
+    *)
+        warn "CITYSCAPES_ROOT is NOT under /Data1 — was a stale value pre-exported in your shell?"
+        warn "If this is unintended, Ctrl-C now and re-run with:  unset CITYSCAPES_ROOT"
+        warn "Sleeping 8 s to give you a chance to abort ..."
+        sleep 8
+        ;;
+esac
+
 # ---------------------------------------------------------------------------
 # 1. Pre-flight: credentials + tools + disk space
 # ---------------------------------------------------------------------------
