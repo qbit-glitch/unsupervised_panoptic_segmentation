@@ -2,11 +2,15 @@ from __future__ import annotations
 
 import copy
 import logging
-from typing import Any, Dict, List, Set, Tuple
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import math
 
+import numpy as np
+import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.optim
 from detectron2.layers import FrozenBatchNorm2d
 from detectron2.structures import BitMasks, Boxes, Instances
@@ -18,6 +22,7 @@ from cups.augmentation import RandomCrop
 from cups.data.utils import get_bounding_boxes, instances_to_masks
 from cups.model import panoptic_cascade_mask_r_cnn
 from cups.pl_model_pseudo import UnsupervisedModel
+from cups.stage4_utils import resolve_stage4_class_ids
 
 logging.basicConfig(format="%(message)s")
 log = logging.getLogger(__name__)
@@ -83,6 +88,46 @@ class SelfSupervisedModel(UnsupervisedModel):
         self.round: int = 1
         # Mask refiner (classical refinement)
         self.mask_refiner = mask_refiner
+        self.stage4_ids = resolve_stage4_class_ids(
+            config,
+            self.hparams.thing_pseudo_classes,
+            self.hparams.stuff_pseudo_classes,
+        )
+
+        # ── Fine-object SAM supervision (Stage-4 fine-tuning) ──────────────
+        fo_cfg = getattr(config.SELF_TRAINING, "FINE_OBJECT", None)
+        self._fo_enabled: bool = (
+            fo_cfg is not None and getattr(fo_cfg, "ENABLED", False)
+        )
+        self._fo_logits_cache: Dict[str, Any] = {}
+        if self._fo_enabled:
+            from cups.losses.fine_object import FineObjectSemanticLoss
+
+            # Build stuff_channel_map if provided (from extract_cups_class_mapping.py output)
+            raw_stuff_map = getattr(fo_cfg, "STUFF_CHANNEL_MAP", None)
+            stuff_channel_map = dict(raw_stuff_map) if raw_stuff_map else {}
+
+            self._fo_loss = FineObjectSemanticLoss(
+                mode=getattr(fo_cfg, "MODE", "thing_focal_stuff_entropy"),
+                thing_class_idx=int(getattr(fo_cfg, "THING_CLASS_IDX", -1)),
+                stuff_channel_map=stuff_channel_map,
+                focal_gamma=float(getattr(fo_cfg, "FOCAL_GAMMA", 2.0)),
+                use_iou_weighting=bool(getattr(fo_cfg, "USE_IOU_WEIGHTING", True)),
+                min_hard_iou=float(getattr(fo_cfg, "MIN_HARD_IOU", 0.10)),
+            )
+            self._fo_weight = float(getattr(fo_cfg, "WEIGHT", 0.1))
+            self._fo_masks_dir = Path(fo_cfg.SAM_MASKS_DIR)
+            self._fo_min_iou = float(getattr(fo_cfg, "MIN_IOU_SCORE", 0.10))
+            self._fo_max_masks = int(getattr(fo_cfg, "MAX_MASKS_PER_IMAGE", 30))
+            # Hook the sem_seg predictor to capture low-res logits without
+            # modifying the detectron2 model internals.
+            self.model.sem_seg_head.predictor.register_forward_hook(
+                lambda _m, _inp, out: self._fo_logits_cache.update({"logits": out})
+            )
+            log.info(
+                "FineObjectSemanticLoss enabled (mode=%s, weight=%.3f, dir=%s)",
+                fo_cfg.MODE, self._fo_weight, fo_cfg.SAM_MASKS_DIR,
+            )
 
     def forward(self, input: List[Dict[str, Tensor]]) -> List[Dict[str, Any]]:
         """Just wraps the forward pass of the Cascade Panoptic Mask R-CNN.
@@ -110,6 +155,10 @@ class SelfSupervisedModel(UnsupervisedModel):
         if self.storage is None:
             self.storage = EventStorage(0)
             self.storage.__enter__()
+        # Snapshot image names before make_pseudo_labels drops them
+        batch_image_names: List[str] = [
+            sample.get("image_name", "") for sample in batch
+        ]
         # Make pseudo labels
         self.teacher_model.eval()
         with torch.no_grad():
@@ -137,8 +186,30 @@ class SelfSupervisedModel(UnsupervisedModel):
                 if invalid.any():
                     sem[invalid] = 255
                 sample["sem_seg"] = sem
+        # Clear stale logits cache before the student forward pass
+        if self._fo_enabled:
+            self._fo_logits_cache.clear()
+
         # Train using self pseudo labels
         loss_dict = self.model(pseudo_labels)
+
+        # ── Fine-object SAM supervision ──────────────────────────────────
+        if self._fo_enabled:
+            low_logits = self._fo_logits_cache.get("logits")
+            if low_logits is not None:
+                # Upsample predictor output to full resolution
+                common_stride = self.model.sem_seg_head.common_stride
+                full_logits = F.interpolate(
+                    low_logits.float(),
+                    scale_factor=common_stride,
+                    mode="bilinear",
+                    align_corners=False,
+                )
+                sam_masks, sam_ious, sam_cls = self._load_sam_masks(batch_image_names, full_logits.device)
+                fo_loss = self._fo_loss(full_logits, sam_masks, sam_ious, sam_cls, self._fo_min_iou)
+                loss_dict["loss_fine_object"] = fo_loss * self._fo_weight
+                self.log("losses/fine_object", fo_loss, sync_dist=True)
+
         # Compute sum of losses
         loss: Tensor = sum(loss_dict.values())
         # Log final loss
@@ -206,8 +277,22 @@ class SelfSupervisedModel(UnsupervisedModel):
             semantic_segmentation_raw = sample["sem_seg"]
             # Get max class scores
             max_class_scores = semantic_segmentation_raw.amax(dim=(1, 2), keepdim=True)  # type: ignore
-            # Compute class threshold
-            class_threshold = max_class_scores * self.hparams.config.SELF_TRAINING.SEMANTIC_SEGMENTATION_THRESHOLD
+            # Compute class threshold. Stage-4 lowers thresholds only for
+            # resolved rare stuff classes while keeping common classes strict.
+            stage4_cfg = getattr(self.hparams.config, "STAGE4", None)
+            if stage4_cfg is not None and getattr(stage4_cfg, "ENABLED", False):
+                factors = torch.full(
+                    (semantic_segmentation_raw.shape[0], 1, 1),
+                    float(getattr(stage4_cfg, "TAU_COMMON", 0.70)),
+                    device=semantic_segmentation_raw.device,
+                    dtype=semantic_segmentation_raw.dtype,
+                )
+                for rare_cls in self.stage4_ids.rare_stuff_targets:
+                    if 0 <= rare_cls < factors.shape[0]:
+                        factors[rare_cls] = float(getattr(stage4_cfg, "TAU_RARE", 0.25))
+                class_threshold = max_class_scores * factors
+            else:
+                class_threshold = max_class_scores * self.hparams.config.SELF_TRAINING.SEMANTIC_SEGMENTATION_THRESHOLD
             # Make semantic pseudo label
             semantic_segmentation = torch.where(  # type: ignore
                 semantic_segmentation_raw > class_threshold, semantic_segmentation_raw, 0.0  # type: ignore
@@ -258,8 +343,75 @@ class SelfSupervisedModel(UnsupervisedModel):
                 }
             if confidence_weights is not None:
                 sample_dict["confidence_weights"] = confidence_weights
+            if (
+                stage4_cfg is not None
+                and getattr(stage4_cfg, "ENABLED", False)
+                and float(getattr(stage4_cfg, "REPLAY_WEIGHT", 0.0)) > 0.0
+            ):
+                sample_dict["pseudo_onehot"] = semantic_segmentation_raw.detach()
             pseudo_labels.append(sample_dict)
         return pseudo_labels
+
+    def _load_sam_masks(
+        self,
+        image_names: List[str],
+        device: torch.device,
+    ) -> Tuple[
+        List[Optional[torch.Tensor]],
+        List[Optional[torch.Tensor]],
+        List[Optional[torch.Tensor]],
+    ]:
+        """Load pre-computed SAM fine masks for a batch.
+
+        Returns:
+            Tuple of (masks_list, ious_list, class_labels_list).
+            Each entry is ``(N, H, W)`` bool / ``(N,)`` float / ``(N,)`` int64,
+            or ``None`` when no mask file exists for that image.
+        """
+        masks_list: List[Optional[torch.Tensor]] = []
+        ious_list: List[Optional[torch.Tensor]] = []
+        cls_list: List[Optional[torch.Tensor]] = []
+
+        for img_name in image_names:
+            if not img_name:
+                masks_list.append(None); ious_list.append(None); cls_list.append(None)
+                continue
+
+            parts = Path(img_name).parts
+            try:
+                lb_idx = next(i for i, p in enumerate(parts) if p == "leftImg8bit")
+                city = parts[lb_idx + 2]
+                stem = Path(img_name).stem.replace("_leftImg8bit", "")
+                mask_path = self._fo_masks_dir / city / f"{stem}_fine_masks.npz"
+            except (StopIteration, IndexError):
+                masks_list.append(None); ious_list.append(None); cls_list.append(None)
+                continue
+
+            if not mask_path.exists():
+                masks_list.append(None); ious_list.append(None); cls_list.append(None)
+                continue
+
+            data = np.load(str(mask_path))
+            masks_np: np.ndarray = data["masks"]       # (N, H, W) bool
+            ious_np: np.ndarray = data["iou_scores"]   # (N,) float
+            cls_np: np.ndarray = data.get("class_labels", np.full(len(masks_np), -1, dtype=np.int32))
+
+            if masks_np.shape[0] == 0:
+                masks_list.append(None); ious_list.append(None); cls_list.append(None)
+                continue
+
+            # Keep top-K highest-confidence masks to cap memory
+            if masks_np.shape[0] > self._fo_max_masks:
+                top_k = np.argsort(ious_np)[::-1][: self._fo_max_masks]
+                masks_np = masks_np[top_k]
+                ious_np = ious_np[top_k]
+                cls_np = cls_np[top_k]
+
+            masks_list.append(torch.from_numpy(masks_np).to(device))
+            ious_list.append(torch.from_numpy(ious_np.astype(np.float32)).to(device))
+            cls_list.append(torch.from_numpy(cls_np.astype(np.int64)).to(device))
+
+        return masks_list, ious_list, cls_list
 
     def on_train_batch_end(self, outputs: Any, batch: Any, batch_idx: int) -> None:
         """Updates teacher model via EMA (unless disabled for ablation).
@@ -689,7 +841,13 @@ def build_model_self(
         assert config.MODEL.CHECKPOINT is not None, "If thing stuff split is not given checkpoint needs the be given."
     # Load checkpoint if utilized
     if config.MODEL.CHECKPOINT is not None:
-        checkpoint = torch.load(config.MODEL.CHECKPOINT, map_location="cpu", weights_only=False)
+        checkpoint_raw = torch.load(config.MODEL.CHECKPOINT, map_location="cpu", weights_only=False)
+        hp = checkpoint_raw.get("hyper_parameters", {}) if isinstance(checkpoint_raw, dict) else {}
+        if thing_pseudo_classes is None and "thing_pseudo_classes" in hp:
+            thing_pseudo_classes = tuple(hp["thing_pseudo_classes"])
+        if stuff_pseudo_classes is None and "stuff_pseudo_classes" in hp:
+            stuff_pseudo_classes = tuple(hp["stuff_pseudo_classes"])
+        checkpoint = checkpoint_raw
         # Case if we have a lighting checkpoint
         if "state_dict" in checkpoint.keys():
             checkpoint = checkpoint["state_dict"]
@@ -703,6 +861,8 @@ def build_model_self(
     else:
         num_clusters_things = len(thing_pseudo_classes)  # type: ignore
         num_clusters_stuffs = len(stuff_pseudo_classes)  # type: ignore
+    stage4_cfg = getattr(config, "STAGE4", None)
+    stage4_ids = resolve_stage4_class_ids(config, thing_pseudo_classes, stuff_pseudo_classes)
     # Init model — route based on backbone type
     backbone_type = getattr(config.MODEL, "BACKBONE_TYPE", "resnet50")
     if backbone_type == "dinov2_vitb":
@@ -720,6 +880,8 @@ def build_model_self(
             drop_loss_iou_threshold=config.TRAINING.DROP_LOSS_IOU_THRESHOLD,
             use_drop_loss=config.SELF_TRAINING.USE_DROP_LOSS,
             freeze_backbone=getattr(config.MODEL, "DINOV2_FREEZE", True),
+            stage4_cfg=stage4_cfg,
+            stage4_ids=stage4_ids,
         )
     elif backbone_type == "dinov3_vitb":
         from cups.model.model_vitb import panoptic_cascade_mask_r_cnn_dinov3
@@ -738,6 +900,16 @@ def build_model_self(
             drop_loss_iou_threshold=config.TRAINING.DROP_LOSS_IOU_THRESHOLD,
             use_drop_loss=config.SELF_TRAINING.USE_DROP_LOSS,
             freeze_backbone=getattr(config.MODEL, "DINOV2_FREEZE", True),
+            stuff_kd_weight=getattr(config.MODEL.SEM_SEG_HEAD, "STUFF_KD_WEIGHT", 0.0),
+            kd_temperature=getattr(config.MODEL.SEM_SEG_HEAD, "KD_TEMPERATURE", 2.0),
+            sem_seg_head_name=(
+                "DepthFiLMSemSegHead"
+                if getattr(config.MODEL.SEM_SEG_HEAD, "USE_DEPTH_FILM", False)
+                else "CustomSemSegFPNHead"
+            ),
+            depth_channels=getattr(config.MODEL.SEM_SEG_HEAD, "DEPTH_CHANNELS", 15),
+            stage4_cfg=stage4_cfg,
+            stage4_ids=stage4_ids,
         )
         # Load checkpoint BEFORE TTA wrapping
         if config.MODEL.CHECKPOINT is not None:
@@ -775,6 +947,8 @@ def build_model_self(
             tta_scales=config.MODEL.TTA_SCALES,
             default_size=config.DATA.CROP_RESOLUTION,
             drop_loss_iou_threshold=config.TRAINING.DROP_LOSS_IOU_THRESHOLD,
+            stage4_cfg=stage4_cfg,
+            stage4_ids=stage4_ids,
         )
     # Apply checkpoint (skip for dinov3_vitb — already loaded above before TTA wrapping)
     if config.MODEL.CHECKPOINT is not None and backbone_type != "dinov3_vitb":
