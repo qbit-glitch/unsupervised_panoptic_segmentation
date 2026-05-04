@@ -100,6 +100,7 @@ class SelfSupervisedModel(UnsupervisedModel):
             fo_cfg is not None and getattr(fo_cfg, "ENABLED", False)
         )
         self._fo_logits_cache: Dict[str, Any] = {}
+        self._fo_load_labels: Optional[set] = None
         if self._fo_enabled:
             from cups.losses.fine_object import FineObjectSemanticLoss
 
@@ -134,6 +135,8 @@ class SelfSupervisedModel(UnsupervisedModel):
             self._fo_masks_dir = Path(fo_cfg.SAM_MASKS_DIR)
             self._fo_min_iou = float(getattr(fo_cfg, "MIN_IOU_SCORE", 0.10))
             self._fo_max_masks = int(getattr(fo_cfg, "MAX_MASKS_PER_IMAGE", 30))
+            raw_load_labels = getattr(fo_cfg, "LOAD_CLASS_LABELS", ())
+            self._fo_load_labels: Optional[set] = set(raw_load_labels) if raw_load_labels else None
             # Hook student sem_seg predictor to capture logits without touching internals
             self.model.sem_seg_head.predictor.register_forward_hook(
                 lambda _m, _inp, out: self._fo_logits_cache.update({"logits": out})
@@ -571,6 +574,16 @@ class SelfSupervisedModel(UnsupervisedModel):
             if masks_np.shape[0] == 0:
                 masks_list.append(None); ious_list.append(None); cls_list.append(None)
                 continue
+
+            # Optionally filter to a whitelist of SAM3 class labels (e.g. stuff-only).
+            if self._fo_load_labels is not None:
+                keep_cls = np.isin(cls_np, list(self._fo_load_labels))
+                masks_np = masks_np[keep_cls]
+                ious_np = ious_np[keep_cls]
+                cls_np = cls_np[keep_cls]
+                if masks_np.shape[0] == 0:
+                    masks_list.append(None); ious_list.append(None); cls_list.append(None)
+                    continue
 
             # Keep top-K highest-confidence masks to cap memory
             if masks_np.shape[0] > self._fo_max_masks:

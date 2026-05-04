@@ -308,6 +308,10 @@ _C.SELF_TRAINING.FINE_OBJECT.GAMMA_SCALE_FACTOR = 1.0
 # ── Exp 3 (thing_focal_stuff_kd): Incrementer-style KD anchor ────────────
 _C.SELF_TRAINING.FINE_OBJECT.STUFF_KD_LAMBDA = 0.1
 _C.SELF_TRAINING.FINE_OBJECT.STUFF_CHANNEL_START = 1
+# Whitelist of SAM3 class indices to load (empty = load all labels).
+# Set to [5, 13] for stuff-only injection (traffic_light, pole) to prevent
+# thing focal loss from firing on thing-class masks and regressing bicycle/rider.
+_C.SELF_TRAINING.FINE_OBJECT.LOAD_CLASS_LABELS = ()
 
 # Stage-4: Dead-Class Recovery (DCR). Disabled by default.
 _C.STAGE4 = CfgNode()
