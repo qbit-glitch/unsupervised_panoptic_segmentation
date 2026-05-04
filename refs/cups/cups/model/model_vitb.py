@@ -21,6 +21,7 @@ import torch
 import torch.nn as nn
 from detectron2.config import get_cfg
 
+from cups.stage4_utils import Stage4ClassIds, apply_model_long_tail_detectron_cfg, apply_stage4_detectron_cfg
 from cups.model.modeling import PanopticFPNWithTTA
 from cups.model.modeling.meta_arch import build_model
 
@@ -42,6 +43,10 @@ def panoptic_cascade_mask_r_cnn_vitb(
     drop_loss_iou_threshold: float = 0.2,
     freeze_backbone: bool = True,
     dinov2_model_name: str = "dinov2_vitb14_reg",
+    stage4_cfg=None,
+    stage4_ids: Stage4ClassIds | None = None,
+    roi_box_head_cfg=None,
+    sem_seg_head_cfg=None,
 ) -> nn.Module:
     """Build Panoptic Cascade Mask R-CNN with DINOv2 ViT-B/14 + SimpleFeaturePyramid.
 
@@ -94,6 +99,8 @@ def panoptic_cascade_mask_r_cnn_vitb(
     cfg.TEST.INSTANCE_SCORE_THRESH = tta_detection_threshold
     cfg.MODEL.ROI_HEADS.USE_DROPLOSS = use_drop_loss
     cfg.MODEL.ROI_HEADS.DROPLOSS_IOU_THRESH = drop_loss_iou_threshold
+    apply_stage4_detectron_cfg(cfg, stage4_cfg, stage4_ids)
+    apply_model_long_tail_detectron_cfg(cfg, roi_box_head_cfg, sem_seg_head_cfg)
     if use_tta:
         cfg.TEST.AUG.MIN_SIZES = tuple(
             int(default_size[0] * scale) for scale in tta_scales
@@ -161,6 +168,15 @@ def panoptic_cascade_mask_r_cnn_dinov3(
     kd_temperature: float = 2.0,
     sem_seg_head_name: str = "CustomSemSegFPNHead",
     depth_channels: int = 15,
+    stage4_cfg=None,
+    stage4_ids: Stage4ClassIds | None = None,
+    roi_box_head_cfg=None,
+    sem_seg_head_cfg=None,
+    depth_dice_weight: float = 0.0,
+    sam3_mask_adapter: bool = False,
+    sam3_adapter_dim: int = 256,
+    sam3_n_max_masks: int = 20,
+    sam3_masks_dir: str = "",
 ) -> nn.Module:
     """Build Panoptic Cascade Mask R-CNN with DINOv3 ViT-B/16 + SimpleFeaturePyramid.
 
@@ -226,6 +242,15 @@ def panoptic_cascade_mask_r_cnn_dinov3(
     cfg.MODEL.SEM_SEG_HEAD.KD_TEMPERATURE = kd_temperature
     cfg.MODEL.SEM_SEG_HEAD.DEPTH_CHANNELS = depth_channels
     cfg.MODEL.SEM_SEG_HEAD.NAME = sem_seg_head_name
+    # Ablation: depth-aware proposal consistency loss for mask head
+    cfg.MODEL.ROI_MASK_HEAD.DEPTH_DICE_WEIGHT = depth_dice_weight
+    # Ablation 3: SAM3 Mask-Adapter (cross-attention at final cascade stage)
+    cfg.MODEL.ROI_BOX_HEAD.SAM3_MASK_ADAPTER = sam3_mask_adapter
+    cfg.MODEL.ROI_BOX_HEAD.SAM3_ADAPTER_DIM = sam3_adapter_dim
+    cfg.MODEL.ROI_BOX_HEAD.SAM3_N_MAX_MASKS = sam3_n_max_masks
+    cfg.MODEL.ROI_BOX_HEAD.SAM3_MASKS_DIR = sam3_masks_dir
+    apply_stage4_detectron_cfg(cfg, stage4_cfg, stage4_ids)
+    apply_model_long_tail_detectron_cfg(cfg, roi_box_head_cfg, sem_seg_head_cfg)
     cfg.freeze()
 
     # ── Step 2: Build model with ResNet backbone (heads configured correctly) ──
@@ -283,6 +308,10 @@ def panoptic_cascade_mask_r_cnn_dinov3_vitl(
     freeze_backbone: bool = True,
     dinov3_model_name: str = "facebook/dinov3-vitl16",
     lora_config: dict | None = None,
+    stage4_cfg=None,
+    stage4_ids: Stage4ClassIds | None = None,
+    roi_box_head_cfg=None,
+    sem_seg_head_cfg=None,
 ) -> nn.Module:
     """Build Panoptic Cascade Mask R-CNN with DINOv3 ViT-L/16 + SimpleFeaturePyramid.
 
@@ -336,6 +365,8 @@ def panoptic_cascade_mask_r_cnn_dinov3_vitl(
     cfg.TEST.INSTANCE_SCORE_THRESH = tta_detection_threshold
     cfg.MODEL.ROI_HEADS.USE_DROPLOSS = use_drop_loss
     cfg.MODEL.ROI_HEADS.DROPLOSS_IOU_THRESH = drop_loss_iou_threshold
+    apply_stage4_detectron_cfg(cfg, stage4_cfg, stage4_ids)
+    apply_model_long_tail_detectron_cfg(cfg, roi_box_head_cfg, sem_seg_head_cfg)
     if use_tta:
         cfg.TEST.AUG.MIN_SIZES = tuple(
             int(default_size[0] * scale) for scale in tta_scales

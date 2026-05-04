@@ -26,6 +26,7 @@ from detectron2.utils.events import get_event_storage
 from detectron2.utils.registry import Registry
 from torch import nn
 
+from cups.losses.depth_aware_dice import proposal_depth_variance_loss
 from cups.model.structures import pairwise_iou_max_scores
 
 from .fast_rcnn import FastRCNNOutputLayers
@@ -537,6 +538,7 @@ class CustomStandardROIHeads(ROIHeads):
         box2box_transform=Box2BoxTransform,
         use_droploss: bool = False,
         droploss_iou_thresh: float = 1.0,
+        depth_dice_weight: float = 0.0,
         **kwargs,
     ):
         """
@@ -562,6 +564,8 @@ class CustomStandardROIHeads(ROIHeads):
         super().__init__(**kwargs)
         # keep self.in_features for backward compatibility
         self.in_features = self.box_in_features = box_in_features
+        self._depth_maps: Optional[torch.Tensor] = None
+        self.depth_dice_weight = depth_dice_weight
         self.box_pooler = box_pooler
         self.box_head = box_head
         self.box_predictor = box_predictor
@@ -596,6 +600,7 @@ class CustomStandardROIHeads(ROIHeads):
             ret["use_droploss"] = True
             ret["droploss_iou_thresh"] = cfg.MODEL.ROI_HEADS.DROPLOSS_IOU_THRESH
             ret["box2box_transform"] = Box2BoxTransform(weights=cfg.MODEL.ROI_BOX_HEAD.BBOX_REG_WEIGHTS)
+        ret["depth_dice_weight"] = getattr(cfg.MODEL.ROI_MASK_HEAD, "DEPTH_DICE_WEIGHT", 0.0)
         if inspect.ismethod(cls._init_box_head):
             ret.update(cls._init_box_head(cfg, input_shape))
         if inspect.ismethod(cls._init_mask_head):
@@ -830,6 +835,14 @@ class CustomStandardROIHeads(ROIHeads):
             pred_instances, _ = self.box_predictor.inference(predictions, proposals)  # type: ignore
             return pred_instances
 
+    def set_depth_maps(self, depth_maps: Optional[torch.Tensor]) -> None:
+        """Store depth maps for depth-aware proposal consistency loss.
+
+        Called from PanopticFPN.forward before roi_heads() when
+        MODEL.ROI_MASK_HEAD.DEPTH_DICE_WEIGHT > 0.
+        """
+        self._depth_maps = depth_maps
+
     def _forward_mask(self, features: Dict[str, torch.Tensor], instances: List[Instances]):
         """Forward logic of the mask prediction branch.
 
@@ -857,7 +870,17 @@ class CustomStandardROIHeads(ROIHeads):
             features = self.mask_pooler(features, boxes)
         else:
             features = {f: features[f] for f in self.mask_in_features}  # type: ignore
-        return self.mask_head(features, instances)  # type: ignore
+        losses = self.mask_head(features, instances)  # type: ignore
+
+        # Depth-aware proposal consistency auxiliary loss (disabled when weight=0)
+        if self.training and self.depth_dice_weight > 0.0 and self._depth_maps is not None:
+            depth_loss = proposal_depth_variance_loss(
+                instances, self._depth_maps, weight=self.depth_dice_weight
+            )
+            if depth_loss is not None:
+                losses["loss_mask_depth"] = depth_loss
+
+        return losses
 
     def _forward_keypoint(self, features: Dict[str, torch.Tensor], instances: List[Instances]):
         """Forward logic of the keypoint prediction branch.

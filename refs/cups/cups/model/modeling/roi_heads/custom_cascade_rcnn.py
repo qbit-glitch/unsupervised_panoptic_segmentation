@@ -1,7 +1,7 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 # Modified by XuDong Wang from https://github.com/facebookresearch/detectron2/blob/main/detectron2/modeling/roi_heads/cascade_rcnn.py
 
-from typing import List
+from typing import List, Optional
 
 import torch
 import torch.nn.functional as F
@@ -20,6 +20,7 @@ from cups.model.structures import pairwise_iou_max_scores
 
 from .fast_rcnn import FastRCNNOutputLayers, fast_rcnn_inference
 from .roi_heads import ROI_HEADS_REGISTRY, CustomStandardROIHeads
+from .sam3_mask_adapter import SAM3MaskAdapter
 
 
 class _ScaleGradient(Function):
@@ -46,6 +47,12 @@ class CustomCascadeROIHeads(CustomStandardROIHeads):
         box_heads: List[nn.Module],
         box_predictors: List[nn.Module],
         proposal_matchers: List[Matcher],
+        stage4_rare_retain_enabled: bool = False,
+        stage4_rare_classes: tuple[int, ...] = (),
+        stage4_rare_retain_min_rois: int = 2,
+        stage4_rare_retain_relaxed_iou: float = 0.35,
+        sam3_adapter: Optional[SAM3MaskAdapter] = None,
+        sam3_masks_dir: str = "",
         **kwargs,
     ):
         """
@@ -78,11 +85,57 @@ class CustomCascadeROIHeads(CustomStandardROIHeads):
             **kwargs,
         )
         self.proposal_matchers = proposal_matchers
+        self.stage4_rare_retain_enabled = bool(stage4_rare_retain_enabled)
+        self.stage4_rare_classes = tuple(int(c) for c in stage4_rare_classes)
+        self.stage4_rare_retain_min_rois = int(stage4_rare_retain_min_rois)
+        self.stage4_rare_retain_relaxed_iou = float(stage4_rare_retain_relaxed_iou)
+        self.sam3_adapter = sam3_adapter
+        self.sam3_masks_dir = sam3_masks_dir
+        self._sam3_vit_feats: Optional[torch.Tensor] = None
+        self._sam3_masks: Optional[torch.Tensor] = None
+        self._sam3_padding: Optional[torch.Tensor] = None
+
+    def set_sam3_context(
+        self,
+        vit_feats: torch.Tensor,
+        masks: torch.Tensor,
+        padding: torch.Tensor,
+    ) -> None:
+        """Store per-batch SAM3 context for use in _run_stage."""
+        self._sam3_vit_feats = vit_feats
+        self._sam3_masks = masks
+        self._sam3_padding = padding
 
     @classmethod
     def from_config(cls, cfg, input_shape):
         ret = super().from_config(cfg, input_shape)
         ret.pop("proposal_matcher")
+        ret.update(
+            {
+                "stage4_rare_retain_enabled": getattr(
+                    cfg.MODEL.ROI_HEADS, "STAGE4_RARE_RETAIN_ENABLED", False
+                ),
+                "stage4_rare_classes": tuple(getattr(cfg.MODEL.ROI_HEADS, "STAGE4_RARE_CLASSES", ())),
+                "stage4_rare_retain_min_rois": getattr(
+                    cfg.MODEL.ROI_HEADS, "STAGE4_RARE_RETAIN_MIN_ROIS", 2
+                ),
+                "stage4_rare_retain_relaxed_iou": getattr(
+                    cfg.MODEL.ROI_HEADS, "STAGE4_RARE_RETAIN_RELAXED_IOU", 0.35
+                ),
+            }
+        )
+        sam3_masks_dir = getattr(cfg.MODEL.ROI_BOX_HEAD, "SAM3_MASKS_DIR", "")
+        ret["sam3_masks_dir"] = sam3_masks_dir
+        if getattr(cfg.MODEL.ROI_BOX_HEAD, "SAM3_MASK_ADAPTER", False):
+            # Infer roi_dim from the last box head output shape
+            box_heads_ret = ret.get("box_heads", [])
+            roi_dim = box_heads_ret[-1].output_shape.channels if box_heads_ret else 1024
+            ret["sam3_adapter"] = SAM3MaskAdapter(
+                vit_dim=768,
+                roi_dim=roi_dim,
+                adapter_dim=getattr(cfg.MODEL.ROI_BOX_HEAD, "SAM3_ADAPTER_DIM", 256),
+                n_max_masks=getattr(cfg.MODEL.ROI_BOX_HEAD, "SAM3_N_MAX_MASKS", 20),
+            )
         return ret
 
     @classmethod
@@ -275,8 +328,12 @@ class CustomCascadeROIHeads(CustomStandardROIHeads):
             proposals_per_image.gt_classes = gt_classes
             proposals_per_image.gt_boxes = gt_boxes
 
-            num_fg_samples.append((proposal_labels == 1).sum().item())
-            num_bg_samples.append(proposal_labels.numel() - num_fg_samples[-1])
+            if self.stage4_rare_retain_enabled and self.stage4_rare_classes:
+                self._retain_rare_class_rois(proposals_per_image, targets_per_image)
+
+            fg_mask = (proposals_per_image.gt_classes >= 0) & (proposals_per_image.gt_classes < self.num_classes)
+            num_fg_samples.append(fg_mask.sum().item())
+            num_bg_samples.append(proposals_per_image.gt_classes.numel() - num_fg_samples[-1])
 
         # Log the number of fg/bg samples in each stage
         storage = get_event_storage()
@@ -289,6 +346,40 @@ class CustomCascadeROIHeads(CustomStandardROIHeads):
             sum(num_bg_samples) / len(num_bg_samples),
         )
         return proposals
+
+    @torch.no_grad()
+    def _retain_rare_class_rois(self, proposals_per_image, targets_per_image) -> None:
+        """Promote relaxed-IoU proposals for rare classes in later cascade stages."""
+        if len(proposals_per_image) == 0 or len(targets_per_image) == 0:
+            return
+        device = proposals_per_image.gt_classes.device
+        rare_ids = torch.tensor(self.stage4_rare_classes, device=device, dtype=proposals_per_image.gt_classes.dtype)
+        rare_gt_mask = torch.isin(targets_per_image.gt_classes.to(device), rare_ids)
+        if rare_gt_mask.sum() == 0:
+            return
+
+        current_rare = torch.isin(proposals_per_image.gt_classes, rare_ids).sum().item()
+        needed = max(0, self.stage4_rare_retain_min_rois - int(current_rare))
+        if needed == 0:
+            return
+
+        rare_targets = targets_per_image[rare_gt_mask.cpu() if rare_gt_mask.device.type == "cpu" else rare_gt_mask]
+        ious = pairwise_iou(rare_targets.gt_boxes, proposals_per_image.proposal_boxes)
+        if ious.numel() == 0:
+            return
+        max_ious, best_rare_idx = ious.max(dim=0)
+        bg_mask = proposals_per_image.gt_classes == self.num_classes
+        candidate_mask = bg_mask & (max_ious > self.stage4_rare_retain_relaxed_iou)
+        candidate_idxs = candidate_mask.nonzero(as_tuple=False).flatten()
+        if candidate_idxs.numel() == 0:
+            return
+
+        order = torch.argsort(max_ious[candidate_idxs], descending=True)
+        selected = candidate_idxs[order[:needed]]
+        if selected.numel() == 0:
+            return
+        proposals_per_image.gt_classes[selected] = rare_targets.gt_classes.to(device)[best_rare_idx[selected]]
+        proposals_per_image.gt_boxes.tensor[selected] = rare_targets.gt_boxes.tensor.to(device)[best_rare_idx[selected]]
 
     def _run_stage(self, features, proposals, stage):
         """
@@ -308,6 +399,20 @@ class CustomCascadeROIHeads(CustomStandardROIHeads):
         if self.training:
             box_features = _ScaleGradient.apply(box_features, 1.0 / self.num_cascade_stages)
         box_features = self.box_head[stage](box_features)
+        if (
+            self.sam3_adapter is not None
+            and stage == self.num_cascade_stages - 1
+            and self._sam3_vit_feats is not None
+            and self._sam3_masks is not None
+            and self._sam3_padding is not None
+        ):
+            box_features = self.sam3_adapter(
+                box_features,
+                self._sam3_vit_feats,
+                self._sam3_masks,
+                self._sam3_padding,
+                proposals,
+            )
         return self.box_predictor[stage](box_features)
 
     def _create_proposals_from_boxes(self, boxes, image_sizes):

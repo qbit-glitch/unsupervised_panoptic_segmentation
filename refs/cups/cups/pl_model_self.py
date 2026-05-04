@@ -218,6 +218,12 @@ class SelfSupervisedModel(UnsupervisedModel):
                 if not valid.all():
                     sample["instances"] = inst[valid]
 
+        # Attach image names so downstream hooks (SAM3 adapter, depth dice) can
+        # resolve per-image files from disk during the student forward pass.
+        for sample, img_name in zip(pseudo_labels, batch_image_names):
+            if img_name and "file_name" not in sample:
+                sample["file_name"] = img_name
+
         # Clear stale logits cache before the student forward pass
         if self._fo_enabled:
             self._fo_logits_cache.clear()
@@ -1078,6 +1084,18 @@ def build_model_self(
             stage4_ids=stage4_ids,
             depth_dice_weight=getattr(
                 getattr(config.MODEL, "ROI_MASK_HEAD", None), "DEPTH_DICE_WEIGHT", 0.0
+            ),
+            sam3_mask_adapter=getattr(
+                getattr(config.MODEL, "ROI_BOX_HEAD", None), "SAM3_MASK_ADAPTER", False
+            ),
+            sam3_adapter_dim=getattr(
+                getattr(config.MODEL, "ROI_BOX_HEAD", None), "SAM3_ADAPTER_DIM", 256
+            ),
+            sam3_n_max_masks=getattr(
+                getattr(config.MODEL, "ROI_BOX_HEAD", None), "SAM3_N_MAX_MASKS", 20
+            ),
+            sam3_masks_dir=getattr(
+                getattr(config.MODEL, "ROI_BOX_HEAD", None), "SAM3_MASKS_DIR", ""
             ),
         )
         # Load checkpoint BEFORE TTA wrapping

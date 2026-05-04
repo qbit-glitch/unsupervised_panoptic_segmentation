@@ -111,6 +111,7 @@ def main() -> None:
             resize_scale=config.DATA.SCALE,
             crop_resolution=config.DATA.CROP_RESOLUTION,
             only_train_samples=False,
+            depth_subdir=getattr(config.DATA, "DEPTH_SUBDIR", ""),
         )
     else:
         training_dataset = KITTISelfTraining(  # type: ignore
@@ -235,17 +236,11 @@ def main() -> None:
             RTPTCallback(name_initials="CR&OH", experiment_name="UPS_Self"),
             TQDMProgressBar(refresh_rate=1),
             ModelCheckpoint(
-                filename="ups_checkpoint_{step:06d}",
-                every_n_train_steps=config.TRAINING.VAL_EVERY_N_STEPS,
-                save_last=True,
-                save_top_k=-1,
-            ),
-            ModelCheckpoint(
                 filename="best_pq_{step:06d}",
                 monitor="pq_val",
                 mode="max",
-                save_top_k=3,
-                every_n_train_steps=config.TRAINING.VAL_EVERY_N_STEPS,
+                save_top_k=6,
+                save_last=True,
             ),
         ],
         logger=logger,

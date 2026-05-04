@@ -332,6 +332,7 @@ class CityscapesSelfTraining(Dataset):
         resize_scale: float = 0.625,
         crop_resolution: Tuple[int, int] = (640, 1280),
         only_train_samples: bool = True,
+        depth_subdir: str = "",
     ) -> None:
         """Constructor method.
 
@@ -342,11 +343,15 @@ class CityscapesSelfTraining(Dataset):
             crop_resolution (Tuple[int, int]): Resolution to which the images are cropped after resizing.
             temporal_stride (int): Temporal stride to be utilized (stride one is 17 FPS). Default: 1.
             only_train_samples (bool): If true only training images (not the full seq.) are used.
+            depth_subdir (str): Subdirectory under root containing .npy depth maps. Empty = disabled.
         """
         # Call super constructor
         super(CityscapesSelfTraining, self).__init__()
         # Save parameters
+        self.root: str = root
+        self.split: str = split
         self.resize_scale: float = resize_scale
+        self.depth_subdir: str = depth_subdir
         # Init crop module
         self.crop_module: nn.Module = CenterCrop(size=crop_resolution, keepdim=True)
         # Init list to store path to data
@@ -394,6 +399,20 @@ class CityscapesSelfTraining(Dataset):
             "width": image_0_l.shape[-1],
             "image_name": self.sample_path[index],  # full path for SAM mask lookup
         }
+        # Optionally load DepthPro depth map for depth-aware dice loss (Ablation 1)
+        if self.depth_subdir:
+            stem = os.path.basename(self.sample_path[index]).replace("_leftImg8bit.png", "")
+            city = stem.split("_")[0]
+            depth_path = os.path.join(self.root, self.depth_subdir, self.split, city, f"{stem}.npy")
+            if os.path.exists(depth_path):
+                depth_raw = np.load(depth_path).astype(np.float32)
+                depth_t = torch.from_numpy(depth_raw).unsqueeze(0).unsqueeze(0)  # (1, 1, H, W)
+                depth_t = F.interpolate(depth_t, scale_factor=self.resize_scale, mode="bilinear", align_corners=False)
+                depth_t = self.crop_module(depth_t).squeeze(0)  # (1, crop_h, crop_w)
+                d_min, d_max = depth_t.min(), depth_t.max()
+                if d_max > d_min:
+                    depth_t = (depth_t - d_min) / (d_max - d_min)
+                output["depth"] = depth_t
         return output
 
 

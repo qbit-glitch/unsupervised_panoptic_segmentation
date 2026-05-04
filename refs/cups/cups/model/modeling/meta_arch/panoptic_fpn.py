@@ -19,6 +19,67 @@ from .rcnn import GeneralizedRCNN
 __all__ = ["PanopticFPN"]
 
 
+def _build_sam3_context(
+    batched_inputs: List[Dict],
+    dino_feat: torch.Tensor,
+    sam3_masks_dir: str,
+    n_max_masks: int,
+):
+    """Build SAM3 context tensors for cross-attention with ROI box features.
+
+    Returns:
+        vit_feats_flat: (B, HW, C) DINOv3 patch tokens
+        masks_flat: (B, n_max_masks, HW) float binary masks
+        key_padding: (B, n_max_masks) bool — True = padded slot
+    """
+    import numpy as np
+    from pathlib import Path as _Path
+
+    B, C, H_vit, W_vit = dino_feat.shape
+    HW = H_vit * W_vit
+    device = dino_feat.device
+
+    vit_feats_flat = dino_feat.permute(0, 2, 3, 1).reshape(B, HW, C)
+
+    masks_flat = torch.zeros(B, n_max_masks, HW, dtype=torch.float32, device=device)
+    key_padding = torch.ones(B, n_max_masks, dtype=torch.bool, device=device)
+
+    sam3_dir = _Path(sam3_masks_dir)
+    for i, inp in enumerate(batched_inputs):
+        _fname = inp.get("file_name", inp.get("image_name", ""))
+        if not _fname:
+            continue
+        stem = _Path(_fname).stem.replace("_leftImg8bit", "")
+        city = stem.split("_")[0]
+        npz_path = None
+        for cand in [
+            sam3_dir / f"{stem}_fine_masks.npz",
+            sam3_dir / city / f"{stem}_fine_masks.npz",
+            sam3_dir / f"{stem}_leftImg8bit_fine_masks.npz",
+        ]:
+            if cand.exists():
+                npz_path = cand
+                break
+        if npz_path is None:
+            continue
+
+        d = np.load(str(npz_path))
+        masks_np = d["masks"].astype(np.float32)
+        iou_scores = d["iou_scores"].astype(np.float32)
+        order = np.argsort(-iou_scores)[:n_max_masks]
+        masks_np = masks_np[order]
+        N = len(masks_np)
+
+        masks_t = torch.from_numpy(masks_np).unsqueeze(1)  # (N, 1, H', W')
+        masks_t = torch.nn.functional.interpolate(
+            masks_t, size=(H_vit, W_vit), mode="nearest"
+        ).squeeze(1)  # (N, H_vit, W_vit)
+        masks_flat[i, :N] = masks_t.to(device).reshape(N, HW)
+        key_padding[i, :N] = False
+
+    return vit_feats_flat, masks_flat, key_padding
+
+
 @META_ARCH_REGISTRY.register()
 class PanopticFPN(GeneralizedRCNN):
     """Implement the paper :paper:`PanopticFPN`."""
@@ -189,6 +250,18 @@ class PanopticFPN(GeneralizedRCNN):
 
         gt_instances = [x["instances"].to(self.device) for x in batched_inputs]
         proposals, proposal_losses = self.proposal_generator(images, features, gt_instances)
+        # Pass depth maps to ROI heads for depth-aware proposal consistency loss
+        if hasattr(self.roi_heads, "set_depth_maps"):
+            self.roi_heads.set_depth_maps(depth_tensor)
+        # SAM3 Mask-Adapter: load pre-computed masks and set cross-attention context
+        _sam3_dir = getattr(self.roi_heads, "sam3_masks_dir", "")
+        _sam3_adapter = getattr(self.roi_heads, "sam3_adapter", None)
+        if _sam3_adapter is not None and _sam3_dir and dino_feat is not None:
+            _n_max = getattr(_sam3_adapter, "n_max_masks", 20)
+            _vit_flat, _masks, _padding = _build_sam3_context(
+                batched_inputs, dino_feat.detach(), _sam3_dir, _n_max
+            )
+            self.roi_heads.set_sam3_context(_vit_flat, _masks, _padding)
         detector_results, detector_losses = self.roi_heads(images, features, proposals, gt_instances)
 
         losses = sem_seg_losses
@@ -232,6 +305,16 @@ class PanopticFPN(GeneralizedRCNN):
         )
         if detected_instances is None or all(instance is None for instance in detected_instances):
             proposals, _ = self.proposal_generator(images, features, None)
+            # SAM3 Mask-Adapter: set cross-attention context at inference
+            _sam3_dir = getattr(self.roi_heads, "sam3_masks_dir", "")
+            _sam3_adapter = getattr(self.roi_heads, "sam3_adapter", None)
+            _dino_inf = features.get("vit_patch", None)
+            if _sam3_adapter is not None and _sam3_dir and _dino_inf is not None:
+                _n_max = getattr(_sam3_adapter, "n_max_masks", 20)
+                _vf, _mk, _pd = _build_sam3_context(
+                    batched_inputs, _dino_inf.detach(), _sam3_dir, _n_max
+                )
+                self.roi_heads.set_sam3_context(_vf, _mk, _pd)
             detector_results, _ = self.roi_heads(images, features, proposals, None)
         else:
             detected_instances = [x.to(self.device) for x in detected_instances]
