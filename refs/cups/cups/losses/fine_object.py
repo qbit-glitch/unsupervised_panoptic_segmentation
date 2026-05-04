@@ -7,15 +7,18 @@ Architecture note
 -----------------
 The CUPS semantic head has k_stuff + 1 channels during training, where k_stuff
 is the number of stuff pseudo-class clusters (~65 for k=80 overclustering).
-The last channel is the unified "thing region" class — ALL thing pseudo-class
-pixels are remapped to this single channel during dataloader processing.
+**Channel 0** is the unified "thing region" class — ALL thing pseudo-class
+pixels are remapped to channel 0 during dataloader processing
+(see pseudo_label_dataset.py line 433: things_classes → 0, stuff_classes → 1..S).
+The panoptic combine function (panoptic_fpn.py) explicitly skips semantic_label==0
+and treats it as the thing region.  Channels 1..S are individual stuff pseudo-classes.
 The individual per-thing-class identity (bicycle vs car vs person) lives in the
 INSTANCE HEAD (Cascade Mask R-CNN ROI classifier), not the semantic head.
 
 Consequence for SAM3 supervision
 ---------------------------------
 - For SAM3 thing-class masks (bicycle, motorcycle, car, person, ...):
-  Target the unified thing channel (last channel).  This is the ONLY correct
+  Target channel 0 (the unified thing channel).  This is the ONLY correct
   semantic-head target for thing classes.  The previous ``class_specific`` mode
   that mapped bicycle→26, person→17, etc. was wrong: those indices hit arbitrary
   stuff pseudo-class channels, not the Cityscapes classes.
@@ -34,11 +37,11 @@ Consequence for SAM3 supervision
 Modes
 -----
 ``"thing_entropy_stuff_entropy"`` (default, safe):
-    Thing masks → thing_coverage (target last channel).
+    Thing masks → thing_coverage (target channel 0 = unified thing channel).
     Stuff masks → entropy.
 
 ``"thing_focal_stuff_entropy"`` (recommended):
-    Thing masks → IoU-weighted focal CE toward last channel.
+    Thing masks → IoU-weighted focal CE toward channel 0 (unified thing channel).
     Stuff masks → entropy.
     Adds focal modulation to amplify gradient on rare/dead thing classes and
     IoU soft-weighting so high-confidence SAM3 masks contribute more.
@@ -121,6 +124,7 @@ _VALID_MODES = (
     "thing_coverage",
     "thing_entropy_stuff_entropy",
     "thing_focal_stuff_entropy",
+    "thing_focal_only",
     "class_specific",   # deprecated for k=80 heads
 )
 
@@ -132,7 +136,8 @@ class FineObjectSemanticLoss(nn.Module):
         mode: One of the modes described in the module docstring.
               Recommended: ``"thing_focal_stuff_entropy"``.
         thing_class_idx: Semantic class index for the unified thing-region class.
-            Pass ``-1`` to use the last channel (correct for CUPS k=80 heads).
+            Pass ``-1`` for auto-detect (resolves to channel 0, which is the thing
+            channel in all CUPS k=80 heads — things map to 0, stuff to 1..S).
         stuff_channel_map: Optional dict mapping SAM3 class index → semantic head
             channel index for stuff classes.  Only used when mode contains
             ``class_specific`` stuff supervision.  Extract from Stage-3
@@ -195,7 +200,9 @@ class FineObjectSemanticLoss(nn.Module):
         C = logits.shape[1]
         thing_idx = self.thing_class_idx
         if thing_idx == -1:
-            thing_idx = C - 1
+            # Channel 0 = unified thing class in all CUPS k=80 heads.
+            # (things_classes → target 0, stuff_classes → target 1..S in the dataloader)
+            thing_idx = 0
 
         # Warn if legacy class_specific mode is used with a non-27-channel head
         if self.mode == "class_specific" and C != 27:
@@ -279,7 +286,7 @@ class FineObjectSemanticLoss(nn.Module):
             return self._legacy_class_specific(mean_logits, cls_labels, iou_weights, device)
 
         # New modes: split thing vs stuff per mask
-        if self.mode in ("thing_entropy_stuff_entropy", "thing_focal_stuff_entropy"):
+        if self.mode in ("thing_entropy_stuff_entropy", "thing_focal_stuff_entropy", "thing_focal_only"):
             return self._split_thing_stuff_loss(
                 mean_logits, cls_labels, thing_idx, iou_weights, device
             )
@@ -319,15 +326,17 @@ class FineObjectSemanticLoss(nn.Module):
                 (thing_sel.sum(),), thing_idx,
                 dtype=torch.long, device=device,
             )
-            if self.mode == "thing_focal_stuff_entropy":
+            if self.mode in ("thing_focal_stuff_entropy", "thing_focal_only"):
                 loss_t = _focal_ce(thing_logits, targets, self.focal_gamma, thing_w)
             else:
                 loss_t = _weighted_ce(thing_logits, targets, thing_w)
             parts.append(loss_t)
 
         # ── Stuff masks ────────────────────────────────────────────────────
+        # "thing_focal_only": skip stuff masks entirely — only thing-channel
+        # focal CE is applied, leaving all stuff predictions untouched.
         stuff_sel = (~is_thing_mask) & valid
-        if stuff_sel.any():
+        if stuff_sel.any() and self.mode != "thing_focal_only":
             stuff_logits = mean_logits[stuff_sel]
             stuff_w = iou_weights[stuff_sel] if iou_weights is not None else None
 

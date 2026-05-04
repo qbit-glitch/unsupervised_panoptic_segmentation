@@ -186,6 +186,17 @@ class SelfSupervisedModel(UnsupervisedModel):
                 if invalid.any():
                     sem[invalid] = 255
                 sample["sem_seg"] = sem
+        # Filter degenerate boxes that RandomCrop/resize aug can introduce.
+        # Zero-area boxes (x2<=x1 or y2<=y1) produce log(0)→-inf in the RPN
+        # Box2BoxTransform, causing loss_rpn_loc=inf and poisoned gradients.
+        for sample in pseudo_labels:
+            inst = sample.get("instances")
+            if inst is not None and len(inst) > 0:
+                boxes = inst.gt_boxes.tensor
+                valid = (boxes[:, 2] > boxes[:, 0]) & (boxes[:, 3] > boxes[:, 1])
+                if not valid.all():
+                    sample["instances"] = inst[valid]
+
         # Clear stale logits cache before the student forward pass
         if self._fo_enabled:
             self._fo_logits_cache.clear()
@@ -315,18 +326,28 @@ class SelfSupervisedModel(UnsupervisedModel):
                 confidence_weights = conf.clamp(min=min_w)  # (H, W)
 
             # Construct output
+            img_hw = tuple(image["image"].shape[1:])
             if instance.amax() > 0.0:
-                # Make instance masks
                 instance_masks = instances_to_masks(instance)
-                # Make object semantics
+                boxes = get_bounding_boxes(instance)
+                # Degenerate boxes (x2<=x1 or y2<=y1) produce log(0)→-inf in
+                # the RPN Box2BoxTransform and cause loss_rpn_loc=inf.  Drop them.
+                valid = (boxes[:, 2] > boxes[:, 0]) & (boxes[:, 3] > boxes[:, 1])
+                if not valid.all():
+                    instance_masks = instance_masks[valid]
+                    boxes = boxes[valid]
+                    keep = valid.tolist()
+                    object_semantics = [s for s, v in zip(object_semantics, keep) if v]
                 object_semantics_tensor: Tensor = torch.tensor(object_semantics, device=instance.device)
+
+            if instance.amax() > 0.0 and boxes.shape[0] > 0:
                 sample_dict = {
                     "image": image["image"].squeeze(),
                     "sem_seg": semantic_segmentation_pseudo.long(),
                     "instances": Instances(
-                        image_size=tuple(image["image"].shape[1:]),
+                        image_size=img_hw,
                         gt_masks=BitMasks(instance_masks),
-                        gt_boxes=Boxes(get_bounding_boxes(instance)),
+                        gt_boxes=Boxes(boxes),
                         gt_classes=object_semantics_tensor,
                     ),
                 }
@@ -335,8 +356,8 @@ class SelfSupervisedModel(UnsupervisedModel):
                     "image": image["image"].squeeze(),
                     "sem_seg": semantic_segmentation_pseudo.long(),
                     "instances": Instances(
-                        image_size=tuple(image["image"].shape),
-                        gt_masks=BitMasks(torch.zeros(0, *image["image"].shape[1:]).bool()),
+                        image_size=img_hw,
+                        gt_masks=BitMasks(torch.zeros(0, *img_hw).bool()),
                         gt_boxes=Boxes(torch.zeros(0, 4).long()),
                         gt_classes=torch.zeros(0).long(),
                     ),
@@ -351,6 +372,103 @@ class SelfSupervisedModel(UnsupervisedModel):
                 sample_dict["pseudo_onehot"] = semantic_segmentation_raw.detach()
             pseudo_labels.append(sample_dict)
         return pseudo_labels
+
+    def validation_step(
+        self,
+        batch: Tuple[List[Dict[str, Tensor]], Tensor, List[str]],
+        batch_index: int,
+    ) -> None:
+        """Validation step — PQ metrics (via super) + training losses on val pseudo-labels.
+
+        Losses are computed by running teacher→pseudo-label→student(train mode, no_grad)
+        on the val batch, identical to the training pipeline but without augmentation/cropping.
+        """
+        super().validation_step(batch, batch_index)
+
+        images, _panoptic_labels, image_names = batch
+
+        # Build teacher input (attach image_name for SAM mask loading)
+        teacher_input = [
+            {"image": img["image"], "image_name": name}
+            for img, name in zip(images, image_names)
+        ]
+
+        with torch.no_grad():
+            self.teacher_model.eval()
+            predictions_tta = self.teacher_model(teacher_input)
+            pseudo_labels = self.make_pseudo_labels(
+                predictions_tta, teacher_input, self.hparams.stuff_pseudo_classes
+            )
+            # Sanitize sem_seg (same guard as training_step)
+            num_classes = self.model.sem_seg_head.predictor.out_channels
+            for sample in pseudo_labels:
+                sem = sample["sem_seg"]
+                invalid = (sem < 0) | ((sem >= num_classes) & (sem != 255))
+                if invalid.any():
+                    sem[invalid] = 255
+                sample["sem_seg"] = sem
+
+            if self._fo_enabled:
+                self._fo_logits_cache.clear()
+
+            # Student forward in train mode to get losses (fresh EventStorage avoids
+            # interfering with the mid-training storage that may still be open)
+            prev_training = self.model.training
+            self.model.train()
+            with EventStorage(0):
+                val_loss_dict: Dict[str, Tensor] = self.model(pseudo_labels)
+            self.model.train(prev_training)
+
+            # Fine-object SAM loss (mirrors training_step logic)
+            if self._fo_enabled:
+                low_logits = self._fo_logits_cache.get("logits")
+                if low_logits is not None:
+                    common_stride = self.model.sem_seg_head.common_stride
+                    full_logits = F.interpolate(
+                        low_logits.float(),
+                        scale_factor=common_stride,
+                        mode="bilinear",
+                        align_corners=False,
+                    )
+                    sam_masks, sam_ious, sam_cls = self._load_sam_masks(image_names, full_logits.device)
+                    fo_loss = self._fo_loss(full_logits, sam_masks, sam_ious, sam_cls, self._fo_min_iou)
+                    val_loss_dict["loss_fine_object"] = fo_loss * self._fo_weight
+
+        # Accumulate per-loss scalars for epoch-end averaging
+        if not hasattr(self, "_val_loss_accum"):
+            self._val_loss_accum: Dict[str, List[float]] = {}
+        for k, v in val_loss_dict.items():
+            self._val_loss_accum.setdefault(k, []).append(v.item())
+
+    def on_validation_epoch_end(self) -> None:
+        """PQ metrics (via super) then per-loss averages — logged to W&B and printed."""
+        super().on_validation_epoch_end()
+
+        if not getattr(self, "_val_loss_accum", {}):
+            return
+
+        is_global_zero = getattr(self.trainer, "is_global_zero", True)
+
+        # Average across batches
+        avg_losses: Dict[str, float] = {
+            k: sum(v) / len(v) for k, v in self._val_loss_accum.items()
+        }
+        total_loss: float = sum(avg_losses.values())
+
+        # Log each loss and total to W&B
+        for k, v in avg_losses.items():
+            self.log(f"val_losses/{k}", v, rank_zero_only=True, sync_dist=False)
+        self.log("val_losses/total", total_loss, rank_zero_only=True, sync_dist=False)
+
+        # Print CSV-style summary to stdout (same style as PQ line above)
+        if is_global_zero:
+            keys_sorted = sorted(avg_losses.keys())
+            header = ", ".join(keys_sorted) + ", total_loss"
+            values = ", ".join(f"{avg_losses[k]:.4f}" for k in keys_sorted) + f", {total_loss:.4f}"
+            print("\nVal Losses: " + header)
+            print(values)
+
+        self._val_loss_accum = {}
 
     def _load_sam_masks(
         self,
@@ -377,15 +495,10 @@ class SelfSupervisedModel(UnsupervisedModel):
                 masks_list.append(None); ious_list.append(None); cls_list.append(None)
                 continue
 
-            parts = Path(img_name).parts
-            try:
-                lb_idx = next(i for i, p in enumerate(parts) if p == "leftImg8bit")
-                city = parts[lb_idx + 2]
-                stem = Path(img_name).stem.replace("_leftImg8bit", "")
-                mask_path = self._fo_masks_dir / city / f"{stem}_fine_masks.npz"
-            except (StopIteration, IndexError):
-                masks_list.append(None); ious_list.append(None); cls_list.append(None)
-                continue
+            path = Path(img_name)
+            city = path.parent.name  # works for both leftImg8bit and leftImg8bit_sequence layouts
+            stem = path.stem.replace("_leftImg8bit_sequence", "").replace("_leftImg8bit", "")
+            mask_path = self._fo_masks_dir / city / f"{stem}_fine_masks.npz"
 
             if not mask_path.exists():
                 masks_list.append(None); ious_list.append(None); cls_list.append(None)

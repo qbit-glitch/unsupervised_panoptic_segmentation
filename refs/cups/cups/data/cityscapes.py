@@ -392,6 +392,7 @@ class CityscapesSelfTraining(Dataset):
             "image": image_0_l.squeeze(),
             "height": image_0_l.shape[-2],
             "width": image_0_l.shape[-1],
+            "image_name": self.sample_path[index],  # full path for SAM mask lookup
         }
         return output
 
