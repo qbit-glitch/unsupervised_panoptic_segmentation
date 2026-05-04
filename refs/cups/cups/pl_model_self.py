@@ -107,6 +107,12 @@ class SelfSupervisedModel(UnsupervisedModel):
             raw_stuff_map = getattr(fo_cfg, "STUFF_CHANNEL_MAP", None)
             stuff_channel_map = dict(raw_stuff_map) if raw_stuff_map else {}
 
+            # Parse new params for Exp 1-3 modes
+            raw_common_idx = getattr(fo_cfg, "COMMON_THING_CHANNEL_INDICES", None)
+            common_idx = list(raw_common_idx) if raw_common_idx else []
+            raw_class_freq = getattr(fo_cfg, "CLASS_FREQUENCIES_SAM3", None)
+            class_freq = list(raw_class_freq) if raw_class_freq else None
+
             self._fo_loss = FineObjectSemanticLoss(
                 mode=getattr(fo_cfg, "MODE", "thing_focal_stuff_entropy"),
                 thing_class_idx=int(getattr(fo_cfg, "THING_CLASS_IDX", -1)),
@@ -114,15 +120,28 @@ class SelfSupervisedModel(UnsupervisedModel):
                 focal_gamma=float(getattr(fo_cfg, "FOCAL_GAMMA", 2.0)),
                 use_iou_weighting=bool(getattr(fo_cfg, "USE_IOU_WEIGHTING", True)),
                 min_hard_iou=float(getattr(fo_cfg, "MIN_HARD_IOU", 0.10)),
+                # Exp 1
+                common_thing_channel_indices=common_idx,
+                teacher_logit_weight=float(getattr(fo_cfg, "TEACHER_LOGIT_WEIGHT", 1.0)),
+                # Exp 2
+                class_frequencies=class_freq,
+                gamma_scale_factor=float(getattr(fo_cfg, "GAMMA_SCALE_FACTOR", 1.0)),
+                # Exp 3
+                stuff_kd_lambda=float(getattr(fo_cfg, "STUFF_KD_LAMBDA", 0.1)),
+                stuff_channel_start=int(getattr(fo_cfg, "STUFF_CHANNEL_START", 1)),
             )
             self._fo_weight = float(getattr(fo_cfg, "WEIGHT", 0.1))
             self._fo_masks_dir = Path(fo_cfg.SAM_MASKS_DIR)
             self._fo_min_iou = float(getattr(fo_cfg, "MIN_IOU_SCORE", 0.10))
             self._fo_max_masks = int(getattr(fo_cfg, "MAX_MASKS_PER_IMAGE", 30))
-            # Hook the sem_seg predictor to capture low-res logits without
-            # modifying the detectron2 model internals.
+            # Hook student sem_seg predictor to capture logits without touching internals
             self.model.sem_seg_head.predictor.register_forward_hook(
                 lambda _m, _inp, out: self._fo_logits_cache.update({"logits": out})
+            )
+            # Hook teacher sem_seg predictor for teacher-gated modes (mc_panda, stuff_kd)
+            self._fo_teacher_logits_cache: Dict[str, Any] = {}
+            self.teacher_model.model.sem_seg_head.predictor.register_forward_hook(
+                lambda _m, _inp, out: self._fo_teacher_logits_cache.update({"logits": out})
             )
             log.info(
                 "FineObjectSemanticLoss enabled (mode=%s, weight=%.3f, dir=%s)",
@@ -160,6 +179,8 @@ class SelfSupervisedModel(UnsupervisedModel):
             sample.get("image_name", "") for sample in batch
         ]
         # Make pseudo labels
+        if self._fo_enabled:
+            self._fo_teacher_logits_cache.clear()
         self.teacher_model.eval()
         with torch.no_grad():
             # Make prediction with TTA
@@ -216,8 +237,22 @@ class SelfSupervisedModel(UnsupervisedModel):
                     mode="bilinear",
                     align_corners=False,
                 )
+                # Upscale teacher logits if available (for mc_panda / stuff_kd modes)
+                teacher_full_logits: Optional[Tensor] = None
+                low_teacher = self._fo_teacher_logits_cache.get("logits")
+                if low_teacher is not None:
+                    with torch.no_grad():
+                        teacher_full_logits = F.interpolate(
+                            low_teacher.float(),
+                            scale_factor=common_stride,
+                            mode="bilinear",
+                            align_corners=False,
+                        ).detach()
                 sam_masks, sam_ious, sam_cls = self._load_sam_masks(batch_image_names, full_logits.device)
-                fo_loss = self._fo_loss(full_logits, sam_masks, sam_ious, sam_cls, self._fo_min_iou)
+                fo_loss = self._fo_loss(
+                    full_logits, sam_masks, sam_ious, sam_cls, self._fo_min_iou,
+                    teacher_logits=teacher_full_logits,
+                )
                 loss_dict["loss_fine_object"] = fo_loss * self._fo_weight
                 self.log("losses/fine_object", fo_loss, sync_dist=True)
 
@@ -443,6 +478,24 @@ class SelfSupervisedModel(UnsupervisedModel):
     def on_validation_epoch_end(self) -> None:
         """PQ metrics (via super) then per-loss averages — logged to W&B and printed."""
         super().on_validation_epoch_end()
+
+        # ── DDP checkpoint fix ─────────────────────────────────────────────
+        # Lightning 2.6 requires the monitored metric ("pq_val") to be present
+        # in callback_metrics on ALL ranks for ModelCheckpoint to save.
+        # The base class logs pq_val with rank_zero_only=True, so rank-1 never
+        # sees it and the checkpoint callback silently skips every save after
+        # the first one.  Fix: broadcast rank-0's value to all ranks, then
+        # re-log so every rank has the same pq_val.
+        pq_cb = self.trainer.callback_metrics.get("pq_val", torch.tensor(0.0))
+        pq_tensor = torch.tensor(float(pq_cb), device=self.device)
+        if torch.distributed.is_available() and torch.distributed.is_initialized():
+            torch.distributed.broadcast(pq_tensor, src=0)
+        # Directly write into callback_metrics on all ranks so ModelCheckpoint
+        # sees the real PQ value before its own on_validation_epoch_end runs.
+        # Do NOT call self.log() again — super() already logged pq_val and
+        # Lightning 2.6 forbids logging the same metric twice with different args.
+        self.trainer.callback_metrics["pq_val"] = pq_tensor
+        # ── end DDP checkpoint fix ─────────────────────────────────────────
 
         if not getattr(self, "_val_loss_accum", {}):
             return
@@ -1023,6 +1076,9 @@ def build_model_self(
             depth_channels=getattr(config.MODEL.SEM_SEG_HEAD, "DEPTH_CHANNELS", 15),
             stage4_cfg=stage4_cfg,
             stage4_ids=stage4_ids,
+            depth_dice_weight=getattr(
+                getattr(config.MODEL, "ROI_MASK_HEAD", None), "DEPTH_DICE_WEIGHT", 0.0
+            ),
         )
         # Load checkpoint BEFORE TTA wrapping
         if config.MODEL.CHECKPOINT is not None:
@@ -1031,7 +1087,9 @@ def build_model_self(
             student_checkpoint = {k: v for k, v in checkpoint.items() if not k.startswith("teacher_")}
             if len(student_checkpoint) < len(checkpoint):
                 log.info(f"Filtered {len(checkpoint) - len(student_checkpoint)} teacher keys from checkpoint")
-            model.load_state_dict(student_checkpoint)
+            missing, unexpected = model.load_state_dict(student_checkpoint, strict=False)
+            if unexpected:
+                log.info(f"Ignoring {len(unexpected)} unexpected keys (e.g. seesaw_loss buffers): {unexpected[:3]}")
         # Now wrap with TTA
         from detectron2.config import get_cfg as _get_cfg
         from cups.model.modeling.meta_arch.panoptic_fpn_tta import PanopticFPNWithTTA

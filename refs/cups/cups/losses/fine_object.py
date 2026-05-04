@@ -55,6 +55,24 @@ Modes
 ``"class_specific"`` (deprecated / wrong for k=80 CUPS heads):
     Kept for backward compatibility but will raise a warning if the semantic
     head channel count ≠ 27.  Use ``thing_focal_stuff_entropy`` instead.
+
+``"thing_mc_panda"`` (Exp 1 — MC-PanDA ECCV 2024 + S2C CVPR 2024):
+    Like ``thing_focal_only`` but gates each mask's loss by
+    ``(1 - teacher_P(thing_channel))``.  Well-predicted thing regions
+    (car, person) contribute near-zero gradient; uncertain/rare regions
+    (bicycle, motorcycle) get full gradient.  Requires ``teacher_logits``
+    in ``forward()``.
+
+``"thing_focal_per_class_freq"`` (Exp 2 — EFL CVPR 2022):
+    Like ``thing_focal_only`` but scales gamma per SAM3 class by
+    ``1 + (1 - sigmoid((n_c - mu) / sigma))``; rare classes get higher
+    effective gamma.  Requires ``class_frequencies`` in constructor.
+
+``"thing_focal_stuff_kd"`` (Exp 3 — Incrementer CVPR 2023):
+    Thing masks → focal CE (same as ``thing_focal_only``).
+    Non-SAM pixels → KL(teacher||student) weighted by teacher stuff
+    confidence — an anti-forgetting anchor for stuff predictions.
+    Requires ``teacher_logits`` in ``forward()``.
 """
 from __future__ import annotations
 
@@ -125,8 +143,20 @@ _VALID_MODES = (
     "thing_entropy_stuff_entropy",
     "thing_focal_stuff_entropy",
     "thing_focal_only",
-    "class_specific",   # deprecated for k=80 heads
+    "class_specific",             # deprecated for k=80 heads
+    "thing_mc_panda",             # Exp 1: MC-PanDA teacher gating
+    "thing_focal_per_class_freq", # Exp 2: Equalized focal loss
+    "thing_focal_stuff_kd",       # Exp 3: Incrementer-style KD anchor
 )
+
+# Modes that skip stuff masks entirely (stuff either left untouched or handled
+# by a separate mechanism like KD on non-SAM pixels).
+_SKIP_STUFF_MODES = frozenset({
+    "thing_focal_only",
+    "thing_mc_panda",
+    "thing_focal_per_class_freq",
+    "thing_focal_stuff_kd",
+})
 
 
 class FineObjectSemanticLoss(nn.Module):
@@ -158,6 +188,15 @@ class FineObjectSemanticLoss(nn.Module):
         focal_gamma: float = 2.0,
         use_iou_weighting: bool = True,
         min_hard_iou: float = 0.10,
+        # Exp 1 (thing_mc_panda): teacher-gated focal CE
+        common_thing_channel_indices: Optional[List[int]] = None,
+        teacher_logit_weight: float = 1.0,
+        # Exp 2 (thing_focal_per_class_freq): equalized focal gamma
+        class_frequencies: Optional[List[float]] = None,
+        gamma_scale_factor: float = 1.0,
+        # Exp 3 (thing_focal_stuff_kd): KD distillation on non-SAM pixels
+        stuff_kd_lambda: float = 0.1,
+        stuff_channel_start: int = 1,
         # Legacy args — kept for backward compat
         sam3_to_cups: Optional[List[int]] = None,
     ) -> None:
@@ -170,6 +209,15 @@ class FineObjectSemanticLoss(nn.Module):
         self.focal_gamma = focal_gamma
         self.use_iou_weighting = use_iou_weighting
         self.min_hard_iou = min_hard_iou
+        # Exp 1
+        self.common_thing_channel_indices: List[int] = common_thing_channel_indices or []
+        self.teacher_logit_weight = teacher_logit_weight
+        # Exp 2
+        self.class_frequencies: Optional[List[float]] = class_frequencies
+        self.gamma_scale_factor = gamma_scale_factor
+        # Exp 3
+        self.stuff_kd_lambda = stuff_kd_lambda
+        self.stuff_channel_start = stuff_channel_start
         # Legacy
         self._sam3_to_cups_legacy: List[int] = (
             sam3_to_cups if sam3_to_cups is not None else _SAM3_TO_CUPS27_LEGACY
@@ -182,6 +230,7 @@ class FineObjectSemanticLoss(nn.Module):
         sam_iou_list: List[Optional[Tensor]],
         sam_class_labels_list: Optional[List[Optional[Tensor]]] = None,
         min_iou_score: float = 0.10,
+        teacher_logits: Optional[Tensor] = None,
     ) -> Tensor:
         """Compute the fine-object semantic loss for one batch.
 
@@ -256,11 +305,34 @@ class FineObjectSemanticLoss(nn.Module):
             if mean_logits.shape[0] == 0:
                 continue
 
+            # Prepare per-image teacher logits for teacher-gated modes
+            teacher_b: Optional[Tensor] = None
+            mean_teacher_logits: Optional[Tensor] = None
+            if teacher_logits is not None and self.mode in (
+                "thing_mc_panda", "thing_focal_stuff_kd"
+            ):
+                teacher_b = teacher_logits[b]
+                if teacher_b.shape[1:] != (h, w):
+                    teacher_b = F.interpolate(
+                        teacher_b.unsqueeze(0).float(),
+                        size=(h, w),
+                        mode="bilinear",
+                        align_corners=False,
+                    ).squeeze(0)
+                mean_teacher_logits = _batch_masked_mean(teacher_b, masks)
+
             loss = self._compute_loss(
-                mean_logits, cls_labels, thing_idx, iou_weights, logits.device
+                mean_logits, cls_labels, thing_idx, iou_weights, logits.device,
+                mean_teacher_logits=mean_teacher_logits,
             )
             if loss is not None:
                 per_image_losses.append(loss)
+
+            # Exp 3: KD distillation on non-SAM pixels (anti-forgetting anchor)
+            if self.mode == "thing_focal_stuff_kd" and teacher_b is not None:
+                union_mask = masks.any(dim=0)  # (H, W)
+                kd = self._stuff_kd_loss(logits_b, teacher_b, union_mask, logits.device)
+                per_image_losses.append(kd * self.stuff_kd_lambda)
 
         if not per_image_losses:
             return logits.sum() * 0.0
@@ -276,19 +348,22 @@ class FineObjectSemanticLoss(nn.Module):
         thing_idx: int,
         iou_weights: Optional[Tensor],  # (M,) or None
         device: torch.device,
+        mean_teacher_logits: Optional[Tensor] = None,  # (M, C) for mc_panda / stuff_kd
     ) -> Optional[Tensor]:
-        M = mean_logits.shape[0]
-
         if self.mode in ("entropy", "thing_coverage"):
             return self._legacy_loss(mean_logits, thing_idx, iou_weights)
 
         if self.mode == "class_specific":
             return self._legacy_class_specific(mean_logits, cls_labels, iou_weights, device)
 
-        # New modes: split thing vs stuff per mask
-        if self.mode in ("thing_entropy_stuff_entropy", "thing_focal_stuff_entropy", "thing_focal_only"):
+        # Split thing vs stuff per mask (all remaining modes)
+        if self.mode in (
+            "thing_entropy_stuff_entropy", "thing_focal_stuff_entropy", "thing_focal_only",
+            "thing_mc_panda", "thing_focal_per_class_freq", "thing_focal_stuff_kd",
+        ):
             return self._split_thing_stuff_loss(
-                mean_logits, cls_labels, thing_idx, iou_weights, device
+                mean_logits, cls_labels, thing_idx, iou_weights, device,
+                mean_teacher_logits=mean_teacher_logits,
             )
 
         return None
@@ -300,18 +375,17 @@ class FineObjectSemanticLoss(nn.Module):
         thing_idx: int,
         iou_weights: Optional[Tensor],
         device: torch.device,
+        mean_teacher_logits: Optional[Tensor] = None,
     ) -> Optional[Tensor]:
         M = mean_logits.shape[0]
         parts: List[Tensor] = []
 
         if cls_labels is None or cls_labels.numel() == 0:
-            # No class labels — fall back to entropy for all masks
             return _entropy_loss(mean_logits, iou_weights)
 
         sam_idx = cls_labels.to(device=device, dtype=torch.long)
         valid = sam_idx >= 0
 
-        # Build per-mask thing/stuff classification
         is_thing_mask = torch.zeros(M, dtype=torch.bool, device=device)
         for m in range(M):
             if valid[m] and sam_idx[m] < len(_SAM3_IS_THING):
@@ -323,32 +397,47 @@ class FineObjectSemanticLoss(nn.Module):
             thing_logits = mean_logits[thing_sel]
             thing_w = iou_weights[thing_sel] if iou_weights is not None else None
             targets = torch.full(
-                (thing_sel.sum(),), thing_idx,
-                dtype=torch.long, device=device,
+                (thing_sel.sum(),), thing_idx, dtype=torch.long, device=device,
             )
-            if self.mode in ("thing_focal_stuff_entropy", "thing_focal_only"):
+
+            if self.mode == "thing_mc_panda":
+                teacher_thing = (
+                    mean_teacher_logits[thing_sel]
+                    if mean_teacher_logits is not None else None
+                )
+                if teacher_thing is not None:
+                    loss_t = self._mc_panda_thing_loss(
+                        thing_logits, teacher_thing, thing_idx, thing_w, device
+                    )
+                else:
+                    loss_t = _focal_ce(thing_logits, targets, self.focal_gamma, thing_w)
+            elif self.mode == "thing_focal_per_class_freq":
+                loss_t = self._freq_aware_focal_loss(
+                    thing_logits, sam_idx[thing_sel], thing_idx, thing_w, device
+                )
+            elif self.mode in (
+                "thing_focal_stuff_entropy", "thing_focal_only", "thing_focal_stuff_kd"
+            ):
                 loss_t = _focal_ce(thing_logits, targets, self.focal_gamma, thing_w)
-            else:
+            else:  # thing_entropy_stuff_entropy
                 loss_t = _weighted_ce(thing_logits, targets, thing_w)
             parts.append(loss_t)
 
         # ── Stuff masks ────────────────────────────────────────────────────
-        # "thing_focal_only": skip stuff masks entirely — only thing-channel
-        # focal CE is applied, leaving all stuff predictions untouched.
+        # Modes in _SKIP_STUFF_MODES leave stuff predictions entirely untouched
+        # (or handle them via a separate KD mechanism on non-SAM pixels).
         stuff_sel = (~is_thing_mask) & valid
-        if stuff_sel.any() and self.mode != "thing_focal_only":
+        if stuff_sel.any() and self.mode not in _SKIP_STUFF_MODES:
             stuff_logits = mean_logits[stuff_sel]
             stuff_w = iou_weights[stuff_sel] if iou_weights is not None else None
 
             if self.stuff_channel_map:
-                # Class-specific stuff supervision (needs Hungarian mapping)
                 parts.append(
                     self._stuff_class_specific(
                         stuff_logits, sam_idx[stuff_sel], stuff_w, device
                     )
                 )
             else:
-                # Entropy mode: force the model to commit to SOME stuff channel
                 parts.append(_entropy_loss(stuff_logits, stuff_w))
 
         if not parts:
@@ -413,6 +502,116 @@ class FineObjectSemanticLoss(nn.Module):
             mean_logits[valid], cups_targets[valid],
             iou_weights[valid] if iou_weights is not None else None,
         )
+
+    # ── New literature-grounded methods (Exp 1-3) ─────────────────────────────
+
+    def _mc_panda_thing_loss(
+        self,
+        thing_logits: Tensor,            # (M_thing, C) student mean logits
+        teacher_thing_logits: Tensor,    # (M_thing, C) teacher mean logits
+        thing_idx: int,
+        iou_weights: Optional[Tensor],   # (M_thing,) or None
+        device: torch.device,
+    ) -> Tensor:
+        """MC-PanDA + S2C gated focal CE (ECCV 2024 / CVPR 2024).
+
+        Masks where teacher already confidently predicts the thing channel
+        contribute near-zero gradient.  Rare/uncertain masks get full gradient.
+        """
+        teacher_probs = teacher_thing_logits.softmax(dim=-1)  # (M, C)
+
+        if self.common_thing_channel_indices:
+            common_idx = torch.tensor(
+                self.common_thing_channel_indices, dtype=torch.long, device=device
+            )
+            common_conf = teacher_probs[:, common_idx].max(dim=-1).values  # (M,)
+        else:
+            # Default: gate by teacher's confidence in the unified thing channel
+            common_conf = teacher_probs[:, thing_idx]
+
+        mc_gate = (1.0 - common_conf * self.teacher_logit_weight).clamp(0.0, 1.0)
+        combined_w = mc_gate if iou_weights is None else (mc_gate * iou_weights)
+
+        targets = torch.full(
+            (thing_logits.shape[0],), thing_idx, dtype=torch.long, device=device,
+        )
+        return _focal_ce(thing_logits, targets, self.focal_gamma, combined_w)
+
+    def _freq_aware_focal_loss(
+        self,
+        thing_logits: Tensor,      # (M_thing, C)
+        sam_thing_labels: Tensor,  # (M_thing,) SAM3 class indices (thing masks only)
+        thing_idx: int,
+        iou_weights: Optional[Tensor],
+        device: torch.device,
+    ) -> Tensor:
+        """Equalized focal loss with per-class frequency-based gamma (CVPR 2022).
+
+        Rare SAM3 classes (bicycle, motorcycle) get higher effective gamma;
+        common classes (person, car) get lower gamma.
+        """
+        targets = torch.full(
+            (thing_logits.shape[0],), thing_idx, dtype=torch.long, device=device,
+        )
+        if self.class_frequencies is None or len(self.class_frequencies) == 0:
+            return _focal_ce(thing_logits, targets, self.focal_gamma, iou_weights)
+
+        freq = torch.tensor(self.class_frequencies, dtype=torch.float, device=device)
+        mu = freq.mean()
+        sigma = freq.std().clamp(min=1e-6)
+
+        # Per-mask effective gamma: higher for rare, lower for common classes
+        gammas = thing_logits.new_full((thing_logits.shape[0],), self.focal_gamma)
+        for m in range(thing_logits.shape[0]):
+            cls = int(sam_thing_labels[m].item())
+            if 0 <= cls < len(self.class_frequencies):
+                e_c = 1.0 - torch.sigmoid((freq[cls] - mu) / sigma)
+                gammas[m] = self.focal_gamma * (1.0 + float(e_c) * self.gamma_scale_factor)
+
+        log_p = F.log_softmax(thing_logits, dim=1)                         # (M, C)
+        log_pt = log_p.gather(1, targets.unsqueeze(1)).squeeze(1)          # (M,)
+        pt = log_pt.exp()
+        nll = -(1.0 - pt).pow(gammas) * log_pt                             # (M,)
+
+        if iou_weights is not None:
+            return (iou_weights * nll).sum() / iou_weights.sum().clamp(min=1e-6)
+        return nll.mean()
+
+    def _stuff_kd_loss(
+        self,
+        logits_b: Tensor,           # (C, H, W) student
+        teacher_logits_b: Tensor,   # (C, H, W) teacher
+        sam_union_mask: Tensor,     # (H, W) bool — True inside any SAM mask
+        device: torch.device,
+    ) -> Tensor:
+        """Incrementer-style KL distillation on non-SAM pixels (CVPR 2023).
+
+        Anchors stuff predictions to the teacher outside SAM mask regions,
+        weighted by teacher confidence on stuff channels.
+        """
+        non_sam = ~sam_union_mask  # (H, W)
+        if not non_sam.any():
+            return logits_b.sum() * 0.0
+
+        C = logits_b.shape[0]
+        s_flat = logits_b.permute(1, 2, 0).reshape(-1, C)           # (HW, C)
+        t_flat = teacher_logits_b.permute(1, 2, 0).reshape(-1, C)   # (HW, C)
+        ns_flat = non_sam.reshape(-1)                                 # (HW,)
+
+        s_ns = s_flat[ns_flat]   # (N_ns, C) student non-SAM logits
+        t_ns = t_flat[ns_flat]   # (N_ns, C) teacher non-SAM logits
+
+        t_probs = t_ns.softmax(dim=-1)              # (N_ns, C)
+        s_log_probs = F.log_softmax(s_ns, dim=-1)   # (N_ns, C)
+
+        # KL(t || s) per pixel
+        kl = F.kl_div(s_log_probs, t_probs, reduction="none").sum(dim=-1)  # (N_ns,)
+
+        # Weight by teacher's confidence on stuff channels
+        if self.stuff_channel_start < C:
+            sim_weight = t_probs[:, self.stuff_channel_start:].max(dim=-1).values
+            return (kl * sim_weight).mean()
+        return kl.mean()
 
 
 # ── Loss primitives ───────────────────────────────────────────────────────────

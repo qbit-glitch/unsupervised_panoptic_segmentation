@@ -46,6 +46,26 @@ _C.MODEL.TTA_INFERENCE_CONFIDENCE_THRESHOLD = 0.5
 # Set TTA scales
 _C.MODEL.TTA_SCALES = (0.5, 0.75, 1.0)
 
+# ROI box-head long-tail losses. EQLv2 and Seesaw are mutually exclusive.
+_C.MODEL.ROI_BOX_HEAD = CfgNode()
+_C.MODEL.ROI_BOX_HEAD.USE_EQLV2 = False
+_C.MODEL.ROI_BOX_HEAD.EQLV2_GAMMA = 12.0
+_C.MODEL.ROI_BOX_HEAD.EQLV2_MU = 0.8
+_C.MODEL.ROI_BOX_HEAD.EQLV2_ALPHA = 4.0
+_C.MODEL.ROI_BOX_HEAD.USE_SEESAW_LOSS = False
+_C.MODEL.ROI_BOX_HEAD.SEESAW_P = 0.8
+_C.MODEL.ROI_BOX_HEAD.SEESAW_Q = 2.0
+# SAM3 Mask-Adapter: cross-attention between ROI features and SAM3 mask embeddings (Ablation 3).
+_C.MODEL.ROI_BOX_HEAD.SAM3_MASK_ADAPTER = False
+_C.MODEL.ROI_BOX_HEAD.SAM3_ADAPTER_DIM = 256
+_C.MODEL.ROI_BOX_HEAD.SAM3_N_MAX_MASKS = 20
+_C.MODEL.ROI_BOX_HEAD.SAM3_MASKS_DIR = ""  # absolute path to sam_fine_masks_sam3/train/
+
+# Depth-aware proposal consistency loss for mask head (0.0 = disabled).
+# Penalizes fg proposals whose bbox region spans high depth variance.
+_C.MODEL.ROI_MASK_HEAD = CfgNode()
+_C.MODEL.ROI_MASK_HEAD.DEPTH_DICE_WEIGHT = 0.0
+
 # LoRA/DoRA/Conv-DoRA backbone adaptation
 _C.MODEL.LORA = CfgNode()
 _C.MODEL.LORA.ENABLED = False
@@ -104,6 +124,11 @@ _C.MODEL.SEM_SEG_HEAD.KD_TEMPERATURE = 2.0
 _C.MODEL.SEM_SEG_HEAD.USE_DEPTH_FILM = False
 # Number of depth encoder output channels (sinusoidal + Sobel + raw)
 _C.MODEL.SEM_SEG_HEAD.DEPTH_CHANNELS = 15
+# LDAM semantic-head loss for long-tail preservation.
+_C.MODEL.SEM_SEG_HEAD.LDAM_ENABLED = False
+_C.MODEL.SEM_SEG_HEAD.LDAM_MAX_MARGIN = 0.5
+_C.MODEL.SEM_SEG_HEAD.LDAM_S = 30.0
+_C.MODEL.SEM_SEG_HEAD.LDAM_CLASS_FREQ = ()
 
 # Stage-2 semantic head auxiliary losses (P1-P4 of loss augmentation plan).
 # All aux weights default to 0.0 = disabled; enable per-pass via YAML overrides.
@@ -126,6 +151,15 @@ _C.MODEL.SEM_SEG_HEAD.GATED_CRF_KERNEL = 5
 _C.MODEL.SEM_SEG_HEAD.GATED_CRF_RGB_SIGMA = 0.1
 _C.MODEL.SEM_SEG_HEAD.NECO_WEIGHT = 0.0
 _C.MODEL.SEM_SEG_HEAD.NECO_K = 5
+
+# Stage-4 dead-class recovery semantic-head losses.
+# Class ids here are Detectron2 semantic-head target ids (0=thing region,
+# 1..S=stuff classes); they are filled dynamically from STAGE4 when possible.
+_C.MODEL.SEM_SEG_HEAD.RARE_STUFF_CLASSES = ()
+_C.MODEL.SEM_SEG_HEAD.RARE_FOCAL_WEIGHT = 0.0
+_C.MODEL.SEM_SEG_HEAD.RARE_FOCAL_GAMMA = 2.0
+_C.MODEL.SEM_SEG_HEAD.RARE_BOUNDARY_WEIGHT = 0.0
+_C.MODEL.SEM_SEG_HEAD.RARE_BOUNDARY_WIDTH = 3
 
 # Dataset configurations
 _C.DATA = CfgNode()
@@ -159,6 +193,10 @@ _C.DATA.SCALE = 0.625
 _C.DATA.VAL_SCALE = 0.625
 # Set if thing regions not occupied by an object proposal should be ignored
 _C.DATA.IGNORE_UNKNOWN_THING_REGIONS = False
+# Repeat-factor sampling for long-tail pseudo-label training.
+_C.DATA.USE_REPEAT_FACTOR_SAMPLER = False
+_C.DATA.RFS_THRESHOLD_T = 0.001
+_C.DATA.RFS_PRECOMPUTE_CACHE = ""
 
 # Training specific config
 _C.TRAINING = CfgNode()
@@ -218,10 +256,93 @@ _C.SELF_TRAINING.ROUNDS = 3
 _C.SELF_TRAINING.USE_DROP_LOSS = False
 # Set semantic segmentation threshold
 _C.SELF_TRAINING.SEMANTIC_SEGMENTATION_THRESHOLD = 0.5
+# Optional class-frequency-aware thresholding parameters for stage-3 configs.
+_C.SELF_TRAINING.CLASS_THRESHOLD_ALPHA = 0.0
+_C.SELF_TRAINING.CLASS_FREQUENCIES = ()
 # Set confidence step for each stage (base confidence + stage * confidence step)
 _C.SELF_TRAINING.CONFIDENCE_STEP = 0.05
 # Disable EMA teacher updates (Exp 13: test LoRA implicit smoothing)
 _C.SELF_TRAINING.DISABLE_EMA = False
+
+# Fine-object SAM supervision (Stage-4 fine-tuning).
+# Uses pre-computed SAM masks as region priors to recover dead/rare classes
+# (bicycle, motorcycle, rider, traffic sign, etc.) that depth pseudo-labels miss.
+# Enable by setting ENABLED=True and pointing SAM_MASKS_DIR to the output of
+# scripts/generate_sam_fine_masks.py (the split-level directory, e.g. .../train/).
+_C.SELF_TRAINING.FINE_OBJECT = CfgNode()
+_C.SELF_TRAINING.FINE_OBJECT.ENABLED = False
+# Scalar weight: total_loss += WEIGHT * L_fine
+_C.SELF_TRAINING.FINE_OBJECT.WEIGHT = 0.1
+# Directory containing per-image .npz files (output of generate_sam_fine_masks.py)
+_C.SELF_TRAINING.FINE_OBJECT.SAM_MASKS_DIR = ""
+# Loss mode: "entropy" (class-agnostic, forces confidence inside mask)
+#            "thing_coverage" (pushes toward thing-region class; requires correct thing_class_idx)
+#            "thing_focal_stuff_entropy" (focal CE on thing masks, entropy on stuff)
+#            "thing_focal_only" (focal CE on thing masks only, stuff masks SKIPPED)
+_C.SELF_TRAINING.FINE_OBJECT.MODE = "entropy"
+# Minimum SAM IoU/confidence score to use a mask (discard noisy masks)
+_C.SELF_TRAINING.FINE_OBJECT.MIN_IOU_SCORE = 0.78
+# Maximum number of SAM masks to use per image (avoid memory spikes)
+_C.SELF_TRAINING.FINE_OBJECT.MAX_MASKS_PER_IMAGE = 30
+# Thing-region class index in the semantic head vocabulary.
+# In CUPS: channel 0 (the FIRST channel, not the last).  things_classes → 0,
+# stuff_classes → 1..S in the dataloader; panoptic_fpn.py skips semantic_label==0.
+# Use -1 for auto-detect (resolves to 0).
+_C.SELF_TRAINING.FINE_OBJECT.THING_CLASS_IDX = -1
+# Focal-loss gamma for thing-class CE in "thing_focal_stuff_entropy" mode.
+_C.SELF_TRAINING.FINE_OBJECT.FOCAL_GAMMA = 2.0
+# Weight each mask loss by its SAM IoU score (soft weighting instead of hard threshold).
+_C.SELF_TRAINING.FINE_OBJECT.USE_IOU_WEIGHTING = True
+# Hard-discard masks with IoU below this (SAM3 scores bounded ~0.7 max, so 0.10 keeps nearly all).
+_C.SELF_TRAINING.FINE_OBJECT.MIN_HARD_IOU = 0.10
+# Maps SAM3 stuff class index → semantic head channel (1-indexed; 0 = thing).
+# Encoded as a list of [sam3_idx, head_channel] pairs (yacs does not support dict).
+# E.g. [[4, 54], [13, 24]].  Empty list/tuple disables stuff supervision.
+_C.SELF_TRAINING.FINE_OBJECT.STUFF_CHANNEL_MAP = ()
+# ── Exp 1 (thing_mc_panda): MC-PanDA teacher gating ──────────────────────
+_C.SELF_TRAINING.FINE_OBJECT.COMMON_THING_CHANNEL_INDICES = ()
+_C.SELF_TRAINING.FINE_OBJECT.TEACHER_LOGIT_WEIGHT = 1.0
+# ── Exp 2 (thing_focal_per_class_freq): Equalized focal gamma ────────────
+_C.SELF_TRAINING.FINE_OBJECT.CLASS_FREQUENCIES_SAM3 = ()
+_C.SELF_TRAINING.FINE_OBJECT.GAMMA_SCALE_FACTOR = 1.0
+# ── Exp 3 (thing_focal_stuff_kd): Incrementer-style KD anchor ────────────
+_C.SELF_TRAINING.FINE_OBJECT.STUFF_KD_LAMBDA = 0.1
+_C.SELF_TRAINING.FINE_OBJECT.STUFF_CHANNEL_START = 1
+
+# Stage-4: Dead-Class Recovery (DCR). Disabled by default.
+_C.STAGE4 = CfgNode()
+_C.STAGE4.ENABLED = False
+_C.STAGE4.RARE_CLASSES = ("guard rail", "tunnel", "polegroup", "caravan", "trailer")
+# Optional explicit CUPS-space ids. If empty, ids are resolved by matching
+# RARE_CLASSES against Cityscapes-27 names and the current thing/stuff split.
+_C.STAGE4.RARE_STUFF_PSEUDO_CLASSES = ()
+_C.STAGE4.RARE_THING_PSEUDO_CLASSES = ()
+_C.STAGE4.TAU_RARE = 0.25
+_C.STAGE4.TAU_COMMON = 0.70
+_C.STAGE4.MIN_TTA_AGREEMENT = 0.55
+_C.STAGE4.REPLAY_WEIGHT = 0.0
+_C.STAGE4.FREEZE_BACKBONE = True
+_C.STAGE4.FREEZE_RPN = True
+_C.STAGE4.USE_EQLV2 = False
+_C.STAGE4.EQLV2_GAMMA = 12.0
+_C.STAGE4.EQLV2_MU = 0.8
+_C.STAGE4.EQLV2_ALPHA = 4.0
+_C.STAGE4.USE_SEESAW_LOSS = False
+_C.STAGE4.SEESAW_P = 0.8
+_C.STAGE4.SEESAW_Q = 2.0
+_C.STAGE4.RARE_LOSS_WEIGHT = 1.0
+_C.STAGE4.OHEM_ENABLED = False
+_C.STAGE4.OHEM_FRACTION = 0.25
+_C.STAGE4.OHEM_MIN_KEPT = 16
+_C.STAGE4.OHEM_RARE_MIN_KEPT = 2
+_C.STAGE4.RARE_RETAIN_ENABLED = False
+_C.STAGE4.RARE_RETAIN_MIN_ROIS = 2
+_C.STAGE4.RARE_RETAIN_RELAXED_IOU = 0.35
+_C.STAGE4.RARE_FOCAL_WEIGHT = 0.0
+_C.STAGE4.RARE_FOCAL_GAMMA = 2.0
+_C.STAGE4.RARE_BOUNDARY_WEIGHT = 0.0
+_C.STAGE4.RARE_BOUNDARY_WIDTH = 3
+_C.STAGE4.BANDIT_ENABLED = False
 
 # Validation specific config
 _C.VALIDATION = CfgNode()
@@ -260,6 +381,12 @@ _C.AUGMENTATION.RESOLUTIONS = (
     (672, 1344),
     (704, 1408),
 )
+# Persistent rare-instance pool copy-paste.
+_C.AUGMENTATION.USE_RARE_POOL = False
+_C.AUGMENTATION.RARE_POOL_PATH = ""
+_C.AUGMENTATION.RARE_POOL_PASTES_PER_IMAGE = (1, 3)
+_C.AUGMENTATION.RARE_POOL_USE_DEPTH_PLACEMENT = True
+_C.AUGMENTATION.RARE_POOL_CLASS_REPEAT_OVERRIDES = ((11, 4), (12, 4), (18, 4), (14, 8), (15, 8), (16, 8))
 
 # Pseudo label generation specific config
 _C.PSEUDOS = CfgNode()
