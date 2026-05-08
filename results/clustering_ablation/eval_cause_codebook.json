@@ -1,0 +1,223 @@
+{
+  "split": "val",
+  "eval_resolution": [
+    512,
+    1024
+  ],
+  "semantic": {
+    "miou": 28.17,
+    "pixel_accuracy": 86.04,
+    "per_class_iou": {
+      "road": 93.82,
+      "sidewalk": 57.95,
+      "building": 73.26,
+      "wall": 0.0,
+      "fence": 0.0,
+      "pole": 0.0,
+      "traffic light": 0.0,
+      "traffic sign": 32.99,
+      "vegetation": 75.64,
+      "terrain": 0.0,
+      "sky": 82.16,
+      "person": 40.35,
+      "rider": 0.0,
+      "car": 74.92,
+      "truck": 0.0,
+      "bus": 0.0,
+      "train": 0.0,
+      "motorcycle": 0.0,
+      "bicycle": 4.06
+    },
+    "num_images": 500
+  },
+  "instance": {
+    "ar_100": 13.4,
+    "ap_50": 11.74,
+    "ap_75": 4.14,
+    "avg_pred_instances": 4.3,
+    "avg_gt_instances": 20.2,
+    "num_images": 492,
+    "skipped": 0
+  },
+  "panoptic": {
+    "PQ": 16.73,
+    "PQ_stuff": 27.18,
+    "PQ_things": 2.37,
+    "SQ": 72.13,
+    "RQ": 28.36,
+    "per_class": {
+      "road": {
+        "PQ": 75.55,
+        "SQ": 77.36,
+        "RQ": 97.66,
+        "TP": 480,
+        "FP": 20,
+        "FN": 3,
+        "type": "stuff"
+      },
+      "sidewalk": {
+        "PQ": 36.4,
+        "SQ": 67.15,
+        "RQ": 54.21,
+        "TP": 261,
+        "FP": 238,
+        "FN": 203,
+        "type": "stuff"
+      },
+      "building": {
+        "PQ": 53.06,
+        "SQ": 71.25,
+        "RQ": 74.47,
+        "TP": 369,
+        "FP": 131,
+        "FN": 122,
+        "type": "stuff"
+      },
+      "wall": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 0,
+        "FN": 201,
+        "type": "stuff"
+      },
+      "fence": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 0,
+        "FN": 189,
+        "type": "stuff"
+      },
+      "pole": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 0,
+        "FN": 489,
+        "type": "stuff"
+      },
+      "traffic light": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 0,
+        "FN": 260,
+        "type": "stuff"
+      },
+      "traffic sign": {
+        "PQ": 8.28,
+        "SQ": 60.48,
+        "RQ": 13.69,
+        "TP": 61,
+        "FP": 361,
+        "FN": 408,
+        "type": "stuff"
+      },
+      "vegetation": {
+        "PQ": 60.98,
+        "SQ": 73.14,
+        "RQ": 83.37,
+        "TP": 411,
+        "FP": 89,
+        "FN": 75,
+        "type": "stuff"
+      },
+      "terrain": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 0,
+        "FN": 231,
+        "type": "stuff"
+      },
+      "sky": {
+        "PQ": 64.77,
+        "SQ": 77.0,
+        "RQ": 84.12,
+        "TP": 376,
+        "FP": 81,
+        "FN": 61,
+        "type": "stuff"
+      },
+      "person": {
+        "PQ": 3.22,
+        "SQ": 61.07,
+        "RQ": 5.28,
+        "TP": 106,
+        "FP": 536,
+        "FN": 3270,
+        "type": "thing"
+      },
+      "rider": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 0,
+        "FN": 541,
+        "type": "thing"
+      },
+      "car": {
+        "PQ": 15.53,
+        "SQ": 70.28,
+        "RQ": 22.1,
+        "TP": 660,
+        "FP": 678,
+        "FN": 3975,
+        "type": "thing"
+      },
+      "truck": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 0,
+        "FN": 93,
+        "type": "thing"
+      },
+      "bus": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 0,
+        "FN": 98,
+        "type": "thing"
+      },
+      "train": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 0,
+        "FN": 23,
+        "type": "thing"
+      },
+      "motorcycle": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 0,
+        "FN": 149,
+        "type": "thing"
+      },
+      "bicycle": {
+        "PQ": 0.17,
+        "SQ": 54.14,
+        "RQ": 0.32,
+        "TP": 2,
+        "FP": 84,
+        "FN": 1161,
+        "type": "thing"
+      }
+    },
+    "num_images": 500
+  }
+}
