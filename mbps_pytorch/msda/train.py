@@ -56,6 +56,7 @@ def train_one_epoch(
     device: torch.device,
     epoch: int,
     grad_clip: float = 1.0,
+    grad_accum: int = 1,
 ) -> Dict[str, float]:
     model.train()
     if hasattr(loss_fn, "train"):
@@ -65,29 +66,29 @@ def train_one_epoch(
     num_batches = 0
 
     for batch_idx, batch in enumerate(loader):
-        features = batch["features"].to(device)  # (B, N, D)
-        depth = batch["depth"].to(device)  # (B, 1, H, W)
+        features = batch["features"].to(device)
+        depth = batch["depth"].to(device)
 
-        optimizer.zero_grad()
-
-        adapted = model(features, depth)  # (B, N_out, D_out)
-
-        loss = loss_fn(adapted, features, depth)
+        adapted = model(features, depth)
+        loss = loss_fn(adapted, features, depth) / grad_accum
 
         loss.backward()
-        if grad_clip > 0:
-            nn.utils.clip_grad_norm_(
-                list(model.parameters()) + list(loss_fn.parameters()),
-                grad_clip,
-            )
-        optimizer.step()
 
-        total_loss += loss.item()
+        if (batch_idx + 1) % grad_accum == 0 or (batch_idx + 1) == len(loader):
+            if grad_clip > 0:
+                nn.utils.clip_grad_norm_(
+                    list(model.parameters()) + list(loss_fn.parameters()),
+                    grad_clip,
+                )
+            optimizer.step()
+            optimizer.zero_grad()
+
+        total_loss += loss.item() * grad_accum
         num_batches += 1
 
         if batch_idx % 50 == 0:
             logger.info(
-                f"Epoch {epoch} [{batch_idx}/{len(loader)}] loss={loss.item():.4f}"
+                f"Epoch {epoch} [{batch_idx}/{len(loader)}] loss={loss.item() * grad_accum:.4f}"
             )
 
     avg_loss = total_loss / max(num_batches, 1)
@@ -178,6 +179,7 @@ def main() -> None:
     parser.add_argument("--hidden_dim", type=int, default=512)
     parser.add_argument("--num_blocks", type=int, default=4)
     parser.add_argument("--save_every", type=int, default=10)
+    parser.add_argument("--grad_accum", type=int, default=1)
     parser.add_argument("--resume", type=str, default=None)
 
     args = parser.parse_args()
@@ -267,7 +269,8 @@ def main() -> None:
         t0 = time.time()
 
         train_metrics = train_one_epoch(
-            model, loss_fn, train_loader, optimizer, device, epoch, args.grad_clip
+            model, loss_fn, train_loader, optimizer, device, epoch,
+            args.grad_clip, args.grad_accum,
         )
         val_metrics = validate(model, loss_fn, val_loader, device)
         scheduler.step()
