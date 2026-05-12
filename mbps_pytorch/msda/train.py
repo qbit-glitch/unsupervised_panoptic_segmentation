@@ -134,9 +134,10 @@ def save_checkpoint(
     cfg: AdapterConfig,
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
+    raw_model = model.module if isinstance(model, nn.DataParallel) else model
     state = {
         "epoch": epoch,
-        "model_state_dict": model.state_dict(),
+        "model_state_dict": raw_model.state_dict(),
         "optimizer_state_dict": optimizer.state_dict(),
         "metrics": metrics,
         "arch": arch_name,
@@ -213,6 +214,23 @@ def main() -> None:
     model = create_adapter(args.arch, cfg).to(device)
     loss_fn = create_loss(args.loss, output_dim=args.output_dim).to(device)
 
+    start_epoch = 0
+    best_val_loss = float("inf")
+
+    if args.resume:
+        ckpt = torch.load(args.resume, map_location=device, weights_only=False)
+        model.load_state_dict(ckpt["model_state_dict"])
+        if "loss_state_dict" in ckpt and hasattr(loss_fn, "load_state_dict"):
+            loss_fn.load_state_dict(ckpt["loss_state_dict"])
+        start_epoch = ckpt["epoch"] + 1
+        best_val_loss = ckpt["metrics"].get("val_loss", float("inf"))
+        logger.info(f"Resumed from epoch {start_epoch}")
+
+    num_gpus = torch.cuda.device_count() if device.type == "cuda" else 1
+    if num_gpus > 1:
+        model = nn.DataParallel(model)
+        logger.info(f"Using DataParallel across {num_gpus} GPUs")
+
     params = list(model.parameters()) + list(loss_fn.parameters())
     optimizer = torch.optim.AdamW(
         params, lr=args.lr, weight_decay=args.weight_decay
@@ -221,18 +239,9 @@ def main() -> None:
         optimizer, T_max=args.epochs
     )
 
-    start_epoch = 0
-    best_val_loss = float("inf")
-
-    if args.resume:
-        ckpt = torch.load(args.resume, map_location=device, weights_only=False)
-        model.load_state_dict(ckpt["model_state_dict"])
+    if args.resume and "optimizer_state_dict" in ckpt:
         optimizer.load_state_dict(ckpt["optimizer_state_dict"])
-        if "loss_state_dict" in ckpt and hasattr(loss_fn, "load_state_dict"):
-            loss_fn.load_state_dict(ckpt["loss_state_dict"])
-        start_epoch = ckpt["epoch"] + 1
-        best_val_loss = ckpt["metrics"].get("val_loss", float("inf"))
-        logger.info(f"Resumed from epoch {start_epoch}")
+        logger.info("Restored optimizer state")
 
     train_ds = CachedFeatureDataset(
         args.feature_dir, args.depth_dir, split="train", augment=True
