@@ -23,6 +23,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 from .architectures import ARCH_REGISTRY, AdapterConfig, create_adapter
 from .dataset import CachedFeatureDataset
@@ -65,7 +66,8 @@ def train_one_epoch(
     total_loss = 0.0
     num_batches = 0
 
-    for batch_idx, batch in enumerate(loader):
+    pbar = tqdm(loader, desc=f"Epoch {epoch:02d}", leave=False)
+    for batch_idx, batch in enumerate(pbar):
         features = batch["features"].to(device)
         depth = batch["depth"].to(device)
 
@@ -85,12 +87,9 @@ def train_one_epoch(
 
         total_loss += loss.item() * grad_accum
         num_batches += 1
+        pbar.set_postfix(loss=f"{total_loss/num_batches:.4f}")
 
-        if batch_idx % 50 == 0:
-            logger.info(
-                f"Epoch {epoch} [{batch_idx}/{len(loader)}] loss={loss.item() * grad_accum:.4f}"
-            )
-
+    pbar.close()
     avg_loss = total_loss / max(num_batches, 1)
     return {"train_loss": avg_loss}
 
