@@ -265,7 +265,8 @@ def main() -> None:
         pin_memory=True,
     )
 
-    param_info = model.count_parameters()
+    raw = model.module if isinstance(model, nn.DataParallel) else model
+    param_info = raw.count_parameters()
     logger.info(f"Architecture: {args.arch} ({param_info['trainable']/1e6:.1f}M params)")
     logger.info(f"Loss: {args.loss}")
     logger.info(f"Train: {len(train_ds)}, Val: {len(val_ds)}")
