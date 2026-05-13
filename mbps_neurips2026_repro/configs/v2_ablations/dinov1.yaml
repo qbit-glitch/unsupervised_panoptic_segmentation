@@ -1,0 +1,13 @@
+# Ablation: Use DINO ViT-S/8 backbone (v1) instead of DINOv3 ViT-B/16
+architecture:
+  backbone: "dino_vits8"
+  backbone_dim: 384
+  patch_size: 8
+  bridge_dim: 192
+  depth_mlp_dims: [12, 64, 192]
+
+data:
+  n_patches: 8192  # (512/8) * (1024/8) = 64 * 128
+
+training:
+  batch_size: 8  # Can use larger batch with smaller backbone

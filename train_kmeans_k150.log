@@ -1,0 +1,233 @@
+Found 500 feature files in /Users/qbit-glitch/Desktop/datasets/coco/dinov3_features/val2017
+Loading features:   0%|          | 0/500 [00:00<?, ?it/s]Loading features:  15%|█▍        | 73/500 [00:00<00:00, 724.34it/s]Loading features:  29%|██▉       | 146/500 [00:00<00:00, 705.01it/s]Loading features:  43%|████▎     | 217/500 [00:00<00:00, 626.06it/s]Loading features:  56%|█████▌    | 281/500 [00:00<00:00, 591.22it/s]Loading features:  68%|██████▊   | 341/500 [00:00<00:00, 512.55it/s]Loading features:  79%|███████▉  | 394/500 [00:00<00:00, 496.63it/s]Loading features:  90%|████████▉ | 449/500 [00:00<00:00, 509.45it/s]Loading features: 100%|██████████| 500/500 [00:00<00:00, 548.16it/s]
+Feature matrix: (512000, 1024)
+Running MiniBatchKMeans with k=150...
+Init 1/1 with method k-means++
+/Users/qbit-glitch/Desktop/datasets/.venv_py310/lib/python3.10/site-packages/sklearn/utils/extmath.py:203: RuntimeWarning: divide by zero encountered in matmul
+  ret = a @ b
+/Users/qbit-glitch/Desktop/datasets/.venv_py310/lib/python3.10/site-packages/sklearn/utils/extmath.py:203: RuntimeWarning: overflow encountered in matmul
+  ret = a @ b
+/Users/qbit-glitch/Desktop/datasets/.venv_py310/lib/python3.10/site-packages/sklearn/utils/extmath.py:203: RuntimeWarning: invalid value encountered in matmul
+  ret = a @ b
+/Users/qbit-glitch/Desktop/datasets/.venv_py310/lib/python3.10/site-packages/sklearn/cluster/_kmeans.py:237: RuntimeWarning: divide by zero encountered in matmul
+  current_pot = closest_dist_sq @ sample_weight
+/Users/qbit-glitch/Desktop/datasets/.venv_py310/lib/python3.10/site-packages/sklearn/cluster/_kmeans.py:237: RuntimeWarning: overflow encountered in matmul
+  current_pot = closest_dist_sq @ sample_weight
+/Users/qbit-glitch/Desktop/datasets/.venv_py310/lib/python3.10/site-packages/sklearn/cluster/_kmeans.py:237: RuntimeWarning: invalid value encountered in matmul
+  current_pot = closest_dist_sq @ sample_weight
+Inertia for init 1/1: 1996020.125
+Minibatch step 1/15360: mean batch inertia: 66.85510625
+Minibatch step 2/15360: mean batch inertia: 42.735721875, ewa inertia: 42.735721875
+Minibatch step 3/15360: mean batch inertia: 41.90314375, ewa inertia: 42.70319935551274
+Minibatch step 4/15360: mean batch inertia: 41.43568125, ewa inertia: 42.65368702621991
+Minibatch step 5/15360: mean batch inertia: 41.2394, ewa inertia: 42.598441547159524
+Minibatch step 6/15360: mean batch inertia: 41.248975, ewa inertia: 42.54572811311703
+Minibatch step 7/15360: mean batch inertia: 41.22865625, ewa inertia: 42.49428009394843
+Minibatch step 8/15360: mean batch inertia: 41.102175, ewa inertia: 42.43990109492505
+Minibatch step 9/15360: mean batch inertia: 41.131, ewa inertia: 42.38877224576557
+Minibatch step 10/15360: mean batch inertia: 41.106003125, ewa inertia: 42.338664174852994
+Minibatch step 11/15360: mean batch inertia: 41.0274, ewa inertia: 42.287443018064124
+Minibatch step 12/15360: mean batch inertia: 40.91406875, ewa inertia: 42.2337956904978
+Minibatch step 13/15360: mean batch inertia: 40.924509375, ewa inertia: 42.18265179368909
+Minibatch step 14/15360: mean batch inertia: 40.8963, ewa inertia: 42.13240377488877
+Minibatch step 15/15360: mean batch inertia: 40.84584375, ewa inertia: 42.0821476220731
+Minibatch step 16/15360: mean batch inertia: 40.7531625, ewa inertia: 42.030234242135435
+Minibatch step 17/15360: mean batch inertia: 40.891825, ewa inertia: 41.98576521796809
+Minibatch step 18/15360: mean batch inertia: 40.835221875, ewa inertia: 41.94082220641271
+Minibatch step 19/15360: mean batch inertia: 40.843796875, ewa inertia: 41.89796973810063
+Minibatch step 20/15360: mean batch inertia: 40.94250625, ewa inertia: 41.860647018492635
+Minibatch step 21/15360: mean batch inertia: 40.912509375, ewa inertia: 41.823610464130724
+Minibatch step 22/15360: mean batch inertia: 40.671578125, ewa inertia: 41.77860928877635
+Minibatch step 23/15360: mean batch inertia: 40.74576875, ewa inertia: 41.738264034029726
+Minibatch step 24/15360: mean batch inertia: 40.67561875, ewa inertia: 41.69675453369556
+Minibatch step 25/15360: mean batch inertia: 40.5751, ewa inertia: 41.65293998904836
+Minibatch step 26/15360: mean batch inertia: 40.612321875, ewa inertia: 41.61229092336106
+Minibatch step 27/15360: mean batch inertia: 40.59896875, ewa inertia: 41.57270810327434
+Minibatch step 28/15360: mean batch inertia: 40.71770625, ewa inertia: 41.53930965861215
+Minibatch step 29/15360: mean batch inertia: 40.62284375, ewa inertia: 41.50351027897765
+Minibatch step 30/15360: mean batch inertia: 40.609125, ewa inertia: 41.46857342225363
+Minibatch step 31/15360: mean batch inertia: 40.69724375, ewa inertia: 41.43844341577889
+Minibatch step 32/15360: mean batch inertia: 40.6714375, ewa inertia: 41.408482305711566
+Minibatch step 33/15360: mean batch inertia: 40.78509375, ewa inertia: 41.38413123781476
+Minibatch step 34/15360: mean batch inertia: 40.66751875, ewa inertia: 41.35613861718259
+Minibatch step 35/15360: mean batch inertia: 40.746453125, ewa inertia: 41.33232282415943
+Minibatch step 36/15360: mean batch inertia: 40.829025, ewa inertia: 41.312662791301705
+Minibatch step 37/15360: mean batch inertia: 40.72630625, ewa inertia: 41.28975828364247
+Minibatch step 38/15360: mean batch inertia: 40.867, ewa inertia: 41.27324432044152
+Minibatch step 39/15360: mean batch inertia: 40.779753125, ewa inertia: 41.253967358269904
+Minibatch step 40/15360: mean batch inertia: 40.55419375, ewa inertia: 41.22663250508525
+Minibatch step 41/15360: mean batch inertia: 40.593746875, ewa inertia: 41.20191045844529
+Minibatch step 42/15360: mean batch inertia: 40.649, ewa inertia: 41.18031243584591
+Minibatch step 43/15360: mean batch inertia: 40.7530625, ewa inertia: 41.16362301782345
+Minibatch step 44/15360: mean batch inertia: 40.65499375, ewa inertia: 41.14375472585435
+Minibatch step 45/15360: mean batch inertia: 40.61915, ewa inertia: 41.123262393774745
+Minibatch step 46/15360: mean batch inertia: 40.70773125, ewa inertia: 41.10703074017349
+Minibatch step 47/15360: mean batch inertia: 40.799309375, ewa inertia: 41.09501039782363
+Minibatch step 48/15360: mean batch inertia: 40.621375, ewa inertia: 41.07650905123159
+Minibatch step 49/15360: mean batch inertia: 40.67424375, ewa inertia: 41.06079559359258
+Minibatch step 50/15360: mean batch inertia: 40.59630625, ewa inertia: 41.04265151404615
+Minibatch step 51/15360: mean batch inertia: 40.5508, ewa inertia: 41.02343860180394
+Minibatch step 52/15360: mean batch inertia: 40.652796875, ewa inertia: 41.008960437628325
+Minibatch step 53/15360: mean batch inertia: 40.70045, ewa inertia: 40.9969092721959
+Minibatch step 54/15360: mean batch inertia: 40.700659375, ewa inertia: 40.98533703318871
+Minibatch step 55/15360: mean batch inertia: 40.35800625, ewa inertia: 40.960831972331846
+Minibatch step 56/15360: mean batch inertia: 40.51903125, ewa inertia: 40.94357416532241
+Minibatch step 57/15360: mean batch inertia: 40.6971375, ewa inertia: 40.93394775188484
+Minibatch step 58/15360: mean batch inertia: 40.590578125, ewa inertia: 40.92053490203162
+Minibatch step 59/15360: mean batch inertia: 40.34238125, ewa inertia: 40.89795081910867
+Minibatch step 60/15360: mean batch inertia: 40.66573125, ewa inertia: 40.888879759907276
+Minibatch step 61/15360: mean batch inertia: 40.35165625, ewa inertia: 40.867894507538345
+Minibatch step 62/15360: mean batch inertia: 40.674784375, ewa inertia: 40.86035115771917
+Minibatch step 63/15360: mean batch inertia: 40.64370625, ewa inertia: 40.851888482540055
+Minibatch step 64/15360: mean batch inertia: 40.64535, ewa inertia: 40.843820588823434
+Minibatch step 65/15360: mean batch inertia: 40.6222, ewa inertia: 40.8351635514808
+Minibatch step 66/15360: mean batch inertia: 40.475609375, ewa inertia: 40.82111849389376
+Minibatch step 67/15360: mean batch inertia: 40.6432875, ewa inertia: 40.814171984262195
+Minibatch step 68/15360: mean batch inertia: 40.669125, ewa inertia: 40.808506097505635
+Minibatch step 69/15360: mean batch inertia: 40.5869, ewa inertia: 40.79984962622899
+Minibatch step 70/15360: mean batch inertia: 40.657840625, ewa inertia: 40.79430241045289
+Minibatch step 71/15360: mean batch inertia: 40.698359375, ewa inertia: 40.790554642950376
+Minibatch step 72/15360: mean batch inertia: 40.6893625, ewa inertia: 40.78660183258671
+Minibatch step 73/15360: mean batch inertia: 40.52780625, ewa inertia: 40.776492649886414
+Minibatch step 74/15360: mean batch inertia: 40.695915625, ewa inertia: 40.77334511599931
+Minibatch step 75/15360: mean batch inertia: 40.650671875, ewa inertia: 40.76855320188198
+Minibatch step 76/15360: mean batch inertia: 40.742109375, ewa inertia: 40.767520241911896
+Minibatch step 77/15360: mean batch inertia: 40.68945625, ewa inertia: 40.76447087318363
+Minibatch step 78/15360: mean batch inertia: 40.73579375, ewa inertia: 40.76335067524716
+Minibatch step 79/15360: mean batch inertia: 40.71145625, ewa inertia: 40.761323553220166
+Minibatch step 80/15360: mean batch inertia: 40.71904375, ewa inertia: 40.759672001632566
+Minibatch step 81/15360: mean batch inertia: 40.718984375, ewa inertia: 40.75808264432144
+Minibatch step 82/15360: mean batch inertia: 40.528246875, ewa inertia: 40.749104702117364
+Minibatch step 83/15360: mean batch inertia: 40.49149375, ewa inertia: 40.7390417939544
+Minibatch step 84/15360: mean batch inertia: 40.558146875, ewa inertia: 40.7319755999839
+Minibatch step 85/15360: mean batch inertia: 40.6972625, ewa inertia: 40.73061962216417
+Minibatch step 86/15360: mean batch inertia: 40.4078625, ewa inertia: 40.718011946703996
+Minibatch step 87/15360: mean batch inertia: 40.62269375, ewa inertia: 40.714288586917434
+Minibatch step 88/15360: mean batch inertia: 40.521690625, ewa inertia: 40.706765243724064
+Minibatch step 89/15360: mean batch inertia: 40.382440625, ewa inertia: 40.69409633804911
+Minibatch step 90/15360: mean batch inertia: 40.672840625, ewa inertia: 40.693266038379804
+Minibatch step 91/15360: mean batch inertia: 40.79905, ewa inertia: 40.697398216309935
+Minibatch step 92/15360: mean batch inertia: 40.618959375, ewa inertia: 40.69433420505566
+Minibatch step 93/15360: mean batch inertia: 40.579771875, ewa inertia: 40.68985912277825
+Minibatch step 94/15360: mean batch inertia: 40.429640625, ewa inertia: 40.67969435756184
+Minibatch step 95/15360: mean batch inertia: 40.7127, ewa inertia: 40.680983637951456
+Minibatch step 96/15360: mean batch inertia: 40.60614375, ewa inertia: 40.67806021053817
+Minibatch step 97/15360: mean batch inertia: 40.618596875, ewa inertia: 40.6757374285304
+Minibatch step 98/15360: mean batch inertia: 40.427953125, ewa inertia: 40.666058373078144
+Minibatch step 99/15360: mean batch inertia: 40.33245625, ewa inertia: 40.65302706559717
+Minibatch step 100/15360: mean batch inertia: 40.50219375, ewa inertia: 40.647135150714305
+Minibatch step 101/15360: mean batch inertia: 40.64485, ewa inertia: 40.64704588718887
+Minibatch step 102/15360: mean batch inertia: 40.42204375, ewa inertia: 40.63825675837119
+Minibatch step 103/15360: mean batch inertia: 40.47649375, ewa inertia: 40.63193790319821
+Minibatch step 104/15360: mean batch inertia: 40.53589375, ewa inertia: 40.62818618579148
+Minibatch step 105/15360: mean batch inertia: 40.57398125, ewa inertia: 40.62606880962262
+Minibatch step 106/15360: mean batch inertia: 40.74655, ewa inertia: 40.63077509692977
+Minibatch step 107/15360: mean batch inertia: 40.650678125, ewa inertia: 40.63155255744528
+Minibatch step 108/15360: mean batch inertia: 40.47878125, ewa inertia: 40.6255849399037
+Minibatch step 109/15360: mean batch inertia: 40.527375, ewa inertia: 40.62174862161902
+Minibatch step 110/15360: mean batch inertia: 40.66985625, ewa inertia: 40.62362782218234
+Minibatch step 111/15360: mean batch inertia: 40.5774, ewa inertia: 40.62182205140524
+Minibatch step 112/15360: mean batch inertia: 40.50915, ewa inertia: 40.6174208079934
+Minibatch step 113/15360: mean batch inertia: 40.435684375, ewa inertia: 40.61032174244495
+Minibatch step 114/15360: mean batch inertia: 40.5445625, ewa inertia: 40.60775302705397
+Minibatch step 115/15360: mean batch inertia: 40.4695875, ewa inertia: 40.602355946694594
+Minibatch step 116/15360: mean batch inertia: 40.55921875, ewa inertia: 40.60067090323981
+Minibatch step 117/15360: mean batch inertia: 40.599775, ewa inertia: 40.600635907087856
+Minibatch step 118/15360: mean batch inertia: 40.57751875, ewa inertia: 40.59973289490281
+Minibatch step 119/15360: mean batch inertia: 40.515375, ewa inertia: 40.59643767106915
+Minibatch step 120/15360: mean batch inertia: 40.40076875, ewa inertia: 40.588794368768205
+Minibatch step 121/15360: mean batch inertia: 40.6875875, ewa inertia: 40.59265346791964
+Minibatch step 122/15360: mean batch inertia: 40.51080625, ewa inertia: 40.589456317214086
+Minibatch step 123/15360: mean batch inertia: 40.62944375, ewa inertia: 40.59101832325649
+Minibatch step 124/15360: mean batch inertia: 40.6784875, ewa inertia: 40.59443508129968
+Minibatch step 125/15360: mean batch inertia: 40.40124375, ewa inertia: 40.58688855966008
+Minibatch step 126/15360: mean batch inertia: 40.416675, ewa inertia: 40.580239605472094
+Minibatch step 127/15360: mean batch inertia: 40.42900625, ewa inertia: 40.57433206406213
+Minibatch step 128/15360: mean batch inertia: 40.65886875, ewa inertia: 40.57763427190696
+Minibatch step 129/15360: mean batch inertia: 40.508375, ewa inertia: 40.574928836882144
+Minibatch step 130/15360: mean batch inertia: 40.57654375, ewa inertia: 40.574991919302605
+Minibatch step 131/15360: mean batch inertia: 40.64320625, ewa inertia: 40.57765653639114
+Minibatch step 132/15360: mean batch inertia: 40.44141875, ewa inertia: 40.57233475825433
+Minibatch step 133/15360: mean batch inertia: 40.48561875, ewa inertia: 40.568947420797784
+Minibatch step 134/15360: mean batch inertia: 40.74235, ewa inertia: 40.575720945818325
+Minibatch step 135/15360: mean batch inertia: 40.502190625, ewa inertia: 40.57284867327127
+Minibatch step 136/15360: mean batch inertia: 40.546859375, ewa inertia: 40.571833468290365
+Minibatch step 137/15360: mean batch inertia: 40.51139375, ewa inertia: 40.56947254640582
+Minibatch step 138/15360: mean batch inertia: 40.48183125, ewa inertia: 40.56604906495146
+Minibatch step 139/15360: mean batch inertia: 40.4667625, ewa inertia: 40.56217069108299
+Minibatch step 140/15360: mean batch inertia: 40.7741, ewa inertia: 40.57044916354367
+Minibatch step 141/15360: mean batch inertia: 40.5532875, ewa inertia: 40.56977878737082
+Minibatch step 142/15360: mean batch inertia: 40.5653875, ewa inertia: 40.569607253042925
+Minibatch step 143/15360: mean batch inertia: 40.58591875, ewa inertia: 40.57024441964835
+Minibatch step 144/15360: mean batch inertia: 40.526734375, ewa inertia: 40.56854481184882
+Minibatch step 145/15360: mean batch inertia: 40.6605875, ewa inertia: 40.572140222332436
+Minibatch step 146/15360: mean batch inertia: 40.5359, ewa inertia: 40.57072459141248
+Minibatch step 147/15360: mean batch inertia: 40.51359375, ewa inertia: 40.56849292227854
+Minibatch step 148/15360: mean batch inertia: 40.66278125, ewa inertia: 40.57217605288654
+Minibatch step 149/15360: mean batch inertia: 40.3772625, ewa inertia: 40.564562257097606
+Converged (lack of improvement in inertia) at step 149/15360
+Clustering done. Labels shape: (512000,)
+Computing cost matrix for Hungarian matching...
+Building cost matrix:   0%|          | 0/500 [00:00<?, ?it/s]Building cost matrix:   0%|          | 1/500 [00:00<01:34,  5.28it/s]Building cost matrix:   5%|▍         | 24/500 [00:00<00:04, 101.78it/s]Building cost matrix:   9%|▉         | 46/500 [00:00<00:03, 144.47it/s]Building cost matrix:  14%|█▍        | 70/500 [00:00<00:02, 176.33it/s]Building cost matrix:  18%|█▊        | 92/500 [00:00<00:02, 188.19it/s]Building cost matrix:  23%|██▎       | 114/500 [00:00<00:01, 197.32it/s]Building cost matrix:  28%|██▊       | 138/500 [00:00<00:01, 208.41it/s]Building cost matrix:  33%|███▎      | 163/500 [00:00<00:01, 218.84it/s]Building cost matrix:  37%|███▋      | 186/500 [00:01<00:01, 222.05it/s]Building cost matrix:  42%|████▏     | 211/500 [00:01<00:01, 228.98it/s]Building cost matrix:  47%|████▋     | 235/500 [00:01<00:01, 224.40it/s]Building cost matrix:  52%|█████▏    | 262/500 [00:01<00:01, 236.18it/s]Building cost matrix:  57%|█████▋    | 286/500 [00:01<00:00, 236.62it/s]Building cost matrix:  62%|██████▏   | 312/500 [00:01<00:00, 242.70it/s]Building cost matrix:  67%|██████▋   | 337/500 [00:01<00:00, 243.94it/s]Building cost matrix:  72%|███████▏  | 362/500 [00:01<00:00, 236.64it/s]Building cost matrix:  78%|███████▊  | 390/500 [00:01<00:00, 249.05it/s]Building cost matrix:  83%|████████▎ | 416/500 [00:01<00:00, 249.84it/s]Building cost matrix:  88%|████████▊ | 442/500 [00:02<00:00, 250.10it/s]Building cost matrix:  94%|█████████▎| 468/500 [00:02<00:00, 246.12it/s]Building cost matrix:  99%|█████████▉| 494/500 [00:02<00:00, 248.41it/s]Building cost matrix: 100%|██████████| 500/500 [00:02<00:00, 218.38it/s]
+Cluster→class mapping (150 clusters):
+  ground: 20 clusters
+  plant: 16 clusters
+  sky: 13 clusters
+  person: 12 clusters
+  animal: 12 clusters
+  vehicle: 10 clusters
+  wall: 10 clusters
+  furniture: 7 clusters
+  building: 6 clusters
+  food: 6 clusters
+  water: 5 clusters
+  indoor: 5 clusters
+  furniture-stuff: 5 clusters
+  kitchen: 4 clusters
+  electronic: 3 clusters
+  accessory: 2 clusters
+  structural: 2 clusters
+  appliance: 2 clusters
+  food-stuff: 2 clusters
+  floor: 1 clusters
+  window: 1 clusters
+  textile: 1 clusters
+  solid: 1 clusters
+  ceiling: 1 clusters
+  sports: 1 clusters
+  raw-material: 1 clusters
+  outdoor: 1 clusters
+Saving pseudo-semantic labels to /Users/qbit-glitch/Desktop/datasets/coco/pseudo_semantic_k150/val2017...
+Saving labels:   0%|          | 0/500 [00:00<?, ?it/s]Saving labels:  10%|█         | 52/500 [00:00<00:00, 518.20it/s]Saving labels:  22%|██▏       | 110/500 [00:00<00:00, 552.79it/s]Saving labels:  35%|███▍      | 174/500 [00:00<00:00, 591.06it/s]Saving labels:  48%|████▊     | 238/500 [00:00<00:00, 609.51it/s]Saving labels:  60%|██████    | 302/500 [00:00<00:00, 618.35it/s]Saving labels:  73%|███████▎  | 364/500 [00:00<00:00, 583.30it/s]Saving labels:  85%|████████▍ | 423/500 [00:00<00:00, 576.43it/s]Saving labels:  96%|█████████▋| 482/500 [00:00<00:00, 580.03it/s]Saving labels: 100%|██████████| 500/500 [00:00<00:00, 582.76it/s]
+
+Computing mIoU on the pseudo-semantic labels...
+Quick mIoU (100 images): 22.4%
+  electronic          : IoU=27.2%
+  appliance           : IoU=33.4%
+  food                : IoU=71.1%
+  furniture           : IoU=10.7%
+  indoor              : IoU=14.5%
+  kitchen             : IoU=26.6%
+  accessory           : IoU=12.2%
+  animal              : IoU=70.8%
+  outdoor             : IoU=30.3%
+  person              : IoU=57.6%
+  sports              : IoU=11.7%
+  vehicle             : IoU=45.8%
+  ceiling             : IoU=4.8%
+  floor               : IoU=7.3%
+  food-stuff          : IoU=1.7%
+  furniture-stuff     : IoU=5.1%
+  raw-material        : IoU=1.6%
+  textile             : IoU=0.0%
+  wall                : IoU=13.7%
+  window              : IoU=6.3%
+  building            : IoU=9.1%
+  ground              : IoU=26.3%
+  plant               : IoU=32.3%
+  sky                 : IoU=21.4%
+  solid               : IoU=7.2%
+  structural          : IoU=16.0%
+  water               : IoU=41.2%
+Saved metadata to /Users/qbit-glitch/Desktop/datasets/coco/pseudo_semantic_k150/val2017/metadata.json
+Saved centroids to /Users/qbit-glitch/Desktop/datasets/coco/pseudo_semantic_k150/val2017/kmeans_centroids.npz

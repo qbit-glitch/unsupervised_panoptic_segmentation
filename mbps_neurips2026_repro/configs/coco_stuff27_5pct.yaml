@@ -1,0 +1,30 @@
+# COCO-Stuff-27 (5% subset) configuration (prototype)
+# ~2,500 train / ~250 val images, 27 classes
+# Verifies pipeline handles target distribution
+
+_base_: "default.yaml"
+
+data:
+  dataset: "coco_stuff27"
+  data_dir: "data/coco_stuff27_5pct"
+  depth_dir: "data/coco_stuff27_5pct/depth_zoedepth"
+  num_classes: 27
+  num_stuff_classes: 15
+  num_thing_classes: 12
+  image_size: [512, 512]
+  crop_size: [320, 320]
+  batch_size: 4
+  subset_fraction: 0.05
+
+training:
+  total_epochs: 40
+  phase_a_end: 10
+  phase_b_end: 25
+  warmup_epochs: 3
+  learning_rate: 1.0e-4
+
+logging:
+  eval_every_n_epochs: 5
+
+checkpointing:
+  save_every_n_epochs: 10

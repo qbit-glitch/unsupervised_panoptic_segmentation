@@ -1,0 +1,863 @@
+Experiment config file configs/val_resnet50_k80_stage3_local.yaml loaded.
+Command line arguments loaded.
+AUGMENTATION:
+  CONFIDENCE: 0.75
+  COPY_PASTE: True
+  MAX_NUM_PASTED_OBJECTS: 8
+  NUM_STEPS_STARTUP: 500
+  RESOLUTIONS: ((384, 768), (416, 832), (448, 896), (480, 960), (512, 1024), (544, 1088), (576, 1152), (608, 1216), (640, 1280), (672, 1344), (704, 1408))
+DATA:
+  CROP_RESOLUTION: (512, 1024)
+  DATASET: cityscapes
+  IGNORE_UNKNOWN_THING_REGIONS: False
+  NUM_CLASSES: 27
+  NUM_PREPROCESSING_SUBSPLITS: 2
+  NUM_PSEUDO_CLASSES: 27
+  PREPROCESSING_SUBSPLIT: 1
+  PSEUDO_ROOT: pseudo_labels
+  ROOT: /Users/qbit-glitch/Desktop/datasets/cityscapes/
+  ROOT_PSEUDO: pseudo_labels
+  ROOT_VAL: /Users/qbit-glitch/Desktop/datasets/cityscapes/
+  SCALE: 0.625
+  THING_STUFF_THRESHOLD: 0.08
+  VAL_SCALE: 0.5
+MASK_REFINEMENT:
+  BILATERAL_SOLVER: False
+  ENABLE: False
+  GUIDED_FILTER: True
+  GUIDED_FILTER_EPS: 0.01
+  GUIDED_FILTER_RADIUS: 8
+  MIN_AREA: 100
+  MORPHOLOGICAL: True
+MODEL:
+  BACKBONE_TYPE: resnet50
+  CHECKPOINT: /Users/qbit-glitch/Desktop/coding-projects/mbps_panoptic_segmentation/experiments/cups_resnet50_k80_stage3/best_pq_step=000600.ckpt
+  DINOV2_FREEZE: True
+  INFERENCE_CONFIDENCE_THRESHOLD: 0.5
+  TTA_INFERENCE_CONFIDENCE_THRESHOLD: 0.5
+  TTA_SCALES: (0.5, 0.75, 1.0)
+  USE_DINO: True
+PSEUDOS:
+  INSTANCE_TYPE: ours_se3
+  MOTION_TYPE: smurf
+  NOT_ALIGN_SEMANTIC_TO_INSTANCE_MASK: False
+  SEMANTIC_TYPE: dguided
+SELF_TRAINING:
+  CONFIDENCE_STEP: 0.05
+  ROUNDS: 3
+  ROUND_STEPS: 500
+  SEMANTIC_SEGMENTATION_THRESHOLD: 0.5
+  USE_DROP_LOSS: False
+SUPERVISED:
+  DATASET: cityscapes_5_0
+  ONLY_TRAIN_HEADS: True
+SYSTEM:
+  ACCELERATOR: cpu
+  DISTRIBUTED_BACKEND: auto
+  LOG_PATH: /Users/qbit-glitch/Desktop/coding-projects/mbps_panoptic_segmentation/experiments
+  NUM_GPUS: 1
+  NUM_NODES: 1
+  NUM_WORKERS: 0
+  RUN_NAME: val_resnet50_k80_stage3_local
+  SEED: 1996
+TRAINING:
+  ACCUMULATE_GRAD_BATCHES: 1
+  ADAMW:
+    BETAS: (0.9, 0.999)
+    LEARNING_RATE: 0.0001
+    WEIGHT_DECAY: 1e-05
+  BATCH_SIZE: 16
+  CLASS_WEIGHTING: False
+  DROP_LOSS: True
+  DROP_LOSS_IOU_THRESHOLD: 0.4
+  GRADIENT_CLIP_ALGORITHM: norm
+  GRADIENT_CLIP_VAL: 1.0
+  LOG_EVERT_N_STEPS: 50
+  LOG_MEDIA_N_STEPS: 100
+  OPTIMIZER: adamw
+  PRECISION: 32-true
+  SGD:
+    LEARNING_RATE: 0.005
+    MOMENTUM: 0.9
+    WEIGHT_DECAY: 5e-05
+  STEPS: 4000
+  VAL_EVERY_N_STEPS: 200
+VALIDATION:
+  ADHERE_THING_STUFF: True
+  CACHE_DEVICE: cpu
+  SEMSEG_CENTER_CROP_SIZE: None
+  USE_CRF: False
+  USE_TTA: False
+Cityscapes dataset used.
+500 validation samples detected.
+Checkpoint loaded from /Users/qbit-glitch/Desktop/coding-projects/mbps_panoptic_segmentation/experiments/cups_resnet50_k80_stage3/best_pq_step=000600.ckpt.
+CUDNN_BENCHMARK: False
+DATALOADER:
+  ASPECT_RATIO_GROUPING: True
+  FILTER_EMPTY_ANNOTATIONS: False
+  NUM_WORKERS: 4
+  REPEAT_SQRT: True
+  REPEAT_THRESHOLD: 0.0
+  SAMPLER_TRAIN: TrainingSampler
+DATASETS:
+  PRECOMPUTED_PROPOSAL_TOPK_TEST: 1000
+  PRECOMPUTED_PROPOSAL_TOPK_TRAIN: 2000
+  PROPOSAL_FILES_TEST: ()
+  PROPOSAL_FILES_TRAIN: ()
+  TEST: ('coco_2017_val_panoptic_separated',)
+  TRAIN: ('coco_2017_train_panoptic_separated',)
+FLOAT32_PRECISION: 
+GLOBAL:
+  HACK: 1.0
+INPUT:
+  CROP:
+    ENABLED: False
+    SIZE: [0.9, 0.9]
+    TYPE: relative_range
+  FORMAT: BGR
+  MASK_FORMAT: polygon
+  MAX_SIZE_TEST: 1333
+  MAX_SIZE_TRAIN: 1333
+  MIN_SIZE_TEST: 800
+  MIN_SIZE_TRAIN: (640, 672, 704, 736, 768, 800)
+  MIN_SIZE_TRAIN_SAMPLING: choice
+  RANDOM_FLIP: horizontal
+MODEL:
+  ANCHOR_GENERATOR:
+    ANGLES: [[-90, 0, 90]]
+    ASPECT_RATIOS: [[0.5, 1.0, 2.0]]
+    NAME: DefaultAnchorGenerator
+    OFFSET: 0.0
+    SIZES: [[32], [64], [128], [256], [512]]
+  BACKBONE:
+    FREEZE_AT: 0
+    NAME: build_resnet_fpn_backbone
+  DEVICE: mps
+  FPN:
+    FUSE_TYPE: sum
+    IN_FEATURES: ['res2', 'res3', 'res4', 'res5']
+    NORM: BN
+    OUT_CHANNELS: 256
+  KEYPOINT_ON: False
+  LOAD_PROPOSALS: False
+  MASK_ON: True
+  META_ARCHITECTURE: PanopticFPN
+  PANOPTIC_FPN:
+    COMBINE:
+      ENABLED: True
+      INSTANCES_CONFIDENCE_THRESH: 0.5
+      OVERLAP_THRESH: 0.5
+      STUFF_AREA_LIMIT: 4096
+    INSTANCE_LOSS_WEIGHT: 1.0
+  PIXEL_MEAN: [0.485, 0.456, 0.406]
+  PIXEL_STD: [0.229, 0.224, 0.225]
+  PROPOSAL_GENERATOR:
+    MIN_SIZE: 0
+    NAME: RPN
+  RESNETS:
+    DEFORM_MODULATED: False
+    DEFORM_NUM_GROUPS: 1
+    DEFORM_ON_PER_STAGE: [False, False, False, False]
+    DEPTH: 50
+    NORM: BN
+    NUM_GROUPS: 1
+    OUT_FEATURES: ['res2', 'res3', 'res4', 'res5']
+    RES2_OUT_CHANNELS: 256
+    RES5_DILATION: 1
+    STEM_OUT_CHANNELS: 64
+    STRIDE_IN_1X1: False
+    WIDTH_PER_GROUP: 64
+  RETINANET:
+    BBOX_REG_LOSS_TYPE: smooth_l1
+    BBOX_REG_WEIGHTS: (1.0, 1.0, 1.0, 1.0)
+    FOCAL_LOSS_ALPHA: 0.25
+    FOCAL_LOSS_GAMMA: 2.0
+    IN_FEATURES: ['p3', 'p4', 'p5', 'p6', 'p7']
+    IOU_LABELS: [0, -1, 1]
+    IOU_THRESHOLDS: [0.4, 0.5]
+    NMS_THRESH_TEST: 0.5
+    NORM: 
+    NUM_CLASSES: 80
+    NUM_CONVS: 4
+    PRIOR_PROB: 0.01
+    SCORE_THRESH_TEST: 0.05
+    SMOOTH_L1_LOSS_BETA: 0.1
+    TOPK_CANDIDATES_TEST: 1000
+  ROI_BOX_CASCADE_HEAD:
+    BBOX_REG_WEIGHTS: ((10.0, 10.0, 5.0, 5.0), (20.0, 20.0, 10.0, 10.0), (30.0, 30.0, 15.0, 15.0))
+    IOUS: (0.5, 0.6, 0.7)
+  ROI_BOX_HEAD:
+    BBOX_REG_LOSS_TYPE: smooth_l1
+    BBOX_REG_LOSS_WEIGHT: 1.0
+    BBOX_REG_WEIGHTS: (10.0, 10.0, 5.0, 5.0)
+    CLS_AGNOSTIC_BBOX_REG: True
+    CONV_DIM: 256
+    FC_DIM: 1024
+    FED_LOSS_FREQ_WEIGHT_POWER: 0.5
+    FED_LOSS_NUM_CLASSES: 50
+    NAME: FastRCNNConvFCHead
+    NORM: 
+    NUM_CONV: 0
+    NUM_FC: 2
+    POOLER_RESOLUTION: 7
+    POOLER_SAMPLING_RATIO: 0
+    POOLER_TYPE: ROIAlignV2
+    SMOOTH_L1_BETA: 0.0
+    TRAIN_ON_PRED_BOXES: False
+    USE_FED_LOSS: False
+    USE_SIGMOID_CE: False
+  ROI_HEADS:
+    BATCH_SIZE_PER_IMAGE: 512
+    DROPLOSS_IOU_THRESH: 0.4
+    IN_FEATURES: ['p2', 'p3', 'p4', 'p5']
+    IOU_LABELS: [0, 1]
+    IOU_THRESHOLDS: [0.5]
+    NAME: CustomCascadeROIHeads
+    NMS_THRESH_TEST: 0.5
+    NUM_CLASSES: 15
+    POSITIVE_FRACTION: 0.25
+    PROPOSAL_APPEND_GT: True
+    SCORE_THRESH_TEST: 0.5
+    USE_DROPLOSS: True
+  ROI_KEYPOINT_HEAD:
+    CONV_DIMS: (512, 512, 512, 512, 512, 512, 512, 512)
+    LOSS_WEIGHT: 1.0
+    MIN_KEYPOINTS_PER_IMAGE: 1
+    NAME: KRCNNConvDeconvUpsampleHead
+    NORMALIZE_LOSS_BY_VISIBLE_KEYPOINTS: True
+    NUM_KEYPOINTS: 17
+    POOLER_RESOLUTION: 14
+    POOLER_SAMPLING_RATIO: 0
+    POOLER_TYPE: ROIAlignV2
+  ROI_MASK_HEAD:
+    CLS_AGNOSTIC_MASK: False
+    CONV_DIM: 256
+    NAME: MaskRCNNConvUpsampleHead
+    NORM: 
+    NUM_CONV: 4
+    POOLER_RESOLUTION: 14
+    POOLER_SAMPLING_RATIO: 0
+    POOLER_TYPE: ROIAlignV2
+  RPN:
+    BATCH_SIZE_PER_IMAGE: 256
+    BBOX_REG_LOSS_TYPE: smooth_l1
+    BBOX_REG_LOSS_WEIGHT: 1.0
+    BBOX_REG_WEIGHTS: (1.0, 1.0, 1.0, 1.0)
+    BOUNDARY_THRESH: -1
+    CONV_DIMS: [-1]
+    HEAD_NAME: StandardRPNHead
+    IN_FEATURES: ['p2', 'p3', 'p4', 'p5', 'p6']
+    IOU_LABELS: [0, -1, 1]
+    IOU_THRESHOLDS: [0.3, 0.7]
+    LOSS_WEIGHT: 1.0
+    NMS_THRESH: 0.65
+    POSITIVE_FRACTION: 0.5
+    POST_NMS_TOPK_TEST: 1000
+    POST_NMS_TOPK_TRAIN: 4000
+    PRE_NMS_TOPK_TEST: 1000
+    PRE_NMS_TOPK_TRAIN: 2000
+    SMOOTH_L1_BETA: 0.0
+  SEM_SEG_HEAD:
+    CLASS_WEIGHT: None
+    COMMON_STRIDE: 4
+    CONVS_DIM: 128
+    IGNORE_VALUE: 255
+    IN_FEATURES: ['p2', 'p3', 'p4', 'p5']
+    LOSS_WEIGHT: 0.5
+    NAME: CustomSemSegFPNHead
+    NORM: GN
+    NUM_CLASSES: 66
+  WEIGHTS: backbone_checkpoints/dino_RN50_full_pretrain_d2_format.pkl
+OUTPUT_DIR: ./test_800_cocotrianu2seg
+SEED: -1
+SOLVER:
+  AMP:
+    ENABLED: True
+  BASE_LR: 0.01
+  BASE_LR_END: 0.0
+  BIAS_LR_FACTOR: 1.0
+  CHECKPOINT_PERIOD: 10000
+  CLIP_GRADIENTS:
+    CLIP_TYPE: norm
+    CLIP_VALUE: 1.0
+    ENABLED: True
+    NORM_TYPE: 2.0
+  GAMMA: 0.02
+  IMS_PER_BATCH: 16
+  LR_SCHEDULER_NAME: WarmupMultiStepLR
+  MAX_ITER: 270000
+  MOMENTUM: 0.9
+  NESTEROV: False
+  NUM_DECAYS: 3
+  REFERENCE_WORLD_SIZE: 0
+  RESCALE_INTERVAL: False
+  STEPS: (210000, 250000)
+  WARMUP_FACTOR: 0.001
+  WARMUP_ITERS: 1000
+  WARMUP_METHOD: linear
+  WEIGHT_DECAY: 5e-05
+  WEIGHT_DECAY_BIAS: None
+  WEIGHT_DECAY_NORM: 0.0
+TEST:
+  AUG:
+    ENABLED: False
+    FLIP: True
+    MAX_SIZE: 4000
+    MIN_SIZES: (384, 512, 640)
+  DETECTIONS_PER_IMAGE: 100
+  EVAL_PERIOD: 0
+  EXPECTED_RESULTS: []
+  INSTANCE_SCORE_THRESH: 0.5
+  KEYPOINT_OKS_SIGMAS: []
+  PRECISE_BN:
+    ENABLED: True
+    NUM_ITER: 200
+VERSION: 2
+VIS_PERIOD: 0
+DINO CutLer loaded
+Some model parameters or buffers are not found in the checkpoint:
+backbone.fpn_lateral2.norm.{bias, running_mean, running_var, weight}
+backbone.fpn_lateral2.weight
+backbone.fpn_lateral3.norm.{bias, running_mean, running_var, weight}
+backbone.fpn_lateral3.weight
+backbone.fpn_lateral4.norm.{bias, running_mean, running_var, weight}
+backbone.fpn_lateral4.weight
+backbone.fpn_lateral5.norm.{bias, running_mean, running_var, weight}
+backbone.fpn_lateral5.weight
+backbone.fpn_output2.norm.{bias, running_mean, running_var, weight}
+backbone.fpn_output2.weight
+backbone.fpn_output3.norm.{bias, running_mean, running_var, weight}
+backbone.fpn_output3.weight
+backbone.fpn_output4.norm.{bias, running_mean, running_var, weight}
+backbone.fpn_output4.weight
+backbone.fpn_output5.norm.{bias, running_mean, running_var, weight}
+backbone.fpn_output5.weight
+proposal_generator.rpn_head.anchor_deltas.{bias, weight}
+proposal_generator.rpn_head.conv.{bias, weight}
+proposal_generator.rpn_head.objectness_logits.{bias, weight}
+roi_heads.box_head.0.fc1.{bias, weight}
+roi_heads.box_head.0.fc2.{bias, weight}
+roi_heads.box_head.1.fc1.{bias, weight}
+roi_heads.box_head.1.fc2.{bias, weight}
+roi_heads.box_head.2.fc1.{bias, weight}
+roi_heads.box_head.2.fc2.{bias, weight}
+roi_heads.box_predictor.0.bbox_pred.{bias, weight}
+roi_heads.box_predictor.0.cls_score.{bias, weight}
+roi_heads.box_predictor.1.bbox_pred.{bias, weight}
+roi_heads.box_predictor.1.cls_score.{bias, weight}
+roi_heads.box_predictor.2.bbox_pred.{bias, weight}
+roi_heads.box_predictor.2.cls_score.{bias, weight}
+roi_heads.mask_head.deconv.{bias, weight}
+roi_heads.mask_head.mask_fcn1.{bias, weight}
+roi_heads.mask_head.mask_fcn2.{bias, weight}
+roi_heads.mask_head.mask_fcn3.{bias, weight}
+roi_heads.mask_head.mask_fcn4.{bias, weight}
+roi_heads.mask_head.predictor.{bias, weight}
+sem_seg_head.p2.0.norm.{bias, weight}
+sem_seg_head.p2.0.weight
+sem_seg_head.p3.0.norm.{bias, weight}
+sem_seg_head.p3.0.weight
+sem_seg_head.p4.0.norm.{bias, weight}
+sem_seg_head.p4.0.weight
+sem_seg_head.p4.2.norm.{bias, weight}
+sem_seg_head.p4.2.weight
+sem_seg_head.p5.0.norm.{bias, weight}
+sem_seg_head.p5.0.weight
+sem_seg_head.p5.2.norm.{bias, weight}
+sem_seg_head.p5.2.weight
+sem_seg_head.p5.4.norm.{bias, weight}
+sem_seg_head.p5.4.weight
+sem_seg_head.predictor.{bias, weight}
+UnsupervisedModel(
+  (model): PanopticFPN(
+    (backbone): FPN(
+      (fpn_lateral2): Conv2d(
+        256, 256, kernel_size=(1, 1), stride=(1, 1), bias=False
+        (norm): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      )
+      (fpn_output2): Conv2d(
+        256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False
+        (norm): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      )
+      (fpn_lateral3): Conv2d(
+        512, 256, kernel_size=(1, 1), stride=(1, 1), bias=False
+        (norm): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      )
+      (fpn_output3): Conv2d(
+        256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False
+        (norm): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      )
+      (fpn_lateral4): Conv2d(
+        1024, 256, kernel_size=(1, 1), stride=(1, 1), bias=False
+        (norm): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      )
+      (fpn_output4): Conv2d(
+        256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False
+        (norm): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      )
+      (fpn_lateral5): Conv2d(
+        2048, 256, kernel_size=(1, 1), stride=(1, 1), bias=False
+        (norm): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      )
+      (fpn_output5): Conv2d(
+        256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False
+        (norm): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      )
+      (top_block): LastLevelMaxPool()
+      (bottom_up): ResNet(
+        (stem): BasicStem(
+          (conv1): Conv2d(
+            3, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False
+            (norm): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, trValidation ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 500/500 0:08:20 • 0:00:00 1.00it/s 
+Traceback (most recent call last):
+  File "/Users/qbit-glitch/Desktop/coding-projects/mbps_panoptic_segmentation/refs/cups/validate_dinov3.py", line 89, in <module>
+    main()
+  File "/Users/qbit-glitch/Desktop/coding-projects/mbps_panoptic_segmentation/refs/cups/validate_dinov3.py", line 85, in main
+    trainer.validate(model=model, dataloaders=validation_data_loader)
+  File "/Users/qbit-glitch/Desktop/datasets/.venv_py310/lib/python3.10/site-packages/pytorch_lightning/trainer/trainer.py", line 702, in validate
+    return call._call_and_handle_interrupt(
+  File "/Users/qbit-glitch/Desktop/datasets/.venv_py310/lib/python3.10/site-packages/pytorch_lightning/trainer/call.py", line 49, in _call_and_handle_interrupt
+    return trainer_fn(*args, **kwargs)
+  File "/Users/qbit-glitch/Desktop/datasets/.venv_py310/lib/python3.10/site-packages/pytorch_lightning/trainer/trainer.py", line 745, in _validate_impl
+    results = self._run(model, ckpt_path=ckpt_path, weights_only=weights_only)
+  File "/Users/qbit-glitch/Desktop/datasets/.venv_py310/lib/python3.10/site-packages/pytorch_lightning/trainer/trainer.py", line 1079, in _run
+    results = self._run_stage()
+  File "/Users/qbit-glitch/Desktop/datasets/.venv_py310/lib/python3.10/site-packages/pytorch_lightning/trainer/trainer.py", line 1116, in _run_stage
+    return self._evaluation_loop.run()
+  File "/Users/qbit-glitch/Desktop/datasets/.venv_py310/lib/python3.10/site-packages/pytorch_lightning/loops/utilities.py", line 179, in _decorator
+    return loop_run(self, *args, **kwargs)
+  File "/Users/qbit-glitch/Desktop/datasets/.venv_py310/lib/python3.10/site-packages/pytorch_lightning/loops/evaluation_loop.py", line 153, in run
+    return self.on_run_end()
+  File "/Users/qbit-glitch/Desktop/datasets/.venv_py310/lib/python3.10/site-packages/pytorch_lightning/loops/evaluation_loop.py", line 296, in on_run_end
+    self._on_evaluation_epoch_end()
+  File "/Users/qbit-glitch/Desktop/datasets/.venv_py310/lib/python3.10/site-packages/pytorch_lightning/loops/evaluation_loop.py", line 379, in _on_evaluation_epoch_end
+    call._call_lightning_module_hook(trainer, hook_name)
+  File "/Users/qbit-glitch/Desktop/datasets/.venv_py310/lib/python3.10/site-packages/pytorch_lightning/trainer/call.py", line 177, in _call_lightning_module_hook
+    output = fn(*args, **kwargs)
+  File "/Users/qbit-glitch/Desktop/coding-projects/mbps_panoptic_segmentation/refs/cups/cups/pl_model_pseudo.py", line 371, in on_validation_epoch_end
+    self.logger.log_image(
+AttributeError: 'NoneType' object has no attribute 'log_image'
+          256, 128, kernel_size=(1, 1), stride=(1, 1), bias=False
+              (norm): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            )
+            (conv2): Conv2d(
+              128, 128, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False
+              (norm): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            )
+            (conv3): Conv2d(
+              128, 512, kernel_size=(1, 1), stride=(1, 1), bias=False
+              (norm): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            )
+          )
+          (1): BottleneckBlock(
+            (conv1): Conv2d(
+              512, 128, kernel_size=(1, 1), stride=(1, 1), bias=False
+              (norm): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            )
+            (conv2): Conv2d(
+              128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False
+              (norm): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            )
+            (conv3): Conv2d(
+              128, 512, kernel_size=(1, 1), stride=(1, 1), bias=False
+              (norm): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            )
+          )
+          (2): BottleneckBlock(
+            (conv1): Conv2d(
+              512, 128, kernel_size=(1, 1), stride=(1, 1), bias=False
+              (norm): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            )
+            (conv2): Conv2d(
+              128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False
+              (norm): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            )
+            (conv3): Conv2d(
+              128, 512, kernel_size=(1, 1), stride=(1, 1), bias=False
+              (norm): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            )
+          )
+          (3): BottleneckBlock(
+            (conv1): Conv2d(
+              512, 128, kernel_size=(1, 1), stride=(1, 1), bias=False
+              (norm): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            )
+            (conv2): Conv2d(
+              128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False
+              (norm): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            )
+            (conv3): Conv2d(
+              128, 512, kernel_size=(1, 1), stride=(1, 1), bias=False
+              (norm): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            )
+          )
+        )
+        (res4): Sequential(
+          (0): BottleneckBlock(
+            (shortcut): Conv2d(
+              512, 1024, kernel_size=(1, 1), stride=(2, 2), bias=False
+              (norm): BatchNorm2d(1024, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            )
+            (conv1): Conv2d(
+              512, 256, kernel_size=(1, 1), stride=(1, 1), bias=False
+              (norm): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            )
+            (conv2): Conv2d(
+              256, 256, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False
+              (norm): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            )
+            (conv3): Conv2d(
+              256, 1024, kernel_size=(1, 1), stride=(1, 1), bias=False
+              (norm): BatchNorm2d(1024, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            )
+          )
+          (1): BottleneckBlock(
+            (conv1): Conv2d(
+              1024, 256, kernel_size=(1, 1), stride=(1, 1), bias=False
+              (norm): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            )
+            (conv2): Conv2d(
+              256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False
+              (norm): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            )
+            (conv3): Conv2d(
+              256, 1024, kernel_size=(1, 1), stride=(1, 1), bias=False
+              (norm): BatchNorm2d(1024, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            )
+          )
+          (2): BottleneckBlock(
+            (conv1): Conv2d(
+              1024, 256, kernel_size=(1, 1), stride=(1, 1), bias=False
+              (norm): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            )
+            (conv2): Conv2d(
+              256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False
+              (norm): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            )
+            (conv3): Conv2d(
+              256, 1024, kernel_size=(1, 1), stride=(1, 1), bias=False
+              (norm): BatchNorm2d(1024, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            )
+          )
+          (3): BottleneckBlock(
+            (conv1): Conv2d(
+              1024, 256, kernel_size=(1, 1), stride=(1, 1), bias=False
+              (norm): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            )
+            (conv2): Conv2d(
+              256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False
+              (norm): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            )
+            (conv3): Conv2d(
+              256, 1024, kernel_size=(1, 1), stride=(1, 1), bias=False
+              (norm): BatchNorm2d(1024, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            )
+          )
+          (4): BottleneckBlock(
+            (conv1): Conv2d(
+              1024, 256, kernel_size=(1, 1), stride=(1, 1), bias=False
+              (norm): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            )
+            (conv2): Conv2d(
+              256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False
+              (norm): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            )
+            (conv3): Conv2d(
+              256, 1024, kernel_size=(1, 1), stride=(1, 1), bias=False
+              (norm): BatchNorm2d(1024, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            )
+          )
+          (5): BottleneckBlock(
+            (conv1): Conv2d(
+              1024, 256, kernel_size=(1, 1), stride=(1, 1), bias=False
+              (norm): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            )
+            (conv2): Conv2d(
+              256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False
+              (norm): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            )
+            (conv3): Conv2d(
+              256, 1024, kernel_size=(1, 1), stride=(1, 1), bias=False
+              (norm): BatchNorm2d(1024, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            )
+          )
+        )
+        (res5): Sequential(
+          (0): BottleneckBlock(
+            (shortcut): Conv2d(
+              1024, 2048, kernel_size=(1, 1), stride=(2, 2), bias=False
+              (norm): BatchNorm2d(2048, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            )
+            (conv1): Conv2d(
+              1024, 512, kernel_size=(1, 1), stride=(1, 1), bias=False
+              (norm): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            )
+            (conv2): Conv2d(
+              512, 512, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False
+              (norm): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            )
+            (conv3): Conv2d(
+              512, 2048, kernel_size=(1, 1), stride=(1, 1), bias=False
+              (norm): BatchNorm2d(2048, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            )
+          )
+          (1): BottleneckBlock(
+            (conv1): Conv2d(
+              2048, 512, kernel_size=(1, 1), stride=(1, 1), bias=False
+              (norm): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            )
+            (conv2): Conv2d(
+              512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False
+              (norm): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            )
+            (conv3): Conv2d(
+              512, 2048, kernel_size=(1, 1), stride=(1, 1), bias=False
+              (norm): BatchNorm2d(2048, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            )
+          )
+          (2): BottleneckBlock(
+            (conv1): Conv2d(
+              2048, 512, kernel_size=(1, 1), stride=(1, 1), bias=False
+              (norm): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            )
+            (conv2): Conv2d(
+              512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False
+              (norm): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            )
+            (conv3): Conv2d(
+              512, 2048, kernel_size=(1, 1), stride=(1, 1), bias=False
+              (norm): BatchNorm2d(2048, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+            )
+          )
+        )
+      )
+    )
+    (proposal_generator): RPN(
+      (rpn_head): StandardRPNHead(
+        (conv): Conv2d(
+          256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)
+          (activation): ReLU()
+        )
+        (objectness_logits): Conv2d(256, 3, kernel_size=(1, 1), stride=(1, 1))
+        (anchor_deltas): Conv2d(256, 12, kernel_size=(1, 1), stride=(1, 1))
+      )
+      (anchor_generator): DefaultAnchorGenerator(
+        (cell_anchors): BufferList()
+      )
+    )
+    (roi_heads): CustomCascadeROIHeads(
+      (box_pooler): ROIPooler(
+        (level_poolers): ModuleList(
+          (0): ROIAlign(output_size=(7, 7), spatial_scale=0.25, sampling_ratio=0, aligned=True)
+          (1): ROIAlign(output_size=(7, 7), spatial_scale=0.125, sampling_ratio=0, aligned=True)
+          (2): ROIAlign(output_size=(7, 7), spatial_scale=0.0625, sampling_ratio=0, aligned=True)
+          (3): ROIAlign(output_size=(7, 7), spatial_scale=0.03125, sampling_ratio=0, aligned=True)
+        )
+      )
+      (box_head): ModuleList(
+        (0-2): 3 x FastRCNNConvFCHead(
+          (flatten): Flatten(start_dim=1, end_dim=-1)
+          (fc1): Linear(in_features=12544, out_features=1024, bias=True)
+          (fc_relu1): ReLU()
+          (fc2): Linear(in_features=1024, out_features=1024, bias=True)
+          (fc_relu2): ReLU()
+        )
+      )
+      (box_predictor): ModuleList(
+        (0-2): 3 x FastRCNNOutputLayers(
+          (cls_score): Linear(in_features=1024, out_features=16, bias=True)
+          (bbox_pred): Linear(in_features=1024, out_features=4, bias=True)
+        )
+      )
+      (mask_pooler): ROIPooler(
+        (level_poolers): ModuleList(
+          (0): ROIAlign(output_size=(14, 14), spatial_scale=0.25, sampling_ratio=0, aligned=True)
+          (1): ROIAlign(output_size=(14, 14), spatial_scale=0.125, sampling_ratio=0, aligned=True)
+          (2): ROIAlign(output_size=(14, 14), spatial_scale=0.0625, sampling_ratio=0, aligned=True)
+          (3): ROIAlign(output_size=(14, 14), spatial_scale=0.03125, sampling_ratio=0, aligned=True)
+        )
+      )
+      (mask_head): MaskRCNNConvUpsampleHead(
+        (mask_fcn1): Conv2d(
+          256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)
+          (activation): ReLU()
+        )
+        (mask_fcn2): Conv2d(
+          256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)
+          (activation): ReLU()
+        )
+        (mask_fcn3): Conv2d(
+          256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)
+          (activation): ReLU()
+        )
+        (mask_fcn4): Conv2d(
+          256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)
+          (activation): ReLU()
+        )
+        (deconv): ConvTranspose2d(256, 256, kernel_size=(2, 2), stride=(2, 2))
+        (deconv_relu): ReLU()
+        (predictor): Conv2d(256, 15, kernel_size=(1, 1), stride=(1, 1))
+      )
+    )
+    (sem_seg_head): CustomSemSegFPNHead(
+      (p2): Sequential(
+        (0): Conv2d(
+          256, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False
+          (norm): GroupNorm(32, 128, eps=1e-05, affine=True)
+        )
+      )
+      (p3): Sequential(
+        (0): Conv2d(
+          256, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False
+          (norm): GroupNorm(32, 128, eps=1e-05, affine=True)
+        )
+        (1): Upsample(scale_factor=2.0, mode='bilinear')
+      )
+      (p4): Sequential(
+        (0): Conv2d(
+          256, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False
+          (norm): GroupNorm(32, 128, eps=1e-05, affine=True)
+        )
+        (1): Upsample(scale_factor=2.0, mode='bilinear')
+        (2): Conv2d(
+          128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False
+          (norm): GroupNorm(32, 128, eps=1e-05, affine=True)
+        )
+        (3): Upsample(scale_factor=2.0, mode='bilinear')
+      )
+      (p5): Sequential(
+        (0): Conv2d(
+          256, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False
+          (norm): GroupNorm(32, 128, eps=1e-05, affine=True)
+        )
+        (1): Upsample(scale_factor=2.0, mode='bilinear')
+        (2): Conv2d(
+          128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False
+          (norm): GroupNorm(32, 128, eps=1e-05, affine=True)
+        )
+        (3): Upsample(scale_factor=2.0, mode='bilinear')
+        (4): Conv2d(
+          128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False
+          (norm): GroupNorm(32, 128, eps=1e-05, affine=True)
+        )
+        (5): Upsample(scale_factor=2.0, mode='bilinear')
+      )
+      (predictor): Conv2d(128, 66, kernel_size=(1, 1), stride=(1, 1))
+    )
+  )
+  (copy_paste_augmentation): Identity()
+  (photometric_augmentation): Identity()
+  (resolution_jitter_augmentation): Identity()
+  (panoptic_quality): PanopticQualitySemanticMatching()
+)
+GPU available: True (mps), used: False
+TPU available: False, using: 0 TPU cores
+/Users/qbit-glitch/Desktop/datasets/.venv_py310/lib/python3.10/site-packages/pytorch_lightning/trainer/setup.py:175: GPU available but not used. You can set it by doing `Trainer(accelerator='gpu')`.
+💡 Tip: For seamless cloud logging and experiment tracking, try installing [litlogger](https://pypi.org/project/litlogger/) to enable LitLogger, which logs metrics and artifacts automatically to the Lightning Experiments platform.
+💡 Tip: For seamless cloud uploads and versioning, try installing [litmodels](https://pypi.org/project/litmodels/) to enable LitModelCheckpoint, which syncs automatically with the Lightning model registry.
+wandb: WARNING The anonymous setting has no effect and will be removed in a future version.
+/Users/qbit-glitch/Desktop/datasets/.venv_py310/lib/python3.10/site-packages/pytorch_lightning/utilities/_pytree.py:21: `isinstance(treespec, LeafSpec)` is deprecated, use `isinstance(treespec, TreeSpec) and treespec.is_leaf()` instead.
+/Users/qbit-glitch/Desktop/datasets/.venv_py310/lib/python3.10/site-packages/pytorch_lightning/trainer/connectors/data_connector.py:434: The 'val_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=13` in the `DataLoader` to improve performance.
+Validation: |          | 0/? [00:00<?, ?it/s]Validation: |          | 0/? [00:00<?, ?it/s]Validation DataLoader 0:   0%|          | 0/125 [00:00<?, ?it/s]/Users/qbit-glitch/Desktop/datasets/.venv_py310/lib/python3.10/site-packages/torch/functional.py:505: UserWarning: torch.meshgrid: in an upcoming release, it will be required to pass the indexing argument. (Triggered internally at /Users/runner/work/pytorch/pytorch/pytorch/aten/src/ATen/native/TensorShape.cpp:4383.)
+  return _VF.meshgrid(tensors, **kwargs)  # type: ignore[attr-defined]
+W0331 01:34:52.460000 50801 torch/fx/_symbolic_trace.py:53] is_fx_tracing will return true for both fx.symbolic_trace and torch.export. Please use is_fx_tracing_symbolic_tracing() for specifically fx.symbolic_trace or torch.compiler.is_compiling() for specifically torch.export/compile.
+Validation DataLoader 0:   1%|          | 1/125 [00:02<05:36,  0.37it/s]Validation DataLoader 0:   2%|▏         | 2/125 [00:06<06:52,  0.30it/s]Validation DataLoader 0:   2%|▏         | 3/125 [00:10<07:13,  0.28it/s]Validation DataLoader 0:   3%|▎         | 4/125 [00:14<07:24,  0.27it/s]Validation DataLoader 0:   4%|▍         | 5/125 [00:18<07:29,  0.27it/s]Validation DataLoader 0:   5%|▍         | 6/125 [00:22<07:32,  0.26it/s]Validation DataLoader 0:   6%|▌         | 7/125 [00:26<07:29,  0.26it/s]Validation DataLoader 0:   6%|▋         | 8/125 [00:30<07:27,  0.26it/s]Validation DataLoader 0:   7%|▋         | 9/125 [00:34<07:26,  0.26it/s]Validation DataLoader 0:   8%|▊         | 10/125 [00:38<07:25,  0.26it/s]Validation DataLoader 0:   9%|▉         | 11/125 [00:42<07:23,  0.26it/s]Validation DataLoader 0:  10%|▉         | 12/125 [00:46<07:22,  0.26it/s]Validation DataLoader 0:  10%|█         | 13/125 [00:50<07:19,  0.26it/s]Validation DataLoader 0:  11%|█         | 14/125 [00:55<07:16,  0.25it/s]Validation DataLoader 0:  12%|█▏        | 15/125 [00:59<07:13,  0.25it/s]Validation DataLoader 0:  13%|█▎        | 16/125 [01:03<07:10,  0.25it/s]Validation DataLoader 0:  14%|█▎        | 17/125 [01:07<07:07,  0.25it/s]Validation DataLoader 0:  14%|█▍        | 18/125 [01:11<07:04,  0.25it/s]Validation DataLoader 0:  15%|█▌        | 19/125 [01:15<07:01,  0.25it/s]Validation DataLoader 0:  16%|█▌        | 20/125 [01:19<06:57,  0.25it/s]Validation DataLoader 0:  17%|█▋        | 21/125 [01:23<06:52,  0.25it/s]Validation DataLoader 0:  18%|█▊        | 22/125 [01:27<06:49,  0.25it/s]Validation DataLoader 0:  18%|█▊        | 23/125 [01:31<06:45,  0.25it/s]Validation DataLoader 0:  19%|█▉        | 24/125 [01:35<06:41,  0.25it/s]Validation DataLoader 0:  20%|██        | 25/125 [01:39<06:37,  0.25it/s]Validation DataLoader 0:  21%|██        | 26/125 [01:43<06:33,  0.25it/s]Validation DataLoader 0:  22%|██▏       | 27/125 [01:47<06:30,  0.25it/s]Validation DataLoader 0:  22%|██▏       | 28/125 [01:51<06:26,  0.25it/s]Validation DataLoader 0:  23%|██▎       | 29/125 [01:55<06:23,  0.25it/s]Validation DataLoader 0:  24%|██▍       | 30/125 [01:59<06:19,  0.25it/s]Validation DataLoader 0:  25%|██▍       | 31/125 [02:03<06:15,  0.25it/s]Validation DataLoader 0:  26%|██▌       | 32/125 [02:07<06:11,  0.25it/s]Validation DataLoader 0:  26%|██▋       | 33/125 [02:11<06:07,  0.25it/s]Validation DataLoader 0:  27%|██▋       | 34/125 [02:15<06:03,  0.25it/s]Validation DataLoader 0:  28%|██▊       | 35/125 [02:20<06:00,  0.25it/s]Validation DataLoader 0:  29%|██▉       | 36/125 [02:23<05:55,  0.25it/s]Validation DataLoader 0:  30%|██▉       | 37/125 [02:27<05:51,  0.25it/s]Validation DataLoader 0:  30%|███       | 38/125 [02:31<05:47,  0.25it/s]Validation DataLoader 0:  31%|███       | 39/125 [02:36<05:44,  0.25it/s]Validation DataLoader 0:  32%|███▏      | 40/125 [02:40<05:40,  0.25it/s]Validation DataLoader 0:  33%|███▎      | 41/125 [02:44<05:36,  0.25it/s]Validation DataLoader 0:  34%|███▎      | 42/125 [02:48<05:32,  0.25it/s]Validation DataLoader 0:  34%|███▍      | 43/125 [02:52<05:28,  0.25it/s]Validation DataLoader 0:  35%|███▌      | 44/125 [02:56<05:24,  0.25it/s]Validation DataLoader 0:  36%|███▌      | 45/125 [03:00<05:20,  0.25it/s]Validation DataLoader 0:  37%|███▋      | 46/125 [03:04<05:16,  0.25it/s]Validation DataLoader 0:  38%|███▊      | 47/125 [03:08<05:13,  0.25it/s]Validation DataLoader 0:  38%|███▊      | 48/125 [03:12<05:08,  0.25it/s]Validation DataLoader 0:  39%|███▉      | 49/125 [03:15<05:02,  0.25it/s]Validation DataLoader 0:  40%|████      | 50/125 [03:19<04:58,  0.25it/s]Validation DataLoader 0:  41%|████      | 51/125 [03:23<04:54,  0.25it/s]Validation DataLoader 0:  42%|████▏     | 52/125 [03:26<04:50,  0.25it/s]Validation DataLoader 0:  42%|████▏     | 53/125 [03:30<04:46,  0.25it/s]Validation DataLoader 0:  43%|████▎     | 54/125 [03:34<04:41,  0.25it/s]Validation DataLoader 0:  44%|████▍     | 55/125 [03:37<04:37,  0.25it/s]Validation DataLoader 0:  45%|████▍     | 56/125 [03:41<04:32,  0.25it/s]Validation DataLoader 0:  46%|████▌     | 57/125 [03:45<04:29,  0.25it/s]Validation DataLoader 0:  46%|████▋     | 58/125 [03:49<04:25,  0.25it/s]Validation DataLoader 0:  47%|████▋     | 59/125 [03:53<04:21,  0.25it/s]Validation DataLoader 0:  48%|████▊     | 60/125 [03:57<04:17,  0.25it/s]Validation DataLoader 0:  49%|████▉     | 61/125 [04:01<04:13,  0.25it/s]Validation DataLoader 0:  50%|████▉     | 62/125 [04:05<04:09,  0.25it/s]Validation DataLoader 0:  50%|█████     | 63/125 [04:09<04:05,  0.25it/s]Validation DataLoader 0:  51%|█████     | 64/125 [04:13<04:01,  0.25it/s]Validation DataLoader 0:  52%|█████▏    | 65/125 [04:17<03:57,  0.25it/s]Validation DataLoader 0:  53%|█████▎    | 66/125 [04:21<03:53,  0.25it/s]Validation DataLoader 0:  54%|█████▎    | 67/125 [04:25<03:49,  0.25it/s]Validation DataLoader 0:  54%|█████▍    | 68/125 [04:29<03:45,  0.25it/s]Validation DataLoader 0:  55%|█████▌    | 69/125 [04:33<03:41,  0.25it/s]Validation DataLoader 0:  56%|█████▌    | 70/125 [04:37<03:37,  0.25it/s]Validation DataLoader 0:  57%|█████▋    | 71/125 [04:41<03:33,  0.25it/s]Validation DataLoader 0:  58%|█████▊    | 72/125 [04:45<03:30,  0.25it/s]Validation DataLoader 0:  58%|█████▊    | 73/125 [04:49<03:26,  0.25it/s]Validation DataLoader 0:  59%|█████▉    | 74/125 [04:53<03:22,  0.25it/s]Validation DataLoader 0:  60%|██████    | 75/125 [04:56<03:17,  0.25it/s]Validation DataLoader 0:  61%|██████    | 76/125 [05:00<03:13,  0.25it/s]Validation DataLoader 0:  62%|██████▏   | 77/125 [05:04<03:09,  0.25it/s]Validation DataLoader 0:  62%|██████▏   | 78/125 [05:08<03:05,  0.25it/s]Validation DataLoader 0:  63%|██████▎   | 79/125 [05:12<03:01,  0.25it/s]Validation DataLoader 0:  64%|██████▍   | 80/125 [05:16<02:57,  0.25it/s]Validation DataLoader 0:  65%|██████▍   | 81/125 [05:20<02:53,  0.25it/s]Validation DataLoader 0:  66%|██████▌   | 82/125 [05:23<02:49,  0.25it/s]Validation DataLoader 0:  66%|██████▋   | 83/125 [05:27<02:45,  0.25it/s]Validation DataLoader 0:  67%|██████▋   | 84/125 [05:31<02:41,  0.25it/s]Validation DataLoader 0:  68%|██████▊   | 85/125 [05:35<02:38,  0.25it/s]Validation DataLoader 0:  69%|██████▉   | 86/125 [05:39<02:34,  0.25it/s]Validation DataLoader 0:  70%|██████▉   | 87/125 [05:43<02:30,  0.25it/s]Validation DataLoader 0:  70%|███████   | 88/125 [05:47<02:26,  0.25it/s]Validation DataLoader 0:  71%|███████   | 89/125 [05:51<02:22,  0.25it/s]Validation DataLoader 0:  72%|███████▏  | 90/125 [05:55<02:18,  0.25it/s]Validation DataLoader 0:  73%|███████▎  | 91/125 [05:59<02:14,  0.25it/s]Validation DataLoader 0:  74%|███████▎  | 92/125 [06:03<02:10,  0.25it/s]Validation DataLoader 0:  74%|███████▍  | 93/125 [06:06<02:06,  0.25it/s]Validation DataLoader 0:  75%|███████▌  | 94/125 [06:10<02:02,  0.25it/s]Validation DataLoader 0:  76%|███████▌  | 95/125 [06:14<01:58,  0.25it/s]Validation DataLoader 0:  77%|███████▋  | 96/125 [06:18<01:54,  0.25it/s]Validation DataLoader 0:  78%|███████▊  | 97/125 [06:22<01:50,  0.25it/s]Validation DataLoader 0:  78%|███████▊  | 98/125 [06:26<01:46,  0.25it/s]Validation DataLoader 0:  79%|███████▉  | 99/125 [06:30<01:42,  0.25it/s]Validation DataLoader 0:  80%|████████  | 100/125 [06:33<01:38,  0.25it/s]Validation DataLoader 0:  81%|████████  | 101/125 [06:37<01:34,  0.25it/s]Validation DataLoader 0:  82%|████████▏ | 102/125 [06:41<01:30,  0.25it/s]Validation DataLoader 0:  82%|████████▏ | 103/125 [06:45<01:26,  0.25it/s]Validation DataLoader 0:  83%|████████▎ | 104/125 [06:49<01:22,  0.25it/s]Validation DataLoader 0:  84%|████████▍ | 105/125 [06:53<01:18,  0.25it/s]Validation DataLoader 0:  85%|████████▍ | 106/125 [06:57<01:14,  0.25it/s]Validation DataLoader 0:  86%|████████▌ | 107/125 [07:00<01:10,  0.25it/s]Validation DataLoader 0:  86%|████████▋ | 108/125 [07:04<01:06,  0.25it/s]Validation DataLoader 0:  87%|████████▋ | 109/125 [07:08<01:02,  0.25it/s]Validation DataLoader 0:  88%|████████▊ | 110/125 [07:12<00:58,  0.25it/s]Validation DataLoader 0:  89%|████████▉ | 111/125 [07:16<00:55,  0.25it/s]Validation DataLoader 0:  90%|████████▉ | 112/125 [07:20<00:51,  0.25it/s]Validation DataLoader 0:  90%|█████████ | 113/125 [07:24<00:47,  0.25it/s]Validation DataLoader 0:  91%|█████████ | 114/125 [07:28<00:43,  0.25it/s]Validation DataLoader 0:  92%|█████████▏| 115/125 [07:31<00:39,  0.25it/s]Validation DataLoader 0:  93%|█████████▎| 116/125 [07:35<00:35,  0.25it/s]Validation DataLoader 0:  94%|█████████▎| 117/125 [07:39<00:31,  0.25it/s]Validation DataLoader 0:  94%|█████████▍| 118/125 [07:43<00:27,  0.25it/s]Validation DataLoader 0:  95%|█████████▌| 119/125 [07:47<00:23,  0.25it/s]Validation DataLoader 0:  96%|█████████▌| 120/125 [07:51<00:19,  0.25it/s]Validation DataLoader 0:  97%|█████████▋| 121/125 [07:55<00:15,  0.25it/s]Validation DataLoader 0:  98%|█████████▊| 122/125 [07:58<00:11,  0.25it/s]Validation DataLoader 0:  98%|█████████▊| 123/125 [08:02<00:07,  0.25it/s]Validation DataLoader 0:  99%|█████████▉| 124/125 [08:06<00:03,  0.25it/s]Validation DataLoader 0: 100%|██████████| 125/125 [08:10<00:00,  0.25it/s]
+PQ, SQ, RQ, PQ_things, SQ_things, RQ_things, PQ_stuffs, SQ_stuffs, RQ_stuffs, Acc, mIoU
+0.25932615995407104; 0.5896164774894714; 0.32853931188583374; 0.1944829523563385; 0.5628635287284851; 0.2543586194515228; 0.29746922850608826; 0.6053534746170044; 0.3721749782562256; 0.8773353695869446; 0.3888241946697235
+Validation DataLoader 0: 100%|██████████| 125/125 [16:11<00:00,  0.13it/s]
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃      Validate metric      ┃       DataLoader 0        ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│          acc_val          │    0.8773353695869446     │
+│         miou_val          │    0.3888241946697235     │
+│         pq_s_val          │    0.29746922850608826    │
+│         pq_t_val          │    0.1944829523563385     │
+│          pq_val           │    0.25932615995407104    │
+│         rq_s_val          │    0.3721749782562256     │
+│         rq_t_val          │    0.2543586194515228     │
+│          rq_val           │    0.32853931188583374    │
+│         sq_s_val          │    0.6053534746170044     │
+│         sq_t_val          │    0.5628635287284851     │
+│          sq_val           │    0.5896164774894714     │
+│    val/pq_bicycle_val     │    0.19563926756381989    │
+│     val/pq_bridge_val     │    0.03478510305285454    │
+│    val/pq_building_val    │    0.8011934757232666     │
+│      val/pq_bus_val       │    0.6872233748435974     │
+│      val/pq_car_val       │    0.12311167269945145    │
+│    val/pq_caravan_val     │            0.0            │
+│     val/pq_fence_val      │    0.21301235258579254    │
+│   val/pq_guard rail_val   │            0.0            │
+│   val/pq_motorcycle_val   │   0.0009696311317384243   │
+│    val/pq_parking_val     │    0.08855295181274414    │
+│     val/pq_person_val     │    0.10716994851827621    │
+│      val/pq_pole_val      │   0.015881994739174843    │
+│   val/pq_polegroup_val    │            0.0            │
+│   val/pq_rail track_val   │    0.02052485942840576    │
+│     val/pq_rider_val      │    0.22320720553398132    │
+│      val/pq_road_val      │    0.9157359004020691     │
+│    val/pq_sidewalk_val    │    0.5580782890319824     │
+│      val/pq_sky_val       │    0.7856706380844116     │
+│    val/pq_terrain_val     │    0.3944525718688965     │
+│ val/pq_traffic light_val  │   0.0023638654965907335   │
+│  val/pq_traffic sign_val  │    0.22072330117225647    │
+│    val/pq_trailer_val     │            0.0            │
+│     val/pq_train_val      │    0.2966945171356201     │
+│     val/pq_truck_val      │     0.310813844203949     │
+│     val/pq_tunnel_val     │            0.0            │
+│   val/pq_vegetation_val   │    0.7987194061279297     │
+│      val/pq_wall_val      │    0.20728187263011932    │
+│    val/rq_bicycle_val     │    0.2892833650112152     │
+│     val/rq_bridge_val     │    0.0476190485060215     │
+│    val/rq_building_val    │    0.9629629850387573     │
+│      val/rq_bus_val       │    0.7666666507720947     │
+│      val/rq_car_val       │    0.1932070255279541     │
+│    val/rq_caravan_val     │            0.0            │
+│     val/rq_fence_val      │    0.3333333432674408     │
+│   val/rq_guard rail_val   │            0.0            │
+│   val/rq_motorcycle_val   │   0.001784121268428862    │
+│    val/rq_parking_val     │    0.1358024626970291     │
+│     val/rq_person_val     │    0.15959981083869934    │
+│      val/rq_pole_val      │   0.021937843412160873    │
+│   val/rq_polegroup_val    │            0.0            │
+│   val/rq_rail track_val   │   0.027210883796215057    │
+│     val/rq_rider_val      │    0.3641379177570343     │
+│      val/rq_road_val      │    0.9896480441093445     │
+│    val/rq_sidewalk_val    │    0.7334273457527161     │
+│      val/rq_sky_val       │    0.9312000274658203     │
+│    val/rq_terrain_val     │    0.5253456234931946     │
+│ val/rq_traffic light_val  │   0.0045045046135783195   │
+│  val/rq_traffic sign_val  │    0.35475578904151917    │
+│    val/rq_trailer_val     │            0.0            │
+│     val/rq_train_val      │    0.4117647111415863     │
+│     val/rq_truck_val      │    0.3571428656578064     │
+│     val/rq_tunnel_val     │            0.0            │
+│   val/rq_vegetation_val   │    0.9644902348518372     │
+│      val/rq_wall_val      │    0.2947368323802948     │
+│    val/sq_bicycle_val     │    0.6762893795967102     │
+│     val/sq_bridge_val     │    0.7304871678352356     │
+│    val/sq_building_val    │    0.8320086002349854     │
+│      val/sq_bus_val       │    0.8963783383369446     │
+│      val/sq_car_val       │    0.6372007727622986     │
+│    val/sq_caravan_val     │            0.0            │
+│     val/sq_fence_val      │    0.6390370726585388     │
+│   val/sq_guard rail_val   │            0.0            │
+│   val/sq_motorcycle_val   │     0.54347825050354      │
+│    val/sq_parking_val     │    0.6520717144012451     │
+│     val/sq_person_val     │    0.6714916825294495     │
+│      val/sq_pole_val      │    0.7239542603492737     │
+│   val/sq_polegroup_val    │            0.0            │
+│   val/sq_rail track_val   │    0.7542886137962341     │
+│     val/sq_rider_val      │    0.6129743456840515     │
+│      val/sq_road_val      │     0.925314724445343     │
+│    val/sq_sidewalk_val    │    0.7609183192253113     │
+│      val/sq_sky_val       │    0.8437184691429138     │
+│    val/sq_terrain_val     │    0.7508439421653748     │
+│ val/sq_traffic light_val  │    0.5247781276702881     │
+│  val/sq_traffic sign_val  │    0.6221837997436523     │
+│    val/sq_trailer_val     │            0.0            │
+│     val/sq_train_val      │    0.7205438613891602     │
+│     val/sq_truck_val      │    0.8702787756919861     │
+│     val/sq_tunnel_val     │            0.0            │
+│   val/sq_vegetation_val   │    0.8281259536743164     │
+│      val/sq_wall_val      │    0.7032777667045593     │
+└───────────────────────────┴───────────────────────────┘

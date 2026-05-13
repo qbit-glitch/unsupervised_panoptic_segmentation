@@ -1,0 +1,74 @@
+
+============================================================
+COCO CLUSTER LOOKUP TRAINING (Path 3)
+============================================================
+  Features: 500 images from ['/Users/qbit-glitch/Desktop/datasets/coco/dinov3_features/val2017']
+  K:        80
+  Proj dim: 90
+  LR:       0.001
+  Epochs:   20
+  Shift:    0.1
+  Alpha:    2.0
+  Device:   mps
+  Epoch   1/20: corr_loss=-0.3176  cluster_loss=-0.1405
+  Epoch   2/20: corr_loss=-0.3214  cluster_loss=-0.2076
+  Epoch   3/20: corr_loss=-0.3217  cluster_loss=-0.2579
+  Epoch   4/20: corr_loss=-0.3205  cluster_loss=-0.3084
+  Epoch   5/20: corr_loss=-0.3207  cluster_loss=-0.3583
+  Epoch   6/20: corr_loss=-0.3210  cluster_loss=-0.4067
+  Epoch   7/20: corr_loss=-0.3215  cluster_loss=-0.4530
+  Epoch   8/20: corr_loss=-0.3198  cluster_loss=-0.4968
+  Epoch   9/20: corr_loss=-0.3226  cluster_loss=-0.5380
+  Epoch  10/20: corr_loss=-0.3207  cluster_loss=-0.5765
+  Epoch  11/20: corr_loss=-0.3204  cluster_loss=-0.6122
+  Epoch  12/20: corr_loss=-0.3211  cluster_loss=-0.6452
+  Epoch  13/20: corr_loss=-0.3211  cluster_loss=-0.6758
+  Epoch  14/20: corr_loss=-0.3224  cluster_loss=-0.7041
+  Epoch  15/20: corr_loss=-0.3207  cluster_loss=-0.7302
+  Epoch  16/20: corr_loss=-0.3215  cluster_loss=-0.7543
+  Epoch  17/20: corr_loss=-0.3215  cluster_loss=-0.7766
+  Epoch  18/20: corr_loss=-0.3212  cluster_loss=-0.7970
+  Epoch  19/20: corr_loss=-0.3214  cluster_loss=-0.8158
+  Epoch  20/20: corr_loss=-0.3212  cluster_loss=-0.8329
+
+  Training done in 18.9s
+
+  Generating predictions for val2017...
+
+  Evaluating mIoU...
+
+============================================================
+RESULTS: K=80, proj=90, lr=0.001, shift=0.1, alpha=2.0
+============================================================
+  mIoU: 0.4%
+    ground              : 11.5%
+    electronic          : 0.0%
+    appliance           : 0.0%
+    food                : 0.0%
+    furniture           : 0.0%
+    indoor              : 0.0%
+    kitchen             : 0.0%
+    accessory           : 0.0%
+    animal              : 0.0%
+    outdoor             : 0.0%
+    person              : 0.0%
+    sports              : 0.0%
+    vehicle             : 0.0%
+    ceiling             : 0.0%
+    floor               : 0.0%
+    food-stuff          : 0.0%
+    furniture-stuff     : 0.0%
+    raw-material        : 0.0%
+    textile             : 0.0%
+    wall                : 0.0%
+    window              : 0.0%
+    building            : 0.0%
+    plant               : 0.0%
+    sky                 : 0.0%
+    solid               : 0.0%
+    structural          : 0.0%
+    water               : 0.0%
+
+  Saving pseudo-labels to /Users/qbit-glitch/Desktop/datasets/coco/pseudo_semantic_cups_k80/val2017...
+  Saved metadata to /Users/qbit-glitch/Desktop/datasets/coco/pseudo_semantic_cups_k80/val2017/metadata.json
+  Saved model to /Users/qbit-glitch/Desktop/datasets/coco/pseudo_semantic_cups_k80/val2017/model.pth

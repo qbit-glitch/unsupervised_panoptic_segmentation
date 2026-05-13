@@ -1,0 +1,65 @@
+# Stage-2 v2: DINOv2 ResNet-50 Cascade Mask R-CNN — FIXED pseudo-labels
+# Pseudo-labels: DA3 instances (τ=0.03, A_min=100, correct DINOv3 k=80 thing IDs)
+#                + DINOv3 k=80 semantics
+# Fix v1 bugs: wrong thing cluster IDs ({11-18} GT trainIDs → {15,20,33,35,43,49,70} DINOv3 k=80)
+#              + min_area 1000 → 100 for adequate instance density
+# Target: remote 2x GTX 1080 Ti (santosh@172.17.254.146)
+# Effective batch: 2 GPUs x bs=2 x 8 accum = 32
+# LR: 0.0002 (linear-scaled from 0.0001 at eff_bs=16)
+# Steps: 16000 (validation every 500 steps = 32 checkpoints)
+# Precision: 16-mixed (1080 Ti does not support bf16)
+
+DATA:
+  CROP_RESOLUTION: (640, 1280)
+  SCALE: 0.625
+  DATASET: "cityscapes"
+  IGNORE_UNKNOWN_THING_REGIONS: False
+  THING_STUFF_THRESHOLD: 0.05
+  ROOT: "/media/santosh/Kuldeep/panoptic_segmentation/datasets/cityscapes/"
+  ROOT_VAL: "/media/santosh/Kuldeep/panoptic_segmentation/datasets/cityscapes/"
+  ROOT_PSEUDO: "/media/santosh/Kuldeep/panoptic_segmentation/datasets/cityscapes/cups_pseudo_labels_da3_v2/"
+MODEL:
+  BACKBONE_TYPE: "resnet50"
+  USE_DINO: True
+AUGMENTATION:
+  NUM_STEPS_STARTUP: 500
+  COPY_PASTE: True
+  MAX_NUM_PASTED_OBJECTS: 3
+  RESOLUTIONS:
+    - [384, 768]
+    - [416, 832]
+    - [448, 896]
+    - [480, 960]
+    - [512, 1024]
+SYSTEM:
+  ACCELERATOR: "gpu"
+  NUM_GPUS: 2
+  NUM_NODES: 1
+  NUM_WORKERS: 4
+  LOG_PATH: "/media/santosh/Kuldeep/panoptic_segmentation/experiments"
+  RUN_NAME: "cups_resnet50_da3_v2_16k_bs32_stage2"
+TRAINING:
+  STEPS: 16000
+  BATCH_SIZE: 2
+  ACCUMULATE_GRAD_BATCHES: 8
+  PRECISION: "16-mixed"
+  OPTIMIZER: "adamw"
+  ADAMW:
+    LEARNING_RATE: 0.0002
+    WEIGHT_DECAY: 0.00001
+  VAL_EVERY_N_STEPS: 500
+  LOG_EVERT_N_STEPS: 50
+  DROP_LOSS: True
+  DROP_LOSS_IOU_THRESHOLD: 0.4
+  LOG_MEDIA_N_STEPS: 1000
+  GRADIENT_CLIP_ALGORITHM: "norm"
+  GRADIENT_CLIP_VAL: 1.0
+SELF_TRAINING:
+  ROUND_STEPS: 500
+  ROUNDS: 3
+  CONFIDENCE_STEP: 0.05
+  USE_DROP_LOSS: False
+  SEMANTIC_SEGMENTATION_THRESHOLD: 0.5
+VALIDATION:
+  CACHE_DEVICE: "cpu"
+  USE_TTA: False

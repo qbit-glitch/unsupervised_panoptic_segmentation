@@ -1,0 +1,38 @@
+Loading config: refs/cups/configs/val_cups_stage3_vitb_k80_local.yaml
+Experiment config file refs/cups/configs/val_cups_stage3_vitb_k80_local.yaml loaded.
+Command line arguments loaded.
+Dataset root: /Users/qbit-glitch/Desktop/datasets/cityscapes/
+Backbone type: dinov2_vitb
+TTA scales: (0.75, 1.0, 1.25)
+Checkpoint: checkpoints/dinov3_stage3/best_pq28.5_step4200.ckpt
+Accelerator: cpu
+Val dataset: 500 images
+Self-training: Using DINOv2 ViT-B/14 backbone
+Building PanopticFPN with ResNet backbone (temporary)...
+Replacing backbone with DINOv2 ViT-B/14 (dinov2_vitb14_reg)...
+/Users/qbit-glitch/.cache/torch/hub/facebookresearch_dinov2_main/dinov2/layers/swiglu_ffn.py:51: UserWarning: xFormers is not available (SwiGLU)
+  warnings.warn("xFormers is not available (SwiGLU)")
+/Users/qbit-glitch/.cache/torch/hub/facebookresearch_dinov2_main/dinov2/layers/attention.py:33: UserWarning: xFormers is not available (Attention)
+  warnings.warn("xFormers is not available (Attention)")
+/Users/qbit-glitch/.cache/torch/hub/facebookresearch_dinov2_main/dinov2/layers/block.py:40: UserWarning: xFormers is not available (Block)
+  warnings.warn("xFormers is not available (Block)")
+DINOv2 ViT-B/14 backbone: 92.1M params (frozen=True)
+Total: 138.7M params, trainable: 52.2M params
+TTA model is used.
+Freeze batch norm layers
+GPU available: True (mps), used: False
+TPU available: False, using: 0 TPU cores
+/Users/qbit-glitch/Desktop/datasets/.venv_py310/lib/python3.10/site-packages/pytorch_lightning/trainer/setup.py:175: GPU available but not used. You can set it by doing `Trainer(accelerator='gpu')`.
+💡 Tip: For seamless cloud logging and experiment tracking, try installing [litlogger](https://pypi.org/project/litlogger/) to enable LitLogger, which logs metrics and artifacts automatically to the Lightning Experiments platform.
+
+Loading checkpoint: checkpoints/dinov3_stage3/best_pq28.5_step4200.ckpt
+Traceback (most recent call last):
+  File "/Users/qbit-glitch/Desktop/coding-projects/mbps_panoptic_segmentation/scripts/validate_cups_stage3.py", line 196, in <module>
+    main()
+  File "/Users/qbit-glitch/Desktop/coding-projects/mbps_panoptic_segmentation/scripts/validate_cups_stage3.py", line 182, in main
+    ckpt = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
+  File "/Users/qbit-glitch/Desktop/datasets/.venv_py310/lib/python3.10/site-packages/torch/serialization.py", line 1507, in load
+    with _open_zipfile_reader(opened_file) as opened_zipfile:
+  File "/Users/qbit-glitch/Desktop/datasets/.venv_py310/lib/python3.10/site-packages/torch/serialization.py", line 780, in __init__
+    super().__init__(torch._C.PyTorchFileReader(name_or_buffer))
+RuntimeError: PytorchStreamReader failed reading zip archive: failed finding central directory

@@ -1,0 +1,25 @@
+# COCO-Stuff-27 config with GCS data paths
+# Usage: python scripts/train.py --config configs/coco_stuff27_gcs.yaml
+
+_base_: "default.yaml"
+
+data:
+  dataset: "coco_stuff27"
+  data_dir: "gs://mbps-panoptic/datasets/coco"
+  depth_dir: "gs://mbps-panoptic/datasets/coco/depth_zoedepth"
+  tfrecord_dir: "gs://mbps-panoptic/datasets/coco/tfrecords/train"
+  num_classes: 27
+  num_stuff_classes: 15
+  num_thing_classes: 12
+  image_size: [512, 512]
+  crop_size: [320, 320]
+
+gcs:
+  bucket: "mbps-panoptic"
+  tfrecord_dir: "gs://mbps-panoptic/datasets/coco/tfrecords/train"
+  checkpoint_dir: "gs://mbps-panoptic/checkpoints"
+  results_dir: "gs://mbps-panoptic/results"
+  weights_dir: "gs://mbps-panoptic/weights"
+
+logging:
+  wandb_group: "coco_stuff27"

@@ -1,0 +1,33 @@
+# Local CPU evaluation: Stage-3 ResNet-50 + k=80 best checkpoint
+# Use with val.py: python val.py --experiment_config_file configs/val_resnet50_k80_stage3_local.yaml
+
+DATA:
+  CROP_RESOLUTION: (512, 1024)
+  VAL_SCALE: 0.5
+  DATASET: "cityscapes"
+  ROOT: "/Users/qbit-glitch/Desktop/datasets/cityscapes/"
+  ROOT_VAL: "/Users/qbit-glitch/Desktop/datasets/cityscapes/"
+  NUM_CLASSES: 27
+MODEL:
+  BACKBONE_TYPE: "resnet50"
+  USE_DINO: True
+  CHECKPOINT: "/Users/qbit-glitch/Desktop/coding-projects/mbps_panoptic_segmentation/experiments/cups_resnet50_k80_stage3/best_pq_step=000600.ckpt"
+  TTA_SCALES:
+    - 0.5
+    - 0.75
+    - 1.0
+SYSTEM:
+  ACCELERATOR: "cpu"
+  NUM_GPUS: 1
+  NUM_NODES: 1
+  NUM_WORKERS: 0
+  LOG_PATH: "/Users/qbit-glitch/Desktop/coding-projects/mbps_panoptic_segmentation/experiments"
+  RUN_NAME: "val_resnet50_k80_stage3_local"
+TRAINING:
+  PRECISION: "32-true"
+  LOG_EVERT_N_STEPS: 50
+  DROP_LOSS: True
+  DROP_LOSS_IOU_THRESHOLD: 0.4
+VALIDATION:
+  CACHE_DEVICE: "cpu"
+  USE_TTA: False

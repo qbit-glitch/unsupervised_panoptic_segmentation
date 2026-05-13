@@ -1,0 +1,146 @@
+# Stage-4: Dead-Class Recovery via SAM3 Pseudo-Label Injection (motorcycle/caravan/trailer only).
+#
+# Fine-tunes Stage-3 best checkpoint (PQ=35.83, step 3000) with:
+#   1. SAM3-enriched pseudo-labels — DEAD classes only injected:
+#        motorcycle(2)→cluster41, caravan(10)→64, trailer(11)→42
+#        Cluster mappings from Hungarian matching (extract_cups_class_mapping.py, Stage-3 ckpt).
+#        NOTE: Do NOT inject alive classes (car, bus, train, truck, person, bicycle) — injecting
+#        all 10 classes (all-things run) corrupted alive clusters, dropping bus/train/truck to 0%.
+#        mIoU dropped 56→41% when all-things was used. Dead-only injection is safe.
+#   2. Seesaw loss P=0.5 applies to ALL thing classes in ROI head.
+#   3. DropLoss threshold 0.4 → 0.25 (allows weak early preds to contribute)
+#   4. Lower LR (0.000025 = Stage-4/2) — fine-tuning not retraining
+#   5. FINE_OBJECT disabled — thing_focal_only caused bicycle/rider regression in prior Stage-4
+#
+# Inject dead-class pseudo-labels before launching (run on remote):
+#   python scripts/inject_sam3_dead_classes.py \
+#       --sam3_dir /home/santosh/datasets/cityscapes/sam_fine_masks_sam3/train/ \
+#       --pseudo_in  /home/santosh/datasets/cityscapes/cups_pseudo_labels_dcfa_simcf_abc/ \
+#       --pseudo_out /home/santosh/datasets/cityscapes/cups_pseudo_labels_sam3_dead_only/ \
+#       --class_mapping cups_class_mapping.json \
+#       --target_classes 2,10,11 --min_iou 0.35 --min_area 300 --max_per_image 6
+#
+# Then launch:
+#   nohup python -u refs/cups/train_self.py \
+#       --config refs/cups/configs/train_self_cityscapes_dinov3_vitb_stage4_motorcycle_recovery.yaml \
+#       > logs/stage4_motorcycle_recovery.log 2>&1 &
+#
+# Monitor: abort if PQ < 35.0 at any 500-step checkpoint.
+# Abort trigger: bicycle or rider regresses by >1.0 PQ from Stage-3 baseline (bicycle≈21.0, rider≈22.7).
+#
+# Expected runtime: ~3-4 hours on 2x GTX 1080 Ti (1 round x 2500 steps).
+# Expected outcome: motorcycle/caravan/trailer PQ > 0, overall PQ >= 35.33 (Stage-3 - 0.5).
+
+DATA:
+  CROP_RESOLUTION: (640, 1280)
+  SCALE: 0.625
+  DATASET: "cityscapes"
+  IGNORE_UNKNOWN_THING_REGIONS: False
+  THING_STUFF_THRESHOLD: 0.05
+  ROOT: "/home/santosh/datasets/cityscapes/"
+  ROOT_VAL: "/home/santosh/datasets/cityscapes/"
+  # Dead-class-only enriched pseudo-labels (motorcycle/caravan/trailer injected, alive classes untouched)
+  ROOT_PSEUDO: "/home/santosh/datasets/cityscapes/cups_pseudo_labels_sam3_dead_only/"
+
+MODEL:
+  BACKBONE_TYPE: "dinov3_vitb"
+  DINOV2_FREEZE: True
+  USE_DINO: False
+  # Stage-3 best checkpoint — NOT Stage-4 fine-object (which hurt bicycle/rider)
+  CHECKPOINT: "/home/santosh/experiments/stage3_dcfa_simcf_abc/experiments/cups_dinov3_vitb_dcfa_simcf_abc_stage3/Unsupervised Panoptic Segmentation/mc039mj8/checkpoints/best_pq_step=003000.ckpt"
+  ROI_BOX_HEAD:
+    USE_SEESAW_LOSS: True
+    # P=0.5 applies to ALL thing classes (car, bicycle, person, motorcycle, rider, truck, bus, train,
+    # caravan, trailer) via the Seesaw mitigation factor: weight = (N_common / N_rare)^P.
+    # P=0.5 is more aggressive than Stage-3's 0.8 — amplifies sparse signal for dead classes.
+    # At P=0.5: a class with 1/100 the samples of car gets 10× upweighting.
+    # P=0.3 over-amplifies noisy labels; P=0.8 gives insufficient boost for borderline-dead classes.
+    SEESAW_P: 0.5
+    SEESAW_Q: 2.0
+  TTA_SCALES:
+    - 0.5
+    - 0.75
+    - 1.0
+
+AUGMENTATION:
+  NUM_STEPS_STARTUP: 0
+  COPY_PASTE: True
+  CONFIDENCE: 0.75
+  MAX_NUM_PASTED_OBJECTS: 3
+  RESOLUTIONS:
+    - [384, 768]
+    - [416, 832]
+    - [448, 896]
+
+SYSTEM:
+  ACCELERATOR: "gpu"
+  NUM_GPUS: 2
+  NUM_NODES: 1
+  NUM_WORKERS: 2
+  LOG_PATH: "/home/santosh/experiments/stage4_motorcycle_recovery"
+  RUN_NAME: "cups_dinov3_vitb_stage4_motorcycle_recovery"
+
+TRAINING:
+  BATCH_SIZE: 1
+  ACCUMULATE_GRAD_BATCHES: 8
+  PRECISION: "32-true"
+  OPTIMIZER: "adamw"
+  ADAMW:
+    # Half of Stage-4 LR (0.00005) — conservative fine-tune on enriched labels
+    LEARNING_RATE: 0.000025
+    WEIGHT_DECAY: 0.00001
+  VAL_EVERY_N_STEPS: 500
+  LOG_EVERT_N_STEPS: 50
+  DROP_LOSS: True
+  # Reduced from 0.4 — lets weak early motorcycle predictions contribute gradients.
+  # 0.0 introduces too much noise; 0.25 is the sweet spot for sparse-class recovery.
+  DROP_LOSS_IOU_THRESHOLD: 0.25
+  LOG_MEDIA_N_STEPS: 500
+  GRADIENT_CLIP_ALGORITHM: "norm"
+  GRADIENT_CLIP_VAL: 1.0
+
+SELF_TRAINING:
+  # 1 round x 2500 steps — fine-tune only, not full retrain (Stage-3 = 3 rounds x 4000)
+  ROUND_STEPS: 2500
+  ROUNDS: 1
+  CONFIDENCE_STEP: 0.05
+  USE_DROP_LOSS: False
+  SEMANTIC_SEGMENTATION_THRESHOLD: 0.5
+  # 0.5 > Stage-3's 0.3 — lowers class-specific thresholds more aggressively for rare classes
+  CLASS_THRESHOLD_ALPHA: 0.5
+  CLASS_FREQUENCIES:
+    - 3.30489841e-01
+    - 5.06482363e-02
+    - 6.32741451e-03
+    - 1.56909180e-03
+    - 1.99857380e-01
+    - 6.57570076e-03
+    - 7.78623772e-03
+    - 3.02487373e-04
+    - 2.11625957e-03
+    - 1.55002594e-04
+    - 1.09297848e-02
+    - 7.80897141e-05
+    - 2.00032711e-03
+    - 4.34155369e-03
+    - 1.42278225e-01
+    - 1.12963581e-02
+    - 3.66815948e-02
+    - 9.90688801e-03
+    - 1.26592636e-03
+    - 6.36131363e-02
+    - 1.95193195e-03
+    - 2.22380924e-03
+    - 2.42261887e-04
+    - 1.79514885e-04
+    - 2.21147919e-03
+    - 5.97167969e-04
+    - 3.30391884e-03
+  FINE_OBJECT:
+    # CRITICAL: disabled — thing_focal_only caused bicycle -7.9% / rider -6.9% in prior Stage-4.
+    # Semantic channel-0 pressure without instance proposals = noise on bicycle/rider gradients.
+    ENABLED: False
+
+VALIDATION:
+  CACHE_DEVICE: "cpu"
+  USE_TTA: False

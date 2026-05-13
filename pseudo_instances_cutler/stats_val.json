@@ -1,0 +1,26 @@
+{
+  "total_images": 3,
+  "total_instances": 3,
+  "config": {
+    "cityscapes_root": "/Users/qbit-glitch/Desktop/datasets/cityscapes",
+    "output_dir": "pseudo_instances_cutler",
+    "split": "val",
+    "backbone": "dinov3",
+    "vit_feat": "k",
+    "tau": 0.5,
+    "N": 10,
+    "fixed_size": 480,
+    "min_area": 200,
+    "no_crf": false,
+    "visualize": true,
+    "limit": 3,
+    "device": null
+  },
+  "avg_instances_per_image": 1.0,
+  "avg_time_per_image": 0.8593457539876302,
+  "instances_distribution": {
+    "min": 1,
+    "max": 1,
+    "median": 1.0
+  }
+}

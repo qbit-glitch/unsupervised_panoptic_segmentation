@@ -1,0 +1,726 @@
+{
+  "1": {
+    "PQ": 22.1,
+    "PQ_stuff": 31.58,
+    "PQ_things": 9.05,
+    "SQ": 73.89,
+    "RQ": 28.38,
+    "per_class": {
+      "road": {
+        "PQ": 77.22,
+        "SQ": 78.91,
+        "RQ": 97.86,
+        "TP": 481,
+        "FP": 19,
+        "FN": 2,
+        "type": "stuff"
+      },
+      "sidewalk": {
+        "PQ": 44.59,
+        "SQ": 71.42,
+        "RQ": 62.43,
+        "TP": 295,
+        "FP": 186,
+        "FN": 169,
+        "type": "stuff"
+      },
+      "building": {
+        "PQ": 61.85,
+        "SQ": 73.17,
+        "RQ": 84.53,
+        "TP": 418,
+        "FP": 80,
+        "FN": 73,
+        "type": "stuff"
+      },
+      "wall": {
+        "PQ": 8.38,
+        "SQ": 68.22,
+        "RQ": 12.28,
+        "TP": 28,
+        "FP": 227,
+        "FN": 173,
+        "type": "stuff"
+      },
+      "fence": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 0,
+        "FN": 189,
+        "type": "stuff"
+      },
+      "pole": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 0,
+        "FN": 489,
+        "type": "stuff"
+      },
+      "traffic light": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 0,
+        "FN": 260,
+        "type": "stuff"
+      },
+      "traffic sign": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 0,
+        "FN": 469,
+        "type": "stuff"
+      },
+      "vegetation": {
+        "PQ": 68.75,
+        "SQ": 77.59,
+        "RQ": 88.61,
+        "TP": 428,
+        "FP": 52,
+        "FN": 58,
+        "type": "stuff"
+      },
+      "terrain": {
+        "PQ": 15.87,
+        "SQ": 64.7,
+        "RQ": 24.53,
+        "TP": 65,
+        "FP": 234,
+        "FN": 166,
+        "type": "stuff"
+      },
+      "sky": {
+        "PQ": 70.73,
+        "SQ": 81.59,
+        "RQ": 86.69,
+        "TP": 381,
+        "FP": 61,
+        "FN": 56,
+        "type": "stuff"
+      },
+      "person": {
+        "PQ": 5.5,
+        "SQ": 65.62,
+        "RQ": 8.38,
+        "TP": 171,
+        "FP": 536,
+        "FN": 3205,
+        "type": "thing"
+      },
+      "rider": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 0,
+        "FN": 541,
+        "type": "thing"
+      },
+      "car": {
+        "PQ": 11.53,
+        "SQ": 68.99,
+        "RQ": 16.72,
+        "TP": 603,
+        "FP": 1975,
+        "FN": 4032,
+        "type": "thing"
+      },
+      "truck": {
+        "PQ": 27.24,
+        "SQ": 77.35,
+        "RQ": 35.22,
+        "TP": 28,
+        "FP": 38,
+        "FN": 65,
+        "type": "thing"
+      },
+      "bus": {
+        "PQ": 22.88,
+        "SQ": 78.3,
+        "RQ": 29.22,
+        "TP": 32,
+        "FP": 89,
+        "FN": 66,
+        "type": "thing"
+      },
+      "train": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 0,
+        "FN": 23,
+        "type": "thing"
+      },
+      "motorcycle": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 0,
+        "FN": 149,
+        "type": "thing"
+      },
+      "bicycle": {
+        "PQ": 5.28,
+        "SQ": 59.74,
+        "RQ": 8.84,
+        "TP": 71,
+        "FP": 372,
+        "FN": 1092,
+        "type": "thing"
+      }
+    },
+    "num_images": 500
+  },
+  "1+2": {
+    "PQ": 22.11,
+    "PQ_stuff": 31.57,
+    "PQ_things": 9.11,
+    "SQ": 73.99,
+    "RQ": 28.42,
+    "per_class": {
+      "road": {
+        "PQ": 77.2,
+        "SQ": 78.88,
+        "RQ": 97.86,
+        "TP": 481,
+        "FP": 19,
+        "FN": 2,
+        "type": "stuff"
+      },
+      "sidewalk": {
+        "PQ": 44.48,
+        "SQ": 71.49,
+        "RQ": 62.22,
+        "TP": 294,
+        "FP": 187,
+        "FN": 170,
+        "type": "stuff"
+      },
+      "building": {
+        "PQ": 61.87,
+        "SQ": 73.2,
+        "RQ": 84.53,
+        "TP": 418,
+        "FP": 80,
+        "FN": 73,
+        "type": "stuff"
+      },
+      "wall": {
+        "PQ": 8.38,
+        "SQ": 68.21,
+        "RQ": 12.28,
+        "TP": 28,
+        "FP": 227,
+        "FN": 173,
+        "type": "stuff"
+      },
+      "fence": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 0,
+        "FN": 189,
+        "type": "stuff"
+      },
+      "pole": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 0,
+        "FN": 489,
+        "type": "stuff"
+      },
+      "traffic light": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 0,
+        "FN": 260,
+        "type": "stuff"
+      },
+      "traffic sign": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 0,
+        "FN": 469,
+        "type": "stuff"
+      },
+      "vegetation": {
+        "PQ": 68.76,
+        "SQ": 77.59,
+        "RQ": 88.61,
+        "TP": 428,
+        "FP": 52,
+        "FN": 58,
+        "type": "stuff"
+      },
+      "terrain": {
+        "PQ": 15.86,
+        "SQ": 64.68,
+        "RQ": 24.53,
+        "TP": 65,
+        "FP": 234,
+        "FN": 166,
+        "type": "stuff"
+      },
+      "sky": {
+        "PQ": 70.73,
+        "SQ": 81.59,
+        "RQ": 86.69,
+        "TP": 381,
+        "FP": 61,
+        "FN": 56,
+        "type": "stuff"
+      },
+      "person": {
+        "PQ": 5.12,
+        "SQ": 65.4,
+        "RQ": 7.83,
+        "TP": 160,
+        "FP": 552,
+        "FN": 3216,
+        "type": "thing"
+      },
+      "rider": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 0,
+        "FN": 541,
+        "type": "thing"
+      },
+      "car": {
+        "PQ": 11.83,
+        "SQ": 69.29,
+        "RQ": 17.07,
+        "TP": 608,
+        "FP": 1880,
+        "FN": 4027,
+        "type": "thing"
+      },
+      "truck": {
+        "PQ": 28.22,
+        "SQ": 78.12,
+        "RQ": 36.13,
+        "TP": 28,
+        "FP": 34,
+        "FN": 65,
+        "type": "thing"
+      },
+      "bus": {
+        "PQ": 22.58,
+        "SQ": 77.97,
+        "RQ": 28.96,
+        "TP": 32,
+        "FP": 91,
+        "FN": 66,
+        "type": "thing"
+      },
+      "train": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 0,
+        "FN": 23,
+        "type": "thing"
+      },
+      "motorcycle": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 0,
+        "FN": 149,
+        "type": "thing"
+      },
+      "bicycle": {
+        "PQ": 5.1,
+        "SQ": 59.75,
+        "RQ": 8.54,
+        "TP": 68,
+        "FP": 361,
+        "FN": 1095,
+        "type": "thing"
+      }
+    },
+    "num_images": 500
+  },
+  "1+2+3": {
+    "PQ": 21.3,
+    "PQ_stuff": 31.56,
+    "PQ_things": 7.19,
+    "SQ": 73.34,
+    "RQ": 26.45,
+    "per_class": {
+      "road": {
+        "PQ": 77.21,
+        "SQ": 78.9,
+        "RQ": 97.86,
+        "TP": 481,
+        "FP": 19,
+        "FN": 2,
+        "type": "stuff"
+      },
+      "sidewalk": {
+        "PQ": 44.48,
+        "SQ": 71.49,
+        "RQ": 62.22,
+        "TP": 294,
+        "FP": 187,
+        "FN": 170,
+        "type": "stuff"
+      },
+      "building": {
+        "PQ": 61.89,
+        "SQ": 73.04,
+        "RQ": 84.73,
+        "TP": 419,
+        "FP": 79,
+        "FN": 72,
+        "type": "stuff"
+      },
+      "wall": {
+        "PQ": 8.39,
+        "SQ": 68.28,
+        "RQ": 12.28,
+        "TP": 28,
+        "FP": 227,
+        "FN": 173,
+        "type": "stuff"
+      },
+      "fence": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 0,
+        "FN": 189,
+        "type": "stuff"
+      },
+      "pole": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 0,
+        "FN": 489,
+        "type": "stuff"
+      },
+      "traffic light": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 0,
+        "FN": 260,
+        "type": "stuff"
+      },
+      "traffic sign": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 0,
+        "FN": 469,
+        "type": "stuff"
+      },
+      "vegetation": {
+        "PQ": 68.59,
+        "SQ": 77.59,
+        "RQ": 88.41,
+        "TP": 427,
+        "FP": 53,
+        "FN": 59,
+        "type": "stuff"
+      },
+      "terrain": {
+        "PQ": 15.87,
+        "SQ": 64.7,
+        "RQ": 24.53,
+        "TP": 65,
+        "FP": 234,
+        "FN": 166,
+        "type": "stuff"
+      },
+      "sky": {
+        "PQ": 70.78,
+        "SQ": 81.65,
+        "RQ": 86.69,
+        "TP": 381,
+        "FP": 61,
+        "FN": 56,
+        "type": "stuff"
+      },
+      "person": {
+        "PQ": 4.31,
+        "SQ": 63.13,
+        "RQ": 6.83,
+        "TP": 145,
+        "FP": 727,
+        "FN": 3231,
+        "type": "thing"
+      },
+      "rider": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 0,
+        "FN": 541,
+        "type": "thing"
+      },
+      "car": {
+        "PQ": 8.95,
+        "SQ": 64.91,
+        "RQ": 13.79,
+        "TP": 497,
+        "FP": 2075,
+        "FN": 4138,
+        "type": "thing"
+      },
+      "truck": {
+        "PQ": 22.87,
+        "SQ": 75.65,
+        "RQ": 30.23,
+        "TP": 26,
+        "FP": 53,
+        "FN": 67,
+        "type": "thing"
+      },
+      "bus": {
+        "PQ": 18.33,
+        "SQ": 72.38,
+        "RQ": 25.33,
+        "TP": 29,
+        "FP": 102,
+        "FN": 69,
+        "type": "thing"
+      },
+      "train": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 0,
+        "FN": 23,
+        "type": "thing"
+      },
+      "motorcycle": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 0,
+        "FN": 149,
+        "type": "thing"
+      },
+      "bicycle": {
+        "PQ": 3.09,
+        "SQ": 59.27,
+        "RQ": 5.22,
+        "TP": 45,
+        "FP": 517,
+        "FN": 1118,
+        "type": "thing"
+      }
+    },
+    "num_images": 500
+  },
+  "1+2+3+4": {
+    "PQ": 21.3,
+    "PQ_stuff": 31.56,
+    "PQ_things": 7.19,
+    "SQ": 73.34,
+    "RQ": 26.45,
+    "per_class": {
+      "road": {
+        "PQ": 77.21,
+        "SQ": 78.9,
+        "RQ": 97.86,
+        "TP": 481,
+        "FP": 19,
+        "FN": 2,
+        "type": "stuff"
+      },
+      "sidewalk": {
+        "PQ": 44.48,
+        "SQ": 71.49,
+        "RQ": 62.22,
+        "TP": 294,
+        "FP": 187,
+        "FN": 170,
+        "type": "stuff"
+      },
+      "building": {
+        "PQ": 61.89,
+        "SQ": 73.04,
+        "RQ": 84.73,
+        "TP": 419,
+        "FP": 79,
+        "FN": 72,
+        "type": "stuff"
+      },
+      "wall": {
+        "PQ": 8.39,
+        "SQ": 68.28,
+        "RQ": 12.28,
+        "TP": 28,
+        "FP": 227,
+        "FN": 173,
+        "type": "stuff"
+      },
+      "fence": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 0,
+        "FN": 189,
+        "type": "stuff"
+      },
+      "pole": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 0,
+        "FN": 489,
+        "type": "stuff"
+      },
+      "traffic light": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 0,
+        "FN": 260,
+        "type": "stuff"
+      },
+      "traffic sign": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 0,
+        "FN": 469,
+        "type": "stuff"
+      },
+      "vegetation": {
+        "PQ": 68.59,
+        "SQ": 77.59,
+        "RQ": 88.41,
+        "TP": 427,
+        "FP": 53,
+        "FN": 59,
+        "type": "stuff"
+      },
+      "terrain": {
+        "PQ": 15.87,
+        "SQ": 64.7,
+        "RQ": 24.53,
+        "TP": 65,
+        "FP": 234,
+        "FN": 166,
+        "type": "stuff"
+      },
+      "sky": {
+        "PQ": 70.78,
+        "SQ": 81.65,
+        "RQ": 86.69,
+        "TP": 381,
+        "FP": 61,
+        "FN": 56,
+        "type": "stuff"
+      },
+      "person": {
+        "PQ": 4.28,
+        "SQ": 63.15,
+        "RQ": 6.78,
+        "TP": 144,
+        "FP": 726,
+        "FN": 3232,
+        "type": "thing"
+      },
+      "rider": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 0,
+        "FN": 541,
+        "type": "thing"
+      },
+      "car": {
+        "PQ": 8.95,
+        "SQ": 64.89,
+        "RQ": 13.8,
+        "TP": 497,
+        "FP": 2073,
+        "FN": 4138,
+        "type": "thing"
+      },
+      "truck": {
+        "PQ": 22.87,
+        "SQ": 75.65,
+        "RQ": 30.23,
+        "TP": 26,
+        "FP": 53,
+        "FN": 67,
+        "type": "thing"
+      },
+      "bus": {
+        "PQ": 18.33,
+        "SQ": 72.38,
+        "RQ": 25.33,
+        "TP": 29,
+        "FP": 102,
+        "FN": 69,
+        "type": "thing"
+      },
+      "train": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 0,
+        "FN": 23,
+        "type": "thing"
+      },
+      "motorcycle": {
+        "PQ": 0.0,
+        "SQ": 0.0,
+        "RQ": 0.0,
+        "TP": 0,
+        "FP": 0,
+        "FN": 149,
+        "type": "thing"
+      },
+      "bicycle": {
+        "PQ": 3.09,
+        "SQ": 59.27,
+        "RQ": 5.22,
+        "TP": 45,
+        "FP": 517,
+        "FN": 1118,
+        "type": "thing"
+      }
+    },
+    "num_images": 500
+  }
+}

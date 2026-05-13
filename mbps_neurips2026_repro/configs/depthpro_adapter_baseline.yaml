@@ -1,0 +1,43 @@
+# DepthPro Adapter Baseline Configuration
+# Apple DepthPro with DoRA adapters on internal DINOv2-Large encoders
+
+experiment_name: "depthpro_adapter_dora_baseline"
+output_dir: "checkpoints/depthpro_adapter_dora_baseline"
+
+# Model configuration
+model:
+  type: "depthpro"
+  model_name: "apple/DepthPro-hf"
+  variant: "dora"           # lora, dora, conv_dora
+  rank: 4
+  alpha: 4.0
+  dropout: 0.05
+  late_block_start: 18      # DINOv2-Large has 24 layers; adapt last 6
+  adapt_patch_encoder: true
+  adapt_image_encoder: true
+  adapt_fov_encoder: false  # FOV encoder not needed for depth quality
+
+# Data configuration
+data:
+  data_dir: "datasets/cityscapes/leftImg8bit/train"
+  batch_size: 2             # DepthPro is large (952M); use small batch
+  num_workers: 4
+  image_size: [512, 1024]
+
+# Training configuration
+training:
+  epochs: 10
+  lr: 5.0e-5                # Lower LR for large model
+  save_every: 5
+  seed: 42
+  grad_accum_steps: 4       # Effective batch = 2 * 4 = 8
+
+# Loss configuration
+losses:
+  names: ["distillation", "ranking"]
+  weights:
+    distillation: 1.0
+    ranking: 0.1
+
+# Device
+device: "auto"   # auto, cuda, mps, cpu

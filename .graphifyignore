@@ -1,0 +1,3 @@
+# Tooling source installed locally for Codex; keep MBPS graphs focused on MBPS.
+external/graphify/
+external/graphify/**

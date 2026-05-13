@@ -1,0 +1,16 @@
+# MBPS v2 Cityscapes Configuration
+# Inherits from v2_default.yaml
+
+architecture:
+  num_classes: 19
+
+data:
+  dataset: "cityscapes"
+  image_size: [512, 1024]
+  crop_size: [512, 512]
+  n_patches: 2048  # (512/16) * (1024/16) = 32 * 64
+
+# Stuff-things mapping from pseudo-label analysis
+# Will be loaded from stuff_things.json at runtime
+stuff_things:
+  mapping_path: null  # set at runtime or via CLI

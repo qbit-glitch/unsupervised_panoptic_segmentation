@@ -1,0 +1,68 @@
+# Stage-3: Self-training DINOv3 ViT-B/16 on OFFICIAL CUPS pseudo-labels.
+# Control experiment: CUPS predictions + DINOv3 backbone + EMA self-training.
+# Target: M4 Pro MacBook 48GB, CPU backend (MPS crashed).
+# Effective batch: 1 GPU x bs=1 x 8 accum = 8
+
+DATA:
+  CROP_RESOLUTION: (640, 1280)
+  SCALE: 0.625
+  DATASET: "cityscapes"
+  IGNORE_UNKNOWN_THING_REGIONS: True
+  THING_STUFF_THRESHOLD: 0.08
+  ROOT: "/Users/qbit-glitch/Desktop/datasets/cityscapes/"
+  ROOT_VAL: "/Users/qbit-glitch/Desktop/datasets/cityscapes/"
+  ROOT_PSEUDO: "/Users/qbit-glitch/Desktop/datasets/cityscapes/cups_pseudo_labels_official/"
+MODEL:
+  BACKBONE_TYPE: "dinov3_vitb"
+  DINOV2_FREEZE: True
+  USE_DINO: False
+  CHECKPOINT: null  # SET THIS to Stage-2 best checkpoint path before running
+  TTA_SCALES:
+    - 0.75
+    - 1.0
+    - 1.25
+AUGMENTATION:
+  NUM_STEPS_STARTUP: 0
+  COPY_PASTE: True
+  CONFIDENCE: 0.75
+  MAX_NUM_PASTED_OBJECTS: 3
+  RESOLUTIONS:
+    - [384, 768]
+    - [416, 832]
+    - [448, 896]
+    - [480, 960]
+    - [512, 1024]
+    - [544, 1088]
+    - [576, 1152]
+SYSTEM:
+  ACCELERATOR: "cpu"
+  NUM_GPUS: 1
+  NUM_NODES: 1
+  NUM_WORKERS: 0
+  LOG_PATH: "experiments"
+  RUN_NAME: "cups_official_dinov3_vitb_stage3_cpu"
+TRAINING:
+  STEPS: 8000
+  BATCH_SIZE: 1
+  ACCUMULATE_GRAD_BATCHES: 8
+  PRECISION: "32-true"
+  OPTIMIZER: "adamw"
+  ADAMW:
+    LEARNING_RATE: 0.0001
+    WEIGHT_DECAY: 0.00001
+  VAL_EVERY_N_STEPS: 500
+  LOG_EVERT_N_STEPS: 50
+  DROP_LOSS: False
+  DROP_LOSS_IOU_THRESHOLD: 0.4
+  LOG_MEDIA_N_STEPS: 500
+  GRADIENT_CLIP_ALGORITHM: "norm"
+  GRADIENT_CLIP_VAL: 1.0
+SELF_TRAINING:
+  ROUND_STEPS: 500
+  ROUNDS: 3
+  CONFIDENCE_STEP: 0.05
+  USE_DROP_LOSS: False
+  SEMANTIC_SEGMENTATION_THRESHOLD: 0.5
+VALIDATION:
+  CACHE_DEVICE: "cpu"
+  USE_TTA: False

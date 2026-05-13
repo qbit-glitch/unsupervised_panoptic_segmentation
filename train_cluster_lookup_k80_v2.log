@@ -1,0 +1,76 @@
+
+============================================================
+COCO CLUSTER LOOKUP TRAINING (Path 3)
+============================================================
+  Features: 500 images from ['/Users/qbit-glitch/Desktop/datasets/coco/dinov3_features/val2017']
+  K:        80
+  Proj dim: 90
+  LR:       0.001
+  Epochs:   20
+  Pos shift:0.18
+  Neg shift:0.46
+  Alpha:    5.0
+  λ_entropy:2.0
+  Device:   mps
+  Epoch   1/20: corr=0.0234  cluster=-0.0861  entropy=-4.3558
+  Epoch   2/20: corr=-0.0645  cluster=-0.1298  entropy=-4.3756
+  Epoch   3/20: corr=-0.1224  cluster=-0.1652  entropy=-4.3677
+  Epoch   4/20: corr=-0.1272  cluster=-0.1991  entropy=-4.3649
+  Epoch   5/20: corr=-0.1268  cluster=-0.2290  entropy=-4.3602
+  Epoch   6/20: corr=-0.1271  cluster=-0.2559  entropy=-4.3602
+  Epoch   7/20: corr=-0.1230  cluster=-0.2833  entropy=-4.3583
+  Epoch   8/20: corr=-0.1253  cluster=-0.3118  entropy=-4.3627
+  Epoch   9/20: corr=-0.1205  cluster=-0.3404  entropy=-4.3576
+  Epoch  10/20: corr=-0.1175  cluster=-0.3687  entropy=-4.3535
+  Epoch  11/20: corr=-0.1139  cluster=-0.3967  entropy=-4.3563
+  Epoch  12/20: corr=-0.1132  cluster=-0.4255  entropy=-4.3605
+  Epoch  13/20: corr=-0.1134  cluster=-0.4543  entropy=-4.3550
+  Epoch  14/20: corr=-0.1078  cluster=-0.4814  entropy=-4.3536
+  Epoch  15/20: corr=-0.1098  cluster=-0.5083  entropy=-4.3582
+  Epoch  16/20: corr=-0.1075  cluster=-0.5359  entropy=-4.3568
+  Epoch  17/20: corr=-0.1056  cluster=-0.5621  entropy=-4.3557
+  Epoch  18/20: corr=-0.1065  cluster=-0.5875  entropy=-4.3580
+  Epoch  19/20: corr=-0.1006  cluster=-0.6122  entropy=-4.3527
+  Epoch  20/20: corr=-0.0983  cluster=-0.6350  entropy=-4.3515
+
+  Training done in 51.3s
+
+  Generating predictions for val2017...
+
+  Evaluating mIoU...
+
+============================================================
+RESULTS: K=80, proj=90, lr=0.001, pos_shift=0.18, neg_shift=0.46, alpha=5.0
+============================================================
+  mIoU: 4.6%
+    ground              : 33.8%
+    sky                 : 18.6%
+    person              : 14.0%
+    food                : 8.4%
+    vehicle             : 6.8%
+    floor               : 6.1%
+    furniture-stuff     : 5.6%
+    plant               : 5.2%
+    furniture           : 4.5%
+    wall                : 4.2%
+    building            : 4.0%
+    animal              : 2.7%
+    water               : 2.1%
+    indoor              : 1.2%
+    electronic          : 0.9%
+    sports              : 0.9%
+    solid               : 0.9%
+    raw-material        : 0.8%
+    window              : 0.8%
+    kitchen             : 0.7%
+    structural          : 0.7%
+    appliance           : 0.6%
+    textile             : 0.6%
+    outdoor             : 0.5%
+    accessory           : 0.4%
+    ceiling             : 0.3%
+    food-stuff          : 0.1%
+
+  Saving pseudo-labels to /Users/qbit-glitch/Desktop/datasets/coco/pseudo_semantic_cups_k80/val2017...
+  Saved metadata to /Users/qbit-glitch/Desktop/datasets/coco/pseudo_semantic_cups_k80/val2017/metadata.json
+  Saved model to /Users/qbit-glitch/Desktop/datasets/coco/pseudo_semantic_cups_k80/val2017/model.pth

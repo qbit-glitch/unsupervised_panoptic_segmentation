@@ -1,0 +1,17 @@
+{
+  "config": {
+    "model": "cuvler",
+    "score_thresh": 0.3,
+    "max_detections": 60,
+    "min_mask_area": 100,
+    "device": "cpu",
+    "split": "val"
+  },
+  "total_images": 500,
+  "total_instances": 3691,
+  "avg_instances_per_image": 7.382,
+  "median_instances_per_image": 7.0,
+  "min_instances": 2,
+  "max_instances": 17,
+  "avg_time_per_image": 0.6611933603286743
+}

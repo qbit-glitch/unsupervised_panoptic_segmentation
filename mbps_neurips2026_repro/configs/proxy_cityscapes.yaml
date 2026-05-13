@@ -1,0 +1,35 @@
+# Proxy Cityscapes config for smoke testing
+# Small subset, reduced resolution, fewer epochs
+_base_: "default.yaml"
+
+architecture:
+  num_classes: 19
+
+data:
+  dataset: "cityscapes"
+  data_dir: "data/cityscapes_proxy"
+  depth_dir: "data/cityscapes_proxy/depth_zoedepth"
+  num_classes: 19
+  num_stuff_classes: 11
+  num_thing_classes: 8
+  image_size: [256, 512]      # Half resolution for speed
+  crop_size: [256, 256]
+
+training:
+  total_epochs: 6             # 10% of full (60)
+  phase_a_end: 2              # Phase A: epochs 1-2
+  phase_b_end: 4              # Phase B: epochs 3-4
+  # Phase C: epochs 5-6
+  self_training_rounds: 1     # 1 round instead of 3
+  self_training_epochs_per_round: 1
+  batch_size: 2               # Small batch for proxy
+  learning_rate: 4.0e-4       # Higher LR for fewer epochs
+
+checkpointing:
+  save_every_n_epochs: 2
+  checkpoint_dir: "checkpoints/proxy_cityscapes/"
+
+logging:
+  log_every_n_steps: 5
+  eval_every_n_epochs: 2
+  use_wandb: false            # Disable W&B for proxy

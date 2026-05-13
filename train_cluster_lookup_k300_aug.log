@@ -1,0 +1,121 @@
+
+============================================================
+COCO CLUSTER LOOKUP TRAINING (Path 3)
+============================================================
+  Features: 3500 images from ['/Users/qbit-glitch/Desktop/datasets/coco/dinov3_features/val2017', '/Users/qbit-glitch/Desktop/datasets/coco/dinov3_features/train2017']
+  K:        300
+  Proj dim: 90
+  LR:       0.0005
+  Epochs:   50
+  Pos shift:0.18
+  Neg shift:0.46
+  Alpha:    5.0
+  λ_entropy:2.0
+  Augment:  True
+  Device:   mps
+  Initializing with k-means on projected features...
+/Users/qbit-glitch/Desktop/datasets/.venv_py310/lib/python3.10/site-packages/sklearn/utils/extmath.py:203: RuntimeWarning: divide by zero encountered in matmul
+  ret = a @ b
+/Users/qbit-glitch/Desktop/datasets/.venv_py310/lib/python3.10/site-packages/sklearn/utils/extmath.py:203: RuntimeWarning: overflow encountered in matmul
+  ret = a @ b
+/Users/qbit-glitch/Desktop/datasets/.venv_py310/lib/python3.10/site-packages/sklearn/utils/extmath.py:203: RuntimeWarning: invalid value encountered in matmul
+  ret = a @ b
+/Users/qbit-glitch/Desktop/datasets/.venv_py310/lib/python3.10/site-packages/sklearn/cluster/_kmeans.py:237: RuntimeWarning: divide by zero encountered in matmul
+  current_pot = closest_dist_sq @ sample_weight
+/Users/qbit-glitch/Desktop/datasets/.venv_py310/lib/python3.10/site-packages/sklearn/cluster/_kmeans.py:237: RuntimeWarning: overflow encountered in matmul
+  current_pot = closest_dist_sq @ sample_weight
+/Users/qbit-glitch/Desktop/datasets/.venv_py310/lib/python3.10/site-packages/sklearn/cluster/_kmeans.py:237: RuntimeWarning: invalid value encountered in matmul
+  current_pot = closest_dist_sq @ sample_weight
+  K-means init done (fit on 163840 samples)
+  Epoch   1/50: corr=0.0361  cluster=-0.9998  entropy=-5.7038
+  Epoch   2/50: corr=0.0365  cluster=-1.0000  entropy=-5.7038
+  Epoch   3/50: corr=0.0362  cluster=-1.0000  entropy=-5.7038
+  Epoch   4/50: corr=0.0358  cluster=-1.0000  entropy=-5.7038
+  Epoch   5/50: corr=0.0363  cluster=-1.0000  entropy=-5.7038
+  Epoch   6/50: corr=0.0358  cluster=-1.0000  entropy=-5.7038
+  Epoch   7/50: corr=0.0362  cluster=-1.0000  entropy=-5.7038
+  Epoch   8/50: corr=0.0359  cluster=-1.0000  entropy=-5.7038
+  Epoch   9/50: corr=0.0354  cluster=-1.0000  entropy=-5.7038
+  Epoch  10/50: corr=0.0362  cluster=-1.0000  entropy=-5.7038
+  Epoch  11/50: corr=0.0363  cluster=-1.0000  entropy=-5.7038
+  Epoch  12/50: corr=0.0357  cluster=-1.0000  entropy=-5.7038
+  Epoch  13/50: corr=0.0362  cluster=-1.0000  entropy=-5.7038
+  Epoch  14/50: corr=0.0364  cluster=-1.0000  entropy=-5.7038
+  Epoch  15/50: corr=0.0358  cluster=-1.0000  entropy=-5.7038
+  Epoch  16/50: corr=0.0354  cluster=-1.0000  entropy=-5.7038
+  Epoch  17/50: corr=0.0365  cluster=-1.0000  entropy=-5.7038
+  Epoch  18/50: corr=0.0363  cluster=-1.0000  entropy=-5.7038
+  Epoch  19/50: corr=0.0354  cluster=-1.0000  entropy=-5.7038
+  Epoch  20/50: corr=0.0361  cluster=-1.0000  entropy=-5.7038
+  Epoch  21/50: corr=0.0358  cluster=-1.0000  entropy=-5.7038
+  Epoch  22/50: corr=0.0360  cluster=-1.0000  entropy=-5.7038
+  Epoch  23/50: corr=0.0368  cluster=-1.0000  entropy=-5.7038
+  Epoch  24/50: corr=0.0357  cluster=-1.0000  entropy=-5.7038
+  Epoch  25/50: corr=0.0358  cluster=-1.0000  entropy=-5.7038
+  Epoch  26/50: corr=0.0351  cluster=-1.0000  entropy=-5.7038
+  Epoch  27/50: corr=0.0359  cluster=-1.0000  entropy=-5.7038
+  Epoch  28/50: corr=0.0361  cluster=-1.0000  entropy=-5.7038
+  Epoch  29/50: corr=0.0357  cluster=-1.0000  entropy=-5.7038
+  Epoch  30/50: corr=0.0357  cluster=-1.0000  entropy=-5.7038
+  Epoch  31/50: corr=0.0365  cluster=-1.0000  entropy=-5.7038
+  Epoch  32/50: corr=0.0358  cluster=-1.0000  entropy=-5.7038
+  Epoch  33/50: corr=0.0363  cluster=-1.0000  entropy=-5.7038
+  Epoch  34/50: corr=0.0356  cluster=-1.0000  entropy=-5.7038
+  Epoch  35/50: corr=0.0358  cluster=-1.0000  entropy=-5.7038
+  Epoch  36/50: corr=0.0359  cluster=-1.0000  entropy=-5.7038
+  Epoch  37/50: corr=0.0356  cluster=-1.0000  entropy=-5.7038
+  Epoch  38/50: corr=0.0363  cluster=-1.0000  entropy=-5.7038
+  Epoch  39/50: corr=0.0358  cluster=-1.0000  entropy=-5.7038
+  Epoch  40/50: corr=0.0360  cluster=-1.0000  entropy=-5.7038
+  Epoch  41/50: corr=0.0360  cluster=-1.0000  entropy=-5.7038
+  Epoch  42/50: corr=0.0366  cluster=-1.0000  entropy=-5.7038
+  Epoch  43/50: corr=0.0366  cluster=-1.0000  entropy=-5.7038
+  Epoch  44/50: corr=0.0358  cluster=-1.0000  entropy=-5.7038
+  Epoch  45/50: corr=0.0361  cluster=-1.0000  entropy=-5.7038
+  Epoch  46/50: corr=0.0354  cluster=-1.0000  entropy=-5.7038
+  Epoch  47/50: corr=0.0364  cluster=-1.0000  entropy=-5.7038
+  Epoch  48/50: corr=0.0363  cluster=-1.0000  entropy=-5.7038
+  Epoch  49/50: corr=0.0362  cluster=-1.0000  entropy=-5.7038
+  Epoch  50/50: corr=0.0359  cluster=-1.0000  entropy=-5.7038
+
+  Training done in 989.6s
+
+  Generating predictions for val2017...
+
+  Evaluating mIoU...
+
+============================================================
+RESULTS: K=300, proj=90, lr=0.0005, pos_shift=0.18, neg_shift=0.46, alpha=5.0
+============================================================
+  mIoU: 0.7%
+    ground              : 5.3%
+    person              : 3.7%
+    plant               : 2.4%
+    wall                : 1.4%
+    sky                 : 1.0%
+    furniture           : 0.7%
+    furniture-stuff     : 0.6%
+    animal              : 0.5%
+    vehicle             : 0.4%
+    food                : 0.3%
+    floor               : 0.2%
+    textile             : 0.2%
+    building            : 0.2%
+    structural          : 0.2%
+    water               : 0.2%
+    electronic          : 0.1%
+    appliance           : 0.1%
+    indoor              : 0.1%
+    kitchen             : 0.1%
+    accessory           : 0.1%
+    outdoor             : 0.1%
+    sports              : 0.1%
+    ceiling             : 0.1%
+    food-stuff          : 0.1%
+    window              : 0.1%
+    solid               : 0.1%
+    raw-material        : 0.0%
+
+  Saving pseudo-labels to /Users/qbit-glitch/Desktop/datasets/coco/pseudo_semantic_cups_k300/val2017...
+  Saved metadata to /Users/qbit-glitch/Desktop/datasets/coco/pseudo_semantic_cups_k300/val2017/metadata.json
+  Saved model to /Users/qbit-glitch/Desktop/datasets/coco/pseudo_semantic_cups_k300/val2017/model.pth

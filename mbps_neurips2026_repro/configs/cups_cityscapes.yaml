@@ -1,0 +1,38 @@
+## CUPS Stage 2: Bootstrapping on our pseudo-labels
+## Usage:
+##   python refs/cups/train.py \
+##       --experiment_config_file configs/cups_cityscapes.yaml \
+##       --disable_wandb
+##
+## For CPU smoke test:
+##   python refs/cups/train.py \
+##       --experiment_config_file configs/cups_cityscapes.yaml \
+##       --disable_wandb \
+##       SYSTEM.ACCELERATOR cpu TRAINING.STEPS 10 TRAINING.BATCH_SIZE 1 \
+##       TRAINING.VAL_EVERY_N_STEPS 5 SYSTEM.NUM_WORKERS 0
+
+DATA:
+  ROOT: "/Users/qbit-glitch/Desktop/datasets/cityscapes"
+  ROOT_VAL: "/Users/qbit-glitch/Desktop/datasets/cityscapes"
+  ROOT_PSEUDO: "/Users/qbit-glitch/Desktop/datasets/cityscapes/cups_pseudo_labels"
+  CROP_RESOLUTION: (640, 1280)
+  SCALE: 0.625
+  DATASET: "cityscapes"
+  IGNORE_UNKNOWN_THING_REGIONS: False
+  THING_STUFF_THRESHOLD: 0.08
+
+AUGMENTATION:
+  NUM_STEPS_STARTUP: 1000
+  COPY_PASTE: True
+
+TRAINING:
+  STEPS: 8000
+  BATCH_SIZE: 4
+  VAL_EVERY_N_STEPS: 500
+  DROP_LOSS: True
+
+SYSTEM:
+  NUM_GPUS: 1
+  NUM_WORKERS: 4
+  ACCELERATOR: "gpu"
+  RUN_NAME: "mbps_cups_stage2"

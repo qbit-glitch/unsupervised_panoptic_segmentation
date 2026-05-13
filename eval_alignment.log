@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "/Users/qbit-glitch/Desktop/coding-projects/mbps_panoptic_segmentation/mbps_pytorch/evaluate_alignment.py", line 32, in <module>
+    from mbps_pytorch.refine_net import DepthGuidedUNet
+ModuleNotFoundError: No module named 'mbps_pytorch'

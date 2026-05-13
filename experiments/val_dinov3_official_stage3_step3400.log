@@ -1,0 +1,132 @@
+Loading config: refs/cups/configs/val_dinov3_vitb_k80_local.yaml
+Experiment config file refs/cups/configs/val_dinov3_vitb_k80_local.yaml loaded.
+Command line arguments loaded.
+Dataset root: /Users/qbit-glitch/Desktop/datasets/cityscapes/
+Backbone type: dinov3_vitb
+TTA scales: (0.5, 0.75, 1.0)
+Checkpoint: checkpoints/dinov3_stage3/dinov3_official_stage3_step3400.ckpt
+Accelerator: cpu
+Val dataset: 500 images
+Self-training: Using DINOv3 ViT-B/16 backbone
+Building PanopticFPN with ResNet backbone (temporary)...
+Replacing backbone with DINOv3 ViT-B/16 (facebook/dinov3-vitb16-pretrain-lvd1689m)...
+DINOv3 ViT-B/16 backbone: 91.2M params (frozen=True)
+Total: 137.8M params, trainable: 52.2M params
+TTA model wrapped after checkpoint loading.
+Freeze batch norm layers
+GPU available: True (mps), used: False
+TPU available: False, using: 0 TPU cores
+/Users/qbit-glitch/Desktop/datasets/.venv_py310/lib/python3.10/site-packages/pytorch_lightning/trainer/setup.py:175: GPU available but not used. You can set it by doing `Trainer(accelerator='gpu')`.
+💡 Tip: For seamless cloud logging and experiment tracking, try installing [litlogger](https://pypi.org/project/litlogger/) to enable LitLogger, which logs metrics and artifacts automatically to the Lightning Experiments platform.
+
+Loading checkpoint: checkpoints/dinov3_stage3/dinov3_official_stage3_step3400.ckpt
+Checkpoint loaded successfully.
+
+Running validation...
+💡 Tip: For seamless cloud uploads and versioning, try installing [litmodels](https://pypi.org/project/litmodels/) to enable LitModelCheckpoint, which syncs automatically with the Lightning model registry.
+wandb: WARNING The anonymous setting has no effect and will be removed in a future version.
+/Users/qbit-glitch/Desktop/datasets/.venv_py310/lib/python3.10/site-packages/pytorch_lightning/utilities/_pytree.py:21: `isinstance(treespec, LeafSpec)` is deprecated, use `isinstance(treespec, TreeSpec) and treespec.is_leaf()` instead.
+/Users/qbit-glitch/Desktop/datasets/.venv_py310/lib/python3.10/site-packages/pytorch_lightning/trainer/connectors/data_connector.py:434: The 'val_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=13` in the `DataLoader` to improve performance.
+Validation: |          | 0/? [00:00<?, ?it/s]Validation: |          | 0/? [00:00<?, ?it/s]Validation DataLoader 0:   0%|          | 0/500 [00:00<?, ?it/s]/Users/qbit-glitch/Desktop/datasets/.venv_py310/lib/python3.10/site-packages/torch/functional.py:505: UserWarning: torch.meshgrid: in an upcoming release, it will be required to pass the indexing argument. (Triggered internally at /Users/runner/work/pytorch/pytorch/pytorch/aten/src/ATen/native/TensorShape.cpp:4383.)
+  return _VF.meshgrid(tensors, **kwargs)  # type: ignore[attr-defined]
+W0326 15:25:20.569000 78549 torch/fx/_symbolic_trace.py:53] is_fx_tracing will return true for both fx.symbolic_trace and torch.export. Please use is_fx_tracing_symbolic_tracing() for specifically fx.symbolic_trace or torch.compiler.is_compiling() for specifically torch.export/compile.
+Validation DataLoader 0:   2%|▏         | 10/500 [00:15<12:54,  0.63it/s]Validation DataLoader 0:   4%|▍         | 20/500 [00:32<12:53,  0.62it/s]Validation DataLoader 0:   6%|▌         | 30/500 [00:48<12:40,  0.62it/s]Validation DataLoader 0:   8%|▊         | 40/500 [01:05<12:28,  0.61it/s]Validation DataLoader 0:  10%|█         | 50/500 [01:21<12:13,  0.61it/s]Validation DataLoader 0:  12%|█▏        | 60/500 [01:38<11:59,  0.61it/s]Validation DataLoader 0:  14%|█▍        | 70/500 [01:54<11:44,  0.61it/s]Validation DataLoader 0:  16%|█▌        | 80/500 [02:11<11:30,  0.61it/s]Validation DataLoader 0:  18%|█▊        | 90/500 [02:28<11:14,  0.61it/s]Validation DataLoader 0:  20%|██        | 100/500 [02:44<10:58,  0.61it/s]Validation DataLoader 0:  22%|██▏       | 110/500 [03:01<10:42,  0.61it/s]Validation DataLoader 0:  24%|██▍       | 120/500 [03:17<10:26,  0.61it/s]Validation DataLoader 0:  26%|██▌       | 130/500 [03:35<10:14,  0.60it/s]Validation DataLoader 0:  28%|██▊       | 140/500 [03:52<09:57,  0.60it/s]Validation DataLoader 0:  30%|███       | 150/500 [04:08<09:40,  0.60it/s]Validation DataLoader 0:  32%|███▏      | 160/500 [04:25<09:25,  0.60it/s]Validation DataLoader 0:  34%|███▍      | 170/500 [04:42<09:09,  0.60it/s]Validation DataLoader 0:  36%|███▌      | 180/500 [04:59<08:53,  0.60it/s]Validation DataLoader 0:  38%|███▊      | 190/500 [05:16<08:36,  0.60it/s]Validation DataLoader 0:  40%|████      | 200/500 [05:31<08:16,  0.60it/s]Validation DataLoader 0:  42%|████▏     | 210/500 [05:47<07:59,  0.60it/s]Validation DataLoader 0:  44%|████▍     | 220/500 [06:03<07:42,  0.61it/s]Validation DataLoader 0:  46%|████▌     | 230/500 [06:19<07:25,  0.61it/s]Validation DataLoader 0:  48%|████▊     | 240/500 [06:36<07:09,  0.61it/s]Validation DataLoader 0:  50%|█████     | 250/500 [06:53<06:53,  0.60it/s]Validation DataLoader 0:  52%|█████▏    | 260/500 [07:09<06:36,  0.60it/s]Validation DataLoader 0:  54%|█████▍    | 270/500 [07:26<06:20,  0.60it/s]Validation DataLoader 0:  56%|█████▌    | 280/500 [07:43<06:04,  0.60it/s]Validation DataLoader 0:  58%|█████▊    | 290/500 [08:00<05:47,  0.60it/s]Validation DataLoader 0:  60%|██████    | 300/500 [08:16<05:30,  0.60it/s]Validation DataLoader 0:  62%|██████▏   | 310/500 [08:32<05:14,  0.60it/s]Validation DataLoader 0:  64%|██████▍   | 320/500 [08:49<04:57,  0.60it/s]Validation DataLoader 0:  66%|██████▌   | 330/500 [09:06<04:41,  0.60it/s]Validation DataLoader 0:  68%|██████▊   | 340/500 [09:22<04:24,  0.60it/s]Validation DataLoader 0:  70%|███████   | 350/500 [09:39<04:08,  0.60it/s]Validation DataLoader 0:  72%|███████▏  | 360/500 [09:56<03:51,  0.60it/s]Validation DataLoader 0:  74%|███████▍  | 370/500 [10:13<03:35,  0.60it/s]Validation DataLoader 0:  76%|███████▌  | 380/500 [10:29<03:18,  0.60it/s]Validation DataLoader 0:  78%|███████▊  | 390/500 [10:46<03:02,  0.60it/s]Validation DataLoader 0:  80%|████████  | 400/500 [11:02<02:45,  0.60it/s]Validation DataLoader 0:  82%|████████▏ | 410/500 [11:19<02:29,  0.60it/s]Validation DataLoader 0:  84%|████████▍ | 420/500 [11:36<02:12,  0.60it/s]Validation DataLoader 0:  86%|████████▌ | 430/500 [11:53<01:56,  0.60it/s]Validation DataLoader 0:  88%|████████▊ | 440/500 [12:10<01:39,  0.60it/s]Validation DataLoader 0:  90%|█████████ | 450/500 [12:26<01:22,  0.60it/s]Validation DataLoader 0:  92%|█████████▏| 460/500 [12:43<01:06,  0.60it/s]Validation DataLoader 0:  94%|█████████▍| 470/500 [13:00<00:49,  0.60it/s]Validation DataLoader 0:  96%|█████████▌| 480/500 [13:17<00:33,  0.60it/s]Validation DataLoader 0:  98%|█████████▊| 490/500 [13:34<00:16,  0.60it/s]Validation DataLoader 0: 100%|██████████| 500/500 [13:51<00:00,  0.60it/s]
+PQ, SQ, RQ, PQ_things, SQ_things, RQ_things, PQ_stuffs, SQ_stuffs, RQ_stuffs, Acc, mIoU
+0.30806198716163635; 0.6093326807022095; 0.3878500163555145; 0.31326717138290405; 0.679256796836853; 0.386883020401001; 0.30500006675720215; 0.5682007670402527; 0.38841888308525085; 0.8609216213226318; 0.44649702310562134
+Validation DataLoader 0: 100%|██████████| 500/500 [26:51<00:00,  0.31it/s]
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃      Validate metric      ┃       DataLoader 0        ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│          acc_val          │    0.8609216213226318     │
+│         miou_val          │    0.44649702310562134    │
+│         pq_s_val          │    0.30500006675720215    │
+│         pq_t_val          │    0.31326717138290405    │
+│          pq_val           │    0.30806198716163635    │
+│         rq_s_val          │    0.38841888308525085    │
+│         rq_t_val          │     0.386883020401001     │
+│          rq_val           │    0.3878500163555145     │
+│         sq_s_val          │    0.5682007670402527     │
+│         sq_t_val          │     0.679256796836853     │
+│          sq_val           │    0.6093326807022095     │
+│       val/pq_00_val       │    0.9230065941810608     │
+│       val/pq_01_val       │     0.536104679107666     │
+│       val/pq_02_val       │    0.08899589627981186    │
+│       val/pq_03_val       │    0.01055248361080885    │
+│       val/pq_04_val       │    0.7033026218414307     │
+│       val/pq_05_val       │    0.2881029546260834     │
+│       val/pq_06_val       │    0.29554328322410583    │
+│       val/pq_07_val       │            0.0            │
+│       val/pq_08_val       │   0.026504075154662132    │
+│       val/pq_09_val       │            0.0            │
+│       val/pq_10_val       │   0.006355604622513056    │
+│       val/pq_11_val       │            0.0            │
+│       val/pq_12_val       │            0.0            │
+│       val/pq_13_val       │     0.375271201133728     │
+│       val/pq_14_val       │    0.7719227075576782     │
+│       val/pq_15_val       │    0.3225935995578766     │
+│       val/pq_16_val       │    0.8367459774017334     │
+│       val/pq_17_val       │    0.2864367365837097     │
+│       val/pq_18_val       │    0.39919325709342957    │
+│       val/pq_19_val       │    0.11791537702083588    │
+│       val/pq_20_val       │     0.61483234167099      │
+│       val/pq_21_val       │    0.7759671211242676     │
+│       val/pq_22_val       │            0.0            │
+│       val/pq_23_val       │   0.0013651148183271289   │
+│       val/pq_24_val       │    0.6168037056922913     │
+│       val/pq_25_val       │   0.003949889447540045    │
+│       val/pq_26_val       │    0.31620821356773376    │
+│       val/rq_00_val       │    0.9906736016273499     │
+│       val/rq_01_val       │    0.7293814420700073     │
+│       val/rq_02_val       │    0.1373390555381775     │
+│       val/rq_03_val       │   0.012121211737394333    │
+│       val/rq_04_val       │    0.9198751449584961     │
+│       val/rq_05_val       │    0.4054054021835327     │
+│       val/rq_06_val       │    0.4516128897666931     │
+│       val/rq_07_val       │            0.0            │
+│       val/rq_08_val       │    0.03921568766236305    │
+│       val/rq_09_val       │            0.0            │
+│       val/rq_10_val       │    0.01106500718742609    │
+│       val/rq_11_val       │            0.0            │
+│       val/rq_12_val       │            0.0            │
+│       val/rq_13_val       │    0.5555555820465088     │
+│       val/rq_14_val       │    0.9523809552192688     │
+│       val/rq_15_val       │    0.4372759759426117     │
+│       val/rq_16_val       │    0.9612188339233398     │
+│       val/rq_17_val       │    0.40041765570640564    │
+│       val/rq_18_val       │    0.5790554285049438     │
+│       val/rq_19_val       │    0.1842966228723526     │
+│       val/rq_20_val       │          0.6875           │
+│       val/rq_21_val       │     0.843137264251709     │
+│       val/rq_22_val       │            0.0            │
+│       val/rq_23_val       │   0.002365464111790061    │
+│       val/rq_24_val       │    0.7142857313156128     │
+│       val/rq_25_val       │   0.004972032271325588    │
+│       val/rq_26_val       │    0.4528000056743622     │
+│       val/sq_00_val       │    0.9316959977149963     │
+│       val/sq_01_val       │    0.7350127696990967     │
+│       val/sq_02_val       │    0.6480013728141785     │
+│       val/sq_03_val       │    0.8705798983573914     │
+│       val/sq_04_val       │    0.7645631432533264     │
+│       val/sq_05_val       │    0.7106539607048035     │
+│       val/sq_06_val       │    0.6544172763824463     │
+│       val/sq_07_val       │            0.0            │
+│       val/sq_08_val       │    0.6758539080619812     │
+│       val/sq_09_val       │            0.0            │
+│       val/sq_10_val       │     0.574387788772583     │
+│       val/sq_11_val       │            0.0            │
+│       val/sq_12_val       │            0.0            │
+│       val/sq_13_val       │    0.6754881739616394     │
+│       val/sq_14_val       │    0.8105188608169556     │
+│       val/sq_15_val       │    0.7377345561981201     │
+│       val/sq_16_val       │    0.8705052137374878     │
+│       val/sq_17_val       │    0.7153449058532715     │
+│       val/sq_18_val       │    0.6893869638442993     │
+│       val/sq_19_val       │    0.6398130059242249     │
+│       val/sq_20_val       │    0.8943015933036804     │
+│       val/sq_21_val       │    0.9203330874443054     │
+│       val/sq_22_val       │            0.0            │
+│       val/sq_23_val       │    0.5771023035049438     │
+│       val/sq_24_val       │    0.8635252118110657     │
+│       val/sq_25_val       │    0.7944215536117554     │
+│       val/sq_26_val       │    0.6983397006988525     │
+└───────────────────────────┴───────────────────────────┘

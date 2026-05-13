@@ -1,0 +1,96 @@
+# Exp 21: Combined Best Mitigations (M1 + M2 + M5)
+# Pre-configured with the 3 highest-confidence mitigations:
+#   M1 (7/10): Cosine warmup — smooth LoRA activation
+#   M2 (7/10): Magnitude warmup — let direction settle first
+#   M5 (8/10): Confidence-weighted loss — soft-weight noisy pixels down
+# Update this config after running individual ablations (Exps 15-20).
+
+DATA:
+  CROP_RESOLUTION: (640, 1280)
+  SCALE: 0.625
+  DATASET: "cityscapes"
+  IGNORE_UNKNOWN_THING_REGIONS: False
+  THING_STUFF_THRESHOLD: 0.05
+  ROOT: "/media/santosh/Kuldeep/panoptic_segmentation/datasets/cityscapes/"
+  ROOT_VAL: "/media/santosh/Kuldeep/panoptic_segmentation/datasets/cityscapes/"
+  ROOT_PSEUDO: "/media/santosh/Kuldeep/panoptic_segmentation/datasets/cityscapes/cups_pseudo_labels_dinov3_k80/"
+MODEL:
+  BACKBONE_TYPE: "dinov3_vitb"
+  DINOV2_FREEZE: True
+  USE_DINO: False
+  CHECKPOINT: null
+  TTA_SCALES: [0.75, 1.0, 1.25]
+  LORA:
+    ENABLED: True
+    VARIANT: "conv_dora"
+    RANK: 4
+    ALPHA: 4.0
+    DROPOUT: 0.05
+    LATE_BLOCK_START: 6
+    LR_A: 0.00001
+    LR_B: 0.00005
+    MAGNITUDE_WD: 0.001
+    DELAYED_START_STEPS: 0
+    PROGRESSIVE:
+      ENABLED: True
+      RANKS: [2, 4, 8]
+      ALPHAS: [2.0, 4.0, 8.0]
+      COVERAGES: [6, 6, 0]
+    MITIGATIONS:
+      COSINE_WARMUP:
+        ENABLED: True
+        WARMUP_STEPS: 500
+      MAGNITUDE_WARMUP:
+        ENABLED: True
+        FREEZE_STEPS: 200
+      CONFIDENCE_WEIGHTED_LOSS:
+        ENABLED: True
+        TEMPERATURE: 1.0
+        MIN_WEIGHT: 0.1
+AUGMENTATION:
+  NUM_STEPS_STARTUP: 0
+  COPY_PASTE: True
+  MAX_NUM_PASTED_OBJECTS: 3
+  RESOLUTIONS:
+    - [384, 768]
+    - [416, 832]
+    - [448, 896]
+    - [480, 960]
+    - [512, 1024]
+    - [544, 1088]
+    - [576, 1152]
+    - [608, 1216]
+    - [640, 1280]
+SYSTEM:
+  ACCELERATOR: "gpu"
+  NUM_GPUS: 1
+  NUM_NODES: 1
+  NUM_WORKERS: 4
+  LOG_PATH: "/media/santosh/Kuldeep/panoptic_segmentation/experiments"
+  RUN_NAME: "cups_dinov3_exp21_m_combined"
+TRAINING:
+  STEPS: 1500
+  BATCH_SIZE: 2
+  ACCUMULATE_GRAD_BATCHES: 4
+  PRECISION: "16-mixed"
+  OPTIMIZER: "adamw"
+  ADAMW:
+    LEARNING_RATE: 0.0001
+    WEIGHT_DECAY: 0.00001
+  VAL_EVERY_N_STEPS: 500
+  LOG_EVERT_N_STEPS: 50
+  DROP_LOSS: True
+  DROP_LOSS_IOU_THRESHOLD: 0.4
+  LOG_MEDIA_N_STEPS: 500
+  GRADIENT_CLIP_ALGORITHM: "norm"
+  GRADIENT_CLIP_VAL: 0.1
+SELF_TRAINING:
+  ROUND_STEPS: 500
+  ROUNDS: 3
+  CONFIDENCE_STEP: 0.05
+  USE_DROP_LOSS: False
+  SEMANTIC_SEGMENTATION_THRESHOLD: 0.5
+  DISABLE_EMA: False
+VALIDATION:
+  CACHE_DEVICE: "cpu"
+  USE_TTA: False

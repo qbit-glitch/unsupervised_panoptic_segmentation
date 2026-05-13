@@ -1,0 +1,30 @@
+{
+  "dataset": "mots",
+  "checkpoint": "checkpoints/stage3_dcfa_simcf_abc/best_pq_step=003000.ckpt",
+  "num_images": 2862,
+  "metrics": {
+    "PQ": 0.61101,
+    "SQ": 0.88708,
+    "RQ": 0.65804,
+    "PQ_things": 0.25517,
+    "SQ_things": 0.80732,
+    "RQ_things": 0.31607,
+    "PQ_stuff": 0.96684,
+    "SQ_stuff": 0.96684,
+    "RQ_stuff": 1.0,
+    "mIoU": 0.92097,
+    "Acc": 0.98639
+  },
+  "per_class": {
+    "background": {
+      "PQ": 0.96684,
+      "SQ": 0.96684,
+      "RQ": 1.0
+    },
+    "person": {
+      "PQ": 0.25517,
+      "SQ": 0.80732,
+      "RQ": 0.31607
+    }
+  }
+}

@@ -1,0 +1,4 @@
+# Ablation: Forward-only Mamba (no bidirectional scan)
+architecture:
+  mamba:
+    use_bidirectional: false

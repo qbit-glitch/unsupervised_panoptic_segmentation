@@ -1,0 +1,79 @@
+"""Adapter injection utilities for LoRA/DoRA in MBPS.
+
+Supports:
+    - DINOv2 ViT backbone (semantic feature extraction)
+    - CAUSE-TR Segment_TR head (semantic decoder)
+    - Depth models: Depth Anything V3, DepthPro (monocular depth)
+"""
+
+from mbps_pytorch.models.adapters.lora_layers import (
+    LoRALinear,
+    DoRALinear,
+    ConvDoRALinear,
+    LoRAConv2d,
+    freeze_non_adapter_params,
+    count_adapter_params,
+    count_total_params,
+    merge_all_adapters,
+    unmerge_all_adapters,
+)
+
+from mbps_pytorch.models.adapters.slr_layers import (
+    ScaledLowRankAdapter,
+    ScaledLowRankConvAdapter,
+    wrap_with_slr,
+)
+
+from mbps_pytorch.models.adapters.dinov2_adapter import (
+    inject_lora_into_dinov2,
+    set_dinov2_spatial_dims,
+)
+
+from mbps_pytorch.models.adapters.adaptformer import (
+    AdaptFormerAdapter,
+    AdaptFormerMlpWrapper,
+    inject_adaptformer_into_dinov2,
+    freeze_non_adaptformer_params,
+    has_adaptformer_keys,
+)
+
+from mbps_pytorch.models.adapters.cause_adapter import (
+    inject_lora_into_cause_tr,
+)
+
+from mbps_pytorch.models.adapters.depth_adapter import (
+    inject_lora_into_depth_model,
+    set_depth_model_spatial_dims,
+)
+
+from mbps_pytorch.models.adapters.depthpro_adapter import (
+    inject_lora_into_depthpro,
+    set_depthpro_spatial_dims,
+)
+
+__all__ = [
+    "LoRALinear",
+    "DoRALinear",
+    "ConvDoRALinear",
+    "LoRAConv2d",
+    "ScaledLowRankAdapter",
+    "ScaledLowRankConvAdapter",
+    "freeze_non_adapter_params",
+    "count_adapter_params",
+    "count_total_params",
+    "merge_all_adapters",
+    "unmerge_all_adapters",
+    "wrap_with_slr",
+    "inject_lora_into_dinov2",
+    "set_dinov2_spatial_dims",
+    "AdaptFormerAdapter",
+    "AdaptFormerMlpWrapper",
+    "inject_adaptformer_into_dinov2",
+    "freeze_non_adaptformer_params",
+    "has_adaptformer_keys",
+    "inject_lora_into_cause_tr",
+    "inject_lora_into_depth_model",
+    "set_depth_model_spatial_dims",
+    "inject_lora_into_depthpro",
+    "set_depthpro_spatial_dims",
+]

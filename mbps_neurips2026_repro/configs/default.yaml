@@ -1,0 +1,134 @@
+# MBPS Default Configuration
+# All hyperparameters from SKILL.md
+
+architecture:
+  backbone: "dino_vits8"
+  backbone_dim: 384
+  num_classes: 27  # default, overridden per dataset
+  semantic_dim: 90  # D_s semantic code dimension
+  bridge_dim: 192  # D_b
+  max_instances: 100
+
+  # Mamba2 SSM config (nested)
+  mamba:
+    num_layers: 4
+    state_dim: 64  # N
+    chunk_size: 128  # P, TPU-aligned
+    expansion: 2  # FFN expansion ratio
+    use_bidirectional: true
+
+  # Stuff-Things Classifier
+  stc_mlp_dims: [3, 16, 8, 1]
+  stc_threshold: 0.5
+
+  # Depth Conditioning
+  use_depth_conditioning: true
+  use_mamba_bridge: true
+  depth_freq_bands: [1, 2, 4, 8, 16, 32]
+  depth_encoding_dim: 12  # 6 freqs * 2 (sin + cos)
+  depth_mlp_dims: [12, 64, 192]
+
+training:
+  total_epochs: 60
+  phase_a_end: 20
+  phase_b_end: 40
+  self_training_rounds: 3
+  self_training_epochs_per_round: 5
+
+  batch_size: 8  # per TPU core
+  learning_rate: 1.0e-4
+  min_learning_rate: 1.0e-6
+  lr_schedule: "cosine"
+  weight_decay: 0.01
+  warmup_epochs: 5
+
+  ema_momentum: 0.999
+  gradient_clip: 1.0
+  dropout_rate: 0.1
+
+  # Optimizer
+  optimizer: "adamw"
+  adam_beta1: 0.9
+  adam_beta2: 0.999
+  adam_epsilon: 1.0e-8
+
+loss_weights:
+  # Primary loss weights (Phase C defaults)
+  alpha_semantic: 0.8
+  beta_instance: 1.0
+  gamma_bridge: 0.1
+  delta_consistency: 0.3
+  epsilon_pq: 0.2
+
+  # Sub-loss weights
+  lambda_depthg: 0.3
+  lambda_drop: 0.5
+  lambda_box: 1.0
+  lambda_cka: 0.1
+  lambda_recon: 0.5
+  lambda_state: 0.01
+  lambda_uniform: 0.3
+  lambda_boundary: 0.2
+  lambda_dbc: 0.2
+
+  # STEGO
+  stego_temperature: 0.1
+  stego_knn_k: 7
+
+  # Depth correlation
+  depth_sigma: 0.5
+
+self_training:
+  conf_threshold_init: 0.7
+  conf_threshold_increment: 0.05
+  confidence_alpha: 0.5  # balance semantic vs instance confidence
+
+data:
+  dataset: "coco_stuff27"  # default dataset name
+  image_size: [512, 1024]
+  crop_size: [512, 512]
+  batch_size: 8  # also accessible from data section
+  num_workers: 8
+  prefetch_buffer: 16
+  shuffle_buffer: 1000
+
+  # Normalization (ImageNet stats)
+  mean: [0.485, 0.456, 0.406]
+  std: [0.229, 0.224, 0.225]
+
+checkpointing:
+  save_every_n_epochs: 5
+  keep_top_k: 3
+  checkpoint_dir: "checkpoints/"
+
+logging:
+  log_every_n_steps: 50
+  eval_every_n_epochs: 5
+  use_wandb: true
+  wandb_project: "mbps"
+  wandb_entity: null
+  wandb_group: null   # e.g. "cityscapes_full" — groups runs on dashboard
+  wandb_tags: []      # e.g. ["ablation", "no_mamba", "seed_42"]
+
+# Google Cloud Storage — set to null for local-only mode
+gcs:
+  bucket: null                  # e.g. "mbps-panoptic"
+  tfrecord_dir: null            # e.g. "gs://mbps-panoptic/datasets/cityscapes/tfrecords/train"
+  checkpoint_dir: null          # e.g. "gs://mbps-panoptic/checkpoints"
+  results_dir: null             # e.g. "gs://mbps-panoptic/results"
+  weights_dir: null             # e.g. "gs://mbps-panoptic/weights"
+
+# Coordinator VM for result aggregation
+coordinator:
+  enabled: false
+  poll_interval_s: 300          # check for new checkpoints every 5 min
+  worker_vms: []                # e.g. ["cityscapes-full-0", "cityscapes-full-1"]
+  eval_split: "val"
+  eval_use_crf: false
+
+evaluation:
+  pq_iou_threshold: 0.5
+  crf_iterations: 10
+  crf_bilateral_theta_alpha: 80
+  crf_bilateral_theta_beta: 13
+  crf_smoothness_theta_gamma: 3

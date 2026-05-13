@@ -1,0 +1,94 @@
+# Exp 14: Stage-3 Self-Training with Combined Progressive Rank + Coverage
+# Simultaneously increase rank AND expand layer coverage across rounds:
+#   Round 1: r=2, late-block MLP only (blocks 6-11 fc1+fc2), ~140K params
+#   Round 2: r=4, late-block full (blocks 6-11 all targets), ~340K params
+#   Round 3: r=8, all-blocks full (blocks 0-11 all targets), ~1.35M params (1.5%)
+#
+# This is the full LoRA-UDA recipe (Filatov & Kindulov, 2023) adapted to
+# Conv-DoRA. Their best: mlp→attn+mlp→all with ranks 32,32,64 → mIoU=0.515.
+# Scaled to our parameter budget: r=2→4→8, coverage late-MLP→late-full→all-full.
+#
+# Math: Total capacity C(r,L) = r × Σ_l (d_in^l + d_out^l) grows on both axes.
+# Constant effective SNR maintained as ε_t decreases across rounds.
+
+DATA:
+  CROP_RESOLUTION: (640, 1280)
+  SCALE: 0.625
+  DATASET: "cityscapes"
+  IGNORE_UNKNOWN_THING_REGIONS: False
+  THING_STUFF_THRESHOLD: 0.05
+  ROOT: "/media/santosh/Kuldeep/panoptic_segmentation/datasets/cityscapes/"
+  ROOT_VAL: "/media/santosh/Kuldeep/panoptic_segmentation/datasets/cityscapes/"
+  ROOT_PSEUDO: "/media/santosh/Kuldeep/panoptic_segmentation/datasets/cityscapes/cups_pseudo_labels_dinov3_k80/"
+MODEL:
+  BACKBONE_TYPE: "dinov3_vitb"
+  DINOV2_FREEZE: True
+  USE_DINO: False
+  CHECKPOINT: null  # SET TO BEST STAGE-2 CHECKPOINT PATH
+  TTA_SCALES:
+    - 0.75
+    - 1.0
+    - 1.25
+  LORA:
+    ENABLED: True
+    VARIANT: "conv_dora"
+    RANK: 4
+    ALPHA: 4.0
+    DROPOUT: 0.05
+    LATE_BLOCK_START: 6
+    LR_A: 0.00001
+    LR_B: 0.00005
+    MAGNITUDE_WD: 0.001
+    DELAYED_START_STEPS: 0
+    PROGRESSIVE:
+      ENABLED: True
+      RANKS: [2, 4, 8]
+      ALPHAS: [2.0, 4.0, 8.0]
+      COVERAGES: [6, 6, 0]
+AUGMENTATION:
+  NUM_STEPS_STARTUP: 0
+  COPY_PASTE: True
+  MAX_NUM_PASTED_OBJECTS: 3
+  RESOLUTIONS:
+    - [384, 768]
+    - [416, 832]
+    - [448, 896]
+    - [480, 960]
+    - [512, 1024]
+    - [544, 1088]
+    - [576, 1152]
+    - [608, 1216]
+    - [640, 1280]
+SYSTEM:
+  ACCELERATOR: "gpu"
+  NUM_GPUS: 1
+  NUM_NODES: 1
+  NUM_WORKERS: 4
+  LOG_PATH: "/media/santosh/Kuldeep/panoptic_segmentation/experiments"
+  RUN_NAME: "cups_dinov3_vitb_k80_self_progressive_full"
+TRAINING:
+  STEPS: 1500
+  BATCH_SIZE: 2
+  ACCUMULATE_GRAD_BATCHES: 4
+  PRECISION: "16-mixed"
+  OPTIMIZER: "adamw"
+  ADAMW:
+    LEARNING_RATE: 0.0001
+    WEIGHT_DECAY: 0.00001
+  VAL_EVERY_N_STEPS: 500
+  LOG_EVERT_N_STEPS: 50
+  DROP_LOSS: True
+  DROP_LOSS_IOU_THRESHOLD: 0.4
+  LOG_MEDIA_N_STEPS: 500
+  GRADIENT_CLIP_ALGORITHM: "norm"
+  GRADIENT_CLIP_VAL: 0.1
+SELF_TRAINING:
+  ROUND_STEPS: 500
+  ROUNDS: 3
+  CONFIDENCE_STEP: 0.05
+  USE_DROP_LOSS: False
+  SEMANTIC_SEGMENTATION_THRESHOLD: 0.5
+  DISABLE_EMA: False
+VALIDATION:
+  CACHE_DEVICE: "cpu"
+  USE_TTA: False

@@ -1,0 +1,10 @@
+# Ablation: No bridge at all (train heads independently)
+architecture:
+  use_mamba_bridge: false
+  use_depth_conditioning: false
+
+training:
+  bridge_enable_epoch: 999  # Never enable bridge
+
+loss_weights:
+  lambda_bridge: 0.0

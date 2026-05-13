@@ -1,0 +1,46 @@
+## CUPS Stage 3: Self-training on Cityscapes
+## Requires Stage 2 checkpoint.
+## Usage:
+##   python refs/cups/train_self.py \
+##       --experiment_config_file configs/cups_self_cityscapes.yaml \
+##       --disable_wandb \
+##       MODEL.CHECKPOINT experiments/mbps_cups_stage2/last.ckpt
+##
+## For CPU smoke test:
+##   python refs/cups/train_self.py \
+##       --experiment_config_file configs/cups_self_cityscapes.yaml \
+##       --disable_wandb \
+##       MODEL.CHECKPOINT experiments/mbps_cups_stage2/last.ckpt \
+##       SYSTEM.ACCELERATOR cpu TRAINING.BATCH_SIZE 1 SYSTEM.NUM_WORKERS 0 \
+##       SELF_TRAINING.ROUND_STEPS 5 SELF_TRAINING.ROUNDS 1 TRAINING.VAL_EVERY_N_STEPS 3
+
+DATA:
+  ROOT: "/Users/qbit-glitch/Desktop/datasets/cityscapes"
+  ROOT_VAL: "/Users/qbit-glitch/Desktop/datasets/cityscapes"
+  CROP_RESOLUTION: (1024, 2048)
+  SCALE: 1.0
+  DATASET: "cityscapes"
+
+TRAINING:
+  BATCH_SIZE: 4
+  VAL_EVERY_N_STEPS: 50
+  ADAMW:
+    LEARNING_RATE: 0.00001
+
+AUGMENTATION:
+  COPY_PASTE: True
+
+SELF_TRAINING:
+  CONFIDENCE_STEP: 0.05
+  ROUND_STEPS: 500
+  ROUNDS: 3
+  USE_DROP_LOSS: False
+
+MODEL:
+  TTA_INFERENCE_CONFIDENCE_THRESHOLD: 0.7
+
+SYSTEM:
+  NUM_GPUS: 1
+  NUM_WORKERS: 4
+  ACCELERATOR: "gpu"
+  RUN_NAME: "mbps_cups_stage3"

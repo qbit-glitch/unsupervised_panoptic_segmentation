@@ -1,0 +1,98 @@
+# Stage-2 P0 BASELINE -- DINOv3 ViT-B/16 (frozen) + k=80 semantic pseudo-labels +
+# DepthPro tau=0.20 instance pseudo-labels.
+#
+# This is the reference configuration for the loss-augmentation plan
+# (`.claude/plans/okay-let-s-do-a-lovely-cerf.md`). Every P1-P4 config
+# derives from this baseline; ALL auxiliary loss weights are explicitly
+# 0.0 here so any downstream config can turn them on via a minimal
+# override. Output goes to `results/stage2_P0_baseline/` for Hungarian
+# gate comparisons.
+#
+# Dataset: Cityscapes (2975 train, 500 val).
+# Instance pseudo-labels: DepthPro depth-guided connected components
+# with tau=0.20 and A_min=1000 (current best PQ_things=23.35).
+# Semantic pseudo-labels: k=80 DINOv3 K-means overclustering (santosh's
+# canonical centroids via HF Hub -- do not regenerate).
+
+DATA:
+  CROP_RESOLUTION: (640, 1280)
+  SCALE: 0.625
+  DATASET: "cityscapes"
+  IGNORE_UNKNOWN_THING_REGIONS: False
+  THING_STUFF_THRESHOLD: 0.05
+  ROOT: "/media/santosh/Kuldeep/panoptic_segmentation/datasets/cityscapes/"
+  ROOT_VAL: "/media/santosh/Kuldeep/panoptic_segmentation/datasets/cityscapes/"
+  ROOT_PSEUDO: "/media/santosh/Kuldeep/panoptic_segmentation/datasets/cityscapes/cups_pseudo_labels_depthpro_tau020/"
+
+MODEL:
+  BACKBONE_TYPE: "dinov3_vitb"
+  DINOV2_FREEZE: True
+  USE_DINO: False
+  TTA_SCALES:
+    - 0.75
+    - 1.0
+    - 1.25
+  SEM_SEG_HEAD:
+    # P0 baseline -- all auxiliary losses disabled (P1-P4 turn these on).
+    LOVASZ_WEIGHT: 0.0
+    BOUNDARY_WEIGHT: 0.0
+    BOUNDARY_DILATE_PX: 3
+    BOUNDARY_CE_MULT: 2.0
+    STEGO_WEIGHT: 0.0
+    STEGO_TEMPERATURE: 0.1
+    STEGO_KNN_K: 7
+    STEGO_FEATURE_SOURCE: "fpn_p2"
+    DEPTH_SMOOTH_WEIGHT: 0.0
+    DEPTH_SMOOTH_ALPHA: 10.0
+    GATED_CRF_WEIGHT: 0.0
+    GATED_CRF_KERNEL: 5
+    GATED_CRF_RGB_SIGMA: 0.1
+    NECO_WEIGHT: 0.0
+    NECO_K: 5
+
+AUGMENTATION:
+  NUM_STEPS_STARTUP: 500
+  COPY_PASTE: True
+  MAX_NUM_PASTED_OBJECTS: 3
+  RESOLUTIONS:
+    - [384, 768]
+    - [416, 832]
+    - [448, 896]
+    - [480, 960]
+    - [512, 1024]
+
+SYSTEM:
+  ACCELERATOR: "gpu"
+  NUM_GPUS: 1
+  NUM_NODES: 1
+  NUM_WORKERS: 2
+  LOG_PATH: "results/stage2_P0_baseline"
+  RUN_NAME: "stage2_P0_baseline_k80_depthpro_tau020"
+
+TRAINING:
+  STEPS: 8000
+  BATCH_SIZE: 1
+  ACCUMULATE_GRAD_BATCHES: 16
+  PRECISION: "32-true"
+  OPTIMIZER: "adamw"
+  ADAMW:
+    LEARNING_RATE: 0.0001
+    WEIGHT_DECAY: 0.00001
+  VAL_EVERY_N_STEPS: 500
+  LOG_EVERT_N_STEPS: 50
+  DROP_LOSS: True
+  DROP_LOSS_IOU_THRESHOLD: 0.4
+  LOG_MEDIA_N_STEPS: 1000
+  GRADIENT_CLIP_ALGORITHM: "norm"
+  GRADIENT_CLIP_VAL: 0.1
+
+SELF_TRAINING:
+  ROUND_STEPS: 500
+  ROUNDS: 3
+  CONFIDENCE_STEP: 0.05
+  USE_DROP_LOSS: False
+  SEMANTIC_SEGMENTATION_THRESHOLD: 0.5
+
+VALIDATION:
+  CACHE_DEVICE: "cpu"
+  USE_TTA: False

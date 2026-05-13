@@ -1,0 +1,3 @@
+# Ablation: No depth conditioning
+architecture:
+  use_depth_conditioning: false

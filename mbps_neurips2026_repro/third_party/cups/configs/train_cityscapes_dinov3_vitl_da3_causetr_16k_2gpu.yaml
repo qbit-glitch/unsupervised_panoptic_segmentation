@@ -1,0 +1,68 @@
+# Stage-2: DINOv3 ViT-L/16 Cascade Mask R-CNN — DA3 + CAUSE-TR k=80
+# Backbone: DINOv3 ViT-L/16 frozen (embed_dim=1024, 307M params)
+# Memory: ~5.8GB/GPU observed at 512×1024. Extended to 640×1280 (~7.6GB est) — within 11GB.
+# eff_bs: 2 GPUs × bs=1 × accum=16 = 32 (same as ResNet-50 run)
+# LR: 0.0002 (linear-scaled from 0.0001 at eff_bs=16, same eff_bs=32 → same LR)
+# Precision: 16-mixed (GTX 1080 Ti does not support bf16)
+# Augmentations: CUPS paper full schedule — copy-paste (8 obj) + resolution jitter (384×768 → 640×1280, 9 levels) + photometric
+# Steps: 16000, validation every 500 batch steps = 32 validations
+
+DATA:
+  CROP_RESOLUTION: (640, 1280)
+  SCALE: 0.625
+  DATASET: "cityscapes"
+  IGNORE_UNKNOWN_THING_REGIONS: False
+  THING_STUFF_THRESHOLD: 0.05
+  ROOT: "/media/santosh/Kuldeep/panoptic_segmentation/datasets/cityscapes/"
+  ROOT_VAL: "/media/santosh/Kuldeep/panoptic_segmentation/datasets/cityscapes/"
+  ROOT_PSEUDO: "/media/santosh/Kuldeep/panoptic_segmentation/datasets/cityscapes/cups_pseudo_labels_da3_causetr/"
+MODEL:
+  BACKBONE_TYPE: "dinov3_vitl"
+  USE_DINO: True
+  DINOV2_FREEZE: True
+AUGMENTATION:
+  NUM_STEPS_STARTUP: 500
+  COPY_PASTE: True
+  MAX_NUM_PASTED_OBJECTS: 8
+  RESOLUTIONS:
+    - [384, 768]
+    - [416, 832]
+    - [448, 896]
+    - [480, 960]
+    - [512, 1024]
+    - [544, 1088]
+    - [576, 1152]
+    - [608, 1216]
+    - [640, 1280]
+SYSTEM:
+  ACCELERATOR: "gpu"
+  NUM_GPUS: 2
+  NUM_NODES: 1
+  NUM_WORKERS: 4
+  LOG_PATH: "/media/santosh/Kuldeep/panoptic_segmentation/experiments"
+  RUN_NAME: "cups_dinov3_vitl_da3_causetr_16k_bs32_stage2"
+TRAINING:
+  STEPS: 16000
+  BATCH_SIZE: 1
+  ACCUMULATE_GRAD_BATCHES: 16
+  PRECISION: "16-mixed"
+  OPTIMIZER: "adamw"
+  ADAMW:
+    LEARNING_RATE: 0.0002
+    WEIGHT_DECAY: 0.00001
+  VAL_EVERY_N_STEPS: 500
+  LOG_EVERT_N_STEPS: 50
+  DROP_LOSS: True
+  DROP_LOSS_IOU_THRESHOLD: 0.4
+  LOG_MEDIA_N_STEPS: 1000
+  GRADIENT_CLIP_ALGORITHM: "norm"
+  GRADIENT_CLIP_VAL: 1.0
+SELF_TRAINING:
+  ROUND_STEPS: 500
+  ROUNDS: 3
+  CONFIDENCE_STEP: 0.05
+  USE_DROP_LOSS: False
+  SEMANTIC_SEGMENTATION_THRESHOLD: 0.5
+VALIDATION:
+  CACHE_DEVICE: "cpu"
+  USE_TTA: False

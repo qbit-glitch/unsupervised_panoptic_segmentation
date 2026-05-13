@@ -1,0 +1,65 @@
+# 5-epoch smoke variant of cause_modeb_dinov3_vitb16.yaml.
+# Same architecture; bs=4, epochs=5. For local MPS verification only.
+
+experiment_name: cause_modeb_dinov3_vitb16_smoke
+seed: 42
+
+backbone:
+  model_name: facebook/dinov3-vitb16-pretrain-lvd1689m
+  freeze: true
+  embed_dim: 768
+  patch_size: 16
+
+resolution: 320
+patches_per_side: 20
+num_patches: 400
+
+frozen_centroids_npz: refs/cause/CAUSE/cityscapes/extracted_centroids/cause_tr_centroids_cityscapes.npz
+
+cause:
+  dim: 768
+  reduced_dim: 90
+  projection_dim: 2048
+  num_codebook: 2048
+  n_classes: 27
+  num_queries: 400
+
+adapter:
+  type: linear_identity_init
+  in_dim: 768
+  out_dim: 768
+  bias: true
+
+training:
+  epochs: 5
+  batch_size: 4               # MPS-safe on M4 Pro 48GB
+  grad_accum_steps: 2
+  optimizer: adam
+  head_lr: 5.0e-5
+  adapter_lr: 1.0e-4
+  weight_decay: 0.0
+  grad_clip_norm: 1.0
+  ema_decay: 0.99
+  contrastive_temp: 0.07
+  pos_thresh: 0.3
+  neg_thresh: 0.1
+  bank_max_size: 100
+  loss_weights:
+    contrastive: 1.0
+    centroid: 1.0
+
+validation:
+  every_epoch: 1
+  flip_tta: true
+  hungarian_match: true
+
+data:
+  cityscapes_root: /Users/qbit-glitch/Desktop/datasets/cityscapes
+  num_workers: 2              # M4 Pro keep modest to avoid contention
+  imagenet_mean: [0.485, 0.456, 0.406]
+  imagenet_std:  [0.229, 0.224, 0.225]
+
+logging:
+  output_dir: refs/cause/CAUSE_modeb_dinov3_vitb16_smoke
+  save_every: 1               # save every epoch for the smoke run
+  log_every: 25

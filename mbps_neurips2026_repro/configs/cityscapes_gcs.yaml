@@ -1,0 +1,38 @@
+# Cityscapes config with GCS data paths
+# Usage: python scripts/train.py --config configs/cityscapes_gcs.yaml
+
+_base_: "default.yaml"
+
+architecture:
+  num_classes: 19
+
+data:
+  dataset: "cityscapes"
+  data_dir: "gs://mbps-panoptic/datasets/cityscapes"
+  depth_dir: "gs://mbps-panoptic/datasets/cityscapes/depth_zoedepth"
+  tfrecord_dir: "gs://mbps-panoptic/datasets/cityscapes/tfrecords/train"
+  num_classes: 19
+  num_stuff_classes: 11
+  num_thing_classes: 8
+  image_size: [512, 1024]
+  crop_size: [512, 512]
+
+  stuff_classes: ["road", "sidewalk", "building", "wall", "fence",
+                   "pole", "traffic_light", "traffic_sign", "vegetation",
+                   "terrain", "sky"]
+  thing_classes: ["person", "rider", "car", "truck", "bus",
+                   "train", "motorcycle", "bicycle"]
+
+gcs:
+  bucket: "mbps-panoptic"
+  tfrecord_dir: "gs://mbps-panoptic/datasets/cityscapes/tfrecords/train"
+  checkpoint_dir: "gs://mbps-panoptic/checkpoints"
+  results_dir: "gs://mbps-panoptic/results"
+  weights_dir: "gs://mbps-panoptic/weights"
+
+logging:
+  wandb_group: "cityscapes"
+
+evaluation:
+  ignore_label: 255
+  pred_all_class: true

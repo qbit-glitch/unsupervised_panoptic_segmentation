@@ -1,0 +1,94 @@
+# Stage-2 P4 -- DAff (Gated-CRF + NeCo) on top of P3 DGLR.
+#
+# DAff is the heaviest pass. Gated-CRF uses an unfold-based K*K local
+# window (default 5x5) to compute bilateral-weighted pairwise compatibility
+# between the softmax distributions at each centre pixel and its
+# neighbours; NeCo adds a neighbourhood-consistency term over DINOv3
+# patches. Both are conservative at 0.1 to avoid dwarfing the P1-P3 terms.
+# Memory watch: if step time > 2x P0, drop GATED_CRF_KERNEL 5 -> 3 first.
+
+DATA:
+  CROP_RESOLUTION: (640, 1280)
+  SCALE: 0.625
+  DATASET: "cityscapes"
+  IGNORE_UNKNOWN_THING_REGIONS: False
+  THING_STUFF_THRESHOLD: 0.05
+  ROOT: "/media/santosh/Kuldeep/panoptic_segmentation/datasets/cityscapes/"
+  ROOT_VAL: "/media/santosh/Kuldeep/panoptic_segmentation/datasets/cityscapes/"
+  ROOT_PSEUDO: "/media/santosh/Kuldeep/panoptic_segmentation/datasets/cityscapes/cups_pseudo_labels_depthpro_tau020/"
+
+MODEL:
+  BACKBONE_TYPE: "dinov3_vitb"
+  DINOV2_FREEZE: True
+  USE_DINO: False
+  TTA_SCALES:
+    - 0.75
+    - 1.0
+    - 1.25
+  SEM_SEG_HEAD:
+    # P1 LoCE.
+    LOVASZ_WEIGHT: 0.5
+    BOUNDARY_WEIGHT: 0.3
+    BOUNDARY_DILATE_PX: 3
+    BOUNDARY_CE_MULT: 2.0
+    # P2 FeatMirror.
+    STEGO_WEIGHT: 0.1
+    STEGO_TEMPERATURE: 0.1
+    STEGO_KNN_K: 7
+    STEGO_FEATURE_SOURCE: "vit_patch"
+    # P3 DGLR.
+    DEPTH_SMOOTH_WEIGHT: 0.1
+    DEPTH_SMOOTH_ALPHA: 10.0
+    # P4 -- enable DAff.
+    GATED_CRF_WEIGHT: 0.1
+    GATED_CRF_KERNEL: 5
+    GATED_CRF_RGB_SIGMA: 0.1
+    NECO_WEIGHT: 0.1
+    NECO_K: 5
+
+AUGMENTATION:
+  NUM_STEPS_STARTUP: 500
+  COPY_PASTE: True
+  MAX_NUM_PASTED_OBJECTS: 3
+  RESOLUTIONS:
+    - [384, 768]
+    - [416, 832]
+    - [448, 896]
+    - [480, 960]
+    - [512, 1024]
+
+SYSTEM:
+  ACCELERATOR: "gpu"
+  NUM_GPUS: 1
+  NUM_NODES: 1
+  NUM_WORKERS: 2
+  LOG_PATH: "results/stage2_P4_daff"
+  RUN_NAME: "stage2_P4_daff_k80_depthpro_tau020"
+
+TRAINING:
+  STEPS: 8000
+  BATCH_SIZE: 1
+  ACCUMULATE_GRAD_BATCHES: 16
+  PRECISION: "32-true"
+  OPTIMIZER: "adamw"
+  ADAMW:
+    LEARNING_RATE: 0.0001
+    WEIGHT_DECAY: 0.00001
+  VAL_EVERY_N_STEPS: 500
+  LOG_EVERT_N_STEPS: 50
+  DROP_LOSS: True
+  DROP_LOSS_IOU_THRESHOLD: 0.4
+  LOG_MEDIA_N_STEPS: 1000
+  GRADIENT_CLIP_ALGORITHM: "norm"
+  GRADIENT_CLIP_VAL: 0.1
+
+SELF_TRAINING:
+  ROUND_STEPS: 500
+  ROUNDS: 3
+  CONFIDENCE_STEP: 0.05
+  USE_DROP_LOSS: False
+  SEMANTIC_SEGMENTATION_THRESHOLD: 0.5
+
+VALIDATION:
+  CACHE_DEVICE: "cpu"
+  USE_TTA: False

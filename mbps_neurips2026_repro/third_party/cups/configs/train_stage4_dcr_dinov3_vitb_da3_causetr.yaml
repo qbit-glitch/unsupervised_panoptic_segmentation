@@ -1,0 +1,97 @@
+# Stage-4 DCR: dead-class recovery fine-tuning from a Stage-3 DINOv3 checkpoint.
+# Update MODEL.CHECKPOINT before launch.
+
+DATA:
+  CROP_RESOLUTION: (640, 1280)
+  SCALE: 0.625
+  DATASET: "cityscapes"
+  IGNORE_UNKNOWN_THING_REGIONS: False
+  THING_STUFF_THRESHOLD: 0.05
+  ROOT: "/media/santosh/Kuldeep/panoptic_segmentation/datasets/cityscapes/"
+  ROOT_VAL: "/media/santosh/Kuldeep/panoptic_segmentation/datasets/cityscapes/"
+  ROOT_PSEUDO: "/media/santosh/Kuldeep/panoptic_segmentation/datasets/cityscapes/cups_pseudo_labels_da3_causetr/"
+MODEL:
+  BACKBONE_TYPE: "dinov3_vitb"
+  DINOV2_FREEZE: True
+  USE_DINO: False
+  CHECKPOINT: null
+  INFERENCE_CONFIDENCE_THRESHOLD: 0.25
+  TTA_INFERENCE_CONFIDENCE_THRESHOLD: 0.25
+  TTA_SCALES:
+    - 0.75
+    - 1.0
+  SEM_SEG_HEAD:
+    STUFF_KD_WEIGHT: 1.0
+    KD_TEMPERATURE: 2.0
+AUGMENTATION:
+  NUM_STEPS_STARTUP: 0
+  COPY_PASTE: False
+  CONFIDENCE: 0.75
+  MAX_NUM_PASTED_OBJECTS: 3
+  RESOLUTIONS:
+    - [384, 768]
+    - [416, 832]
+    - [448, 896]
+SYSTEM:
+  ACCELERATOR: "gpu"
+  NUM_GPUS: 2
+  NUM_NODES: 1
+  NUM_WORKERS: 4
+  LOG_PATH: "/media/santosh/Kuldeep/panoptic_segmentation/experiments"
+  RUN_NAME: "cups_dinov3_vitb_da3_causetr_stage4_dcr"
+TRAINING:
+  BATCH_SIZE: 1
+  ACCUMULATE_GRAD_BATCHES: 8
+  PRECISION: "32-true"
+  OPTIMIZER: "adamw"
+  ADAMW:
+    LEARNING_RATE: 0.00005
+    WEIGHT_DECAY: 0.00001
+  VAL_EVERY_N_STEPS: 200
+  LOG_EVERT_N_STEPS: 50
+  DROP_LOSS: False
+  DROP_LOSS_IOU_THRESHOLD: 0.4
+  LOG_MEDIA_N_STEPS: 500
+  GRADIENT_CLIP_ALGORITHM: "norm"
+  GRADIENT_CLIP_VAL: 1.0
+SELF_TRAINING:
+  ROUND_STEPS: 2000
+  ROUNDS: 1
+  CONFIDENCE_STEP: 0.0
+  USE_DROP_LOSS: False
+  SEMANTIC_SEGMENTATION_THRESHOLD: 0.5
+  DISABLE_EMA: True
+STAGE4:
+  ENABLED: True
+  RARE_CLASSES:
+    - "guard rail"
+    - "tunnel"
+    - "polegroup"
+    - "caravan"
+    - "trailer"
+  TAU_RARE: 0.25
+  TAU_COMMON: 0.70
+  REPLAY_WEIGHT: 1.0
+  FREEZE_BACKBONE: True
+  FREEZE_RPN: True
+  USE_EQLV2: True
+  USE_SEESAW_LOSS: False
+  EQLV2_GAMMA: 12.0
+  EQLV2_MU: 0.8
+  EQLV2_ALPHA: 4.0
+  RARE_LOSS_WEIGHT: 2.0
+  OHEM_ENABLED: True
+  OHEM_FRACTION: 0.25
+  OHEM_MIN_KEPT: 16
+  OHEM_RARE_MIN_KEPT: 2
+  RARE_RETAIN_ENABLED: True
+  RARE_RETAIN_MIN_ROIS: 2
+  RARE_RETAIN_RELAXED_IOU: 0.35
+  RARE_FOCAL_WEIGHT: 1.0
+  RARE_FOCAL_GAMMA: 2.0
+  RARE_BOUNDARY_WEIGHT: 0.5
+  RARE_BOUNDARY_WIDTH: 3
+  BANDIT_ENABLED: False
+VALIDATION:
+  CACHE_DEVICE: "cpu"
+  USE_TTA: False

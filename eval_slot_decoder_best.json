@@ -1,0 +1,27 @@
+{
+  "checkpoint": "checkpoints/slot_decoder/best.pth",
+  "epoch": 30,
+  "PQ_things": 0.01,
+  "SQ_things": 7.26,
+  "RQ_things": 0.02,
+  "total_pred_instances": 318,
+  "total_gt_instances": 10078,
+  "per_class": {
+    "person": {
+      "PQ": 0.0,
+      "SQ": 0.0,
+      "RQ": 0.0,
+      "TP": 0,
+      "FP": 9,
+      "FN": 3376
+    },
+    "rider": {
+      "PQ": 0.0,
+      "SQ": 0.0,
+      "RQ": 0.0,
+      "TP": 0,
+      "FP": 1,
+      "FN": 541
+    },
+    "car": {
+      "PQ": 

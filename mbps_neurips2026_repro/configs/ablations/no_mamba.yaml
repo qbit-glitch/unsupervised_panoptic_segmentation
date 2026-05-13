@@ -1,0 +1,9 @@
+# Ablation: No Mamba Bridge
+# Replace Mamba bridge with simple concatenation + MLP
+_base_: "../default.yaml"
+
+ablation:
+  name: "no_mamba"
+  description: "Replace Mamba2 bridge with concat + MLP fusion"
+  use_mamba_bridge: false
+  fusion_type: "concat_mlp"

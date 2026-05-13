@@ -1,0 +1,7 @@
+# Ablation: No Depth Conditioning
+_base_: "../default.yaml"
+
+ablation:
+  name: "no_depth_cond"
+  description: "Remove depth conditioning module"
+  use_depth_conditioning: false

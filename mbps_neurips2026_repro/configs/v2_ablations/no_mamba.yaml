@@ -1,0 +1,3 @@
+# Ablation: No Mamba bridge (MLP concat fallback)
+architecture:
+  use_mamba_bridge: false

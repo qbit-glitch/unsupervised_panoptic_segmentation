@@ -1,0 +1,4 @@
+# Ablation: No copy-paste augmentation
+# Tests the value of CUPS-style copy-paste augmentation.
+augmentation:
+  copy_paste: false

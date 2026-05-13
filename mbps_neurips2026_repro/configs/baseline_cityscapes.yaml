@@ -1,0 +1,74 @@
+# Strong Baseline: DINOv3 ViT-L/16 + Mask2Former on Cityscapes Pseudo-Labels
+# Target: PQ >= 33 on Cityscapes val (vs CUPS PQ=27.8)
+#
+# Usage:
+#   python scripts/train_baseline.py --config configs/baseline_cityscapes.yaml
+
+architecture:
+  backbone: "dinov3-vitl16"
+  backbone_model_name: "facebook/dinov3-vitl16-pretrain-lvd1689m"
+  backbone_dim: 1024
+  hidden_dim: 256
+  num_queries: 100
+  nheads: 8
+  dim_feedforward: 1024
+  dec_layers: 9
+  num_classes: 19
+
+data:
+  dataset: "cityscapes"
+  data_dir: "/Users/qbit-glitch/Desktop/datasets/cityscapes"
+  pseudo_semantic_dir: "/Users/qbit-glitch/Desktop/datasets/cityscapes/pseudo_semantic"
+  pseudo_instance_dir: "/Users/qbit-glitch/Desktop/datasets/cityscapes/pseudo_instance"
+  stuff_things_path: "/Users/qbit-glitch/Desktop/datasets/cityscapes/stuff_things_map.json"
+  crop_size: 512
+  min_scale: 0.5
+  max_scale: 2.0
+  mask_stride: 4  # Target masks at 1/4 resolution
+
+training:
+  total_epochs: 50
+  batch_size: 2
+  grad_accum_steps: 2       # Effective batch size = 4
+  learning_rate: 1.0e-4
+  min_learning_rate: 1.0e-6
+  weight_decay: 0.05
+  gradient_clip: 0.01       # Mask2Former uses 0.01 clip by norm
+  warmup_epochs: 5
+  lr_schedule: "cosine"
+  optimizer: "adamw"
+  num_workers: 4
+
+loss:
+  cost_class: 2.0
+  cost_mask: 5.0
+  cost_dice: 5.0
+  weight_class: 2.0
+  weight_mask: 5.0
+  weight_dice: 5.0
+  eos_coef: 0.1             # No-object class weight
+  num_points: 12544          # 112 * 112 point sampling
+  deep_supervision: true
+
+self_training:
+  enabled: true
+  num_rounds: 3
+  epochs_per_round: 5
+  ema_decay: 0.999
+  confidence_thresholds: [0.7, 0.75, 0.8]
+  learning_rate: 1.0e-5     # Lower LR for self-training
+
+checkpointing:
+  save_every_n_epochs: 5
+  checkpoint_dir: "checkpoints/baseline_cityscapes/"
+
+logging:
+  log_every_n_steps: 20
+  eval_every_n_epochs: 5
+  use_wandb: false
+  wandb_project: "mbps"
+  wandb_group: "baseline_cityscapes"
+
+evaluation:
+  score_threshold: 0.5
+  overlap_threshold: 0.8

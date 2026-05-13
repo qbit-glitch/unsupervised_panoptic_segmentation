@@ -1,0 +1,47 @@
+{
+  "baseline_cause": {
+    "mIoU": 40.44,
+    "pixel_acc": 87.37,
+    "PQ": 19.15,
+    "PQ_stuff": 27.78,
+    "PQ_things": 7.28,
+    "SQ": 71.49,
+    "RQ": 25.88
+  },
+  "baseline_cause_crf": {
+    "mIoU": 42.86,
+    "pixel_acc": 89.33,
+    "PQ": 21.67,
+    "PQ_stuff": 31.58,
+    "PQ_things": 8.05,
+    "SQ": 73.9,
+    "RQ": 28.89
+  },
+  "S1": {
+    "mIoU": 37.7,
+    "pixel_acc": 85.41,
+    "PQ": 17.07,
+    "PQ_stuff": 24.64,
+    "PQ_things": 6.66,
+    "SQ": 70.63,
+    "RQ": 24.17
+  },
+  "S1+S2": {
+    "mIoU": 36.2,
+    "pixel_acc": 83.81,
+    "PQ": 15.7,
+    "PQ_stuff": 22.43,
+    "PQ_things": 6.46,
+    "SQ": 69.6,
+    "RQ": 23.92
+  },
+  "S1+S2+S3": {
+    "mIoU": 38.0,
+    "pixel_acc": 85.65,
+    "PQ": 16.98,
+    "PQ_stuff": 24.31,
+    "PQ_things": 6.9,
+    "SQ": 71.57,
+    "RQ": 25.27
+  }
+}
