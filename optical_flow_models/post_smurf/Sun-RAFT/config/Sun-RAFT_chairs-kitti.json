@@ -1,0 +1,32 @@
+{
+    "name": "Sun-RAFT_chairs-kitti",
+    "epsilon": 1e-8,
+    "mixed_precision": true,
+    "gpus": [0,1],
+    "occ_method": ["wan", "brox"],
+    "train": {
+            "iters": 12,
+            "eval_iters": [[12, 12],[12]],
+            "num_steps": [75000, 15000],
+            "lr": [0.0003, 0.0003],
+            "dataset": ["chairs", "kitti_mv"],
+            "batch_size": [8, 6],
+            "image_size": [[368, 496], [296, 696]],
+            "wdecay": [0.0001, 0.0001],
+            "validation": [["chairs", "sintel"], ["kitti"]],
+            "loss": {"aug_settings": [{"crop_size": [368, 496], "min_scale": 0.0, "max_scale": 1.0, "do_flip": true, "ph_aug": true, "spatial_aug_prob": 0.8, "stretch_prob": 0.8, "center_crop": true}, {"crop_size": [296, 696], "min_scale": 0.0, "max_scale": 1.0, "do_flip": false, "ph_aug": true, "spatial_aug_prob": 0.8, "stretch_prob": 0.8, "center_crop": true}],
+                     "gamma":[0.8, 0.8],
+                     "ar_gamma":[0.95, 0.7],
+                     "sm_weight": [2.0, 0.5],
+                     "sm_order": [1, 2],
+                     "ph_l1_weight": [0.0, 0.0, 0, 0],
+                     "ph_ssim_weight": [0.0, 0.0, 0, 0],
+                     "ph_ternary_weight": [1.0, 1.0],
+                     "ar": true,
+                     "ar_start":[40, 0],
+                     "ar_increasing":10,
+                     "ar_weight":[1.2, 0.9]
+                     }
+             }
+    
+    }
