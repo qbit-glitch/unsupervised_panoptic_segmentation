@@ -1,0 +1,76 @@
+{
+  "nodes": [
+    {
+      "id": "cups",
+      "type": "file",
+      "file": "Papers/CUPS-2025.md",
+      "x": 0, "y": 0, "width": 260, "height": 80,
+      "color": "1"
+    },
+    {
+      "id": "cause",
+      "type": "file",
+      "file": "Papers/CAUSE-2024.md",
+      "x": -400, "y": -200, "width": 260, "height": 80,
+      "color": "4"
+    },
+    {
+      "id": "dinov2",
+      "type": "file",
+      "file": "Papers/DINOv2-2024.md",
+      "x": -700, "y": -400, "width": 260, "height": 80,
+      "color": "6"
+    },
+    {
+      "id": "dinov3",
+      "type": "file",
+      "file": "Papers/DINOv3-2025.md",
+      "x": -400, "y": -400, "width": 260, "height": 80,
+      "color": "3"
+    },
+    {
+      "id": "dav3",
+      "type": "file",
+      "file": "Papers/DepthAnythingV3.md",
+      "x": 400, "y": -200, "width": 260, "height": 80,
+      "color": "4"
+    },
+    {
+      "id": "spidepth",
+      "type": "file",
+      "file": "Papers/SPIdepth.md",
+      "x": 400, "y": -400, "width": 260, "height": 80,
+      "color": "6"
+    },
+    {
+      "id": "hub",
+      "type": "file",
+      "file": "00-Hub.md",
+      "x": 0, "y": 220, "width": 260, "height": 80,
+      "color": "2"
+    },
+    {
+      "id": "label_sem",
+      "type": "text",
+      "text": "Semantic\nPseudo-labels\n(k=80 clusters)",
+      "x": -560, "y": -40, "width": 180, "height": 80,
+      "color": "5"
+    },
+    {
+      "id": "label_inst",
+      "type": "text",
+      "text": "Instance\nPseudo-labels\n(depth-guided)",
+      "x": 400, "y": -40, "width": 180, "height": 80,
+      "color": "5"
+    }
+  ],
+  "edges": [
+    { "id": "e1", "fromNode": "dinov2", "fromSide": "bottom", "toNode": "cause", "toSide": "top", "label": "backbone" },
+    { "id": "e2", "fromNode": "dinov3", "fromSide": "bottom", "toNode": "cause", "toSide": "top", "label": "upgraded backbone" },
+    { "id": "e3", "fromNode": "cause", "fromSide": "bottom", "toNode": "cups", "toSide": "left", "label": "semantic PLs" },
+    { "id": "e4", "fromNode": "dav3", "fromSide": "bottom", "toNode": "cups", "toSide": "right", "label": "instance PLs (+1.49 PQ_th)" },
+    { "id": "e5", "fromNode": "spidepth", "fromSide": "bottom", "toNode": "cups", "toSide": "right", "label": "instance PLs (baseline)" },
+    { "id": "e6", "fromNode": "dinov3", "fromSide": "bottom", "toNode": "cups", "toSide": "top", "label": "Stage-2/3 backbone" },
+    { "id": "e7", "fromNode": "cups", "fromSide": "bottom", "toNode": "hub", "toSide": "top", "label": "training protocol (PQ=32.76%)" }
+  ]
+}

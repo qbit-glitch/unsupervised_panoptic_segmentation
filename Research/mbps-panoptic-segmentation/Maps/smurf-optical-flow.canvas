@@ -1,0 +1,32 @@
+{
+  "nodes": [
+    {"id": "index", "type": "file", "file": "Papers/Optical-Flow/Optical-Flow-SMURF-Lineage.md", "x": 0, "y": 0, "width": 300, "height": 90, "color": "2"},
+    {"id": "smurf", "type": "file", "file": "Papers/Optical-Flow/SMURF-2021.md", "x": 0, "y": -180, "width": 280, "height": 90, "color": "1"},
+    {"id": "u2flow", "type": "file", "file": "Papers/Optical-Flow/U2Flow-2026.md", "x": 0, "y": -380, "width": 280, "height": 90, "color": "4"},
+    {"id": "reviving", "type": "file", "file": "Papers/Optical-Flow/Reviving-Unsupervised-Optical-Flow-2026.md", "x": -360, "y": -380, "width": 280, "height": 90, "color": "4"},
+    {"id": "saf", "type": "file", "file": "Papers/Optical-Flow/Self-Supervised-AutoFlow-2023.md", "x": -360, "y": -180, "width": 280, "height": 90, "color": "5"},
+    {"id": "flowformer", "type": "file", "file": "Papers/Optical-Flow/FlowFormerPlusPlus-2023.md", "x": 360, "y": -180, "width": 280, "height": 90, "color": "3"},
+    {"id": "videoflow", "type": "file", "file": "Papers/Optical-Flow/VideoFlow-2023.md", "x": 360, "y": 20, "width": 280, "height": 90, "color": "6"},
+    {"id": "memfof", "type": "file", "file": "Papers/Optical-Flow/MEMFOF-2025.md", "x": 720, "y": 20, "width": 280, "height": 90, "color": "6"},
+    {"id": "arflow", "type": "file", "file": "Papers/Optical-Flow/ARFlow-2026.md", "x": 720, "y": 220, "width": 280, "height": 90, "color": "6"},
+    {"id": "dpflow", "type": "file", "file": "Papers/Optical-Flow/DPFlow-2025.md", "x": 720, "y": -180, "width": 280, "height": 90, "color": "3"},
+    {"id": "megaflow", "type": "file", "file": "Papers/Optical-Flow/MegaFlow-2026.md", "x": 360, "y": -380, "width": 280, "height": 90, "color": "3"},
+    {"id": "losses", "type": "file", "file": "Knowledge/Optical-Flow/Optical-Flow-Losses.md", "x": -360, "y": 120, "width": 280, "height": 90, "color": "5"},
+    {"id": "algos", "type": "file", "file": "Knowledge/Optical-Flow/Optical-Flow-Algorithms.md", "x": 0, "y": 220, "width": 280, "height": 90, "color": "5"},
+    {"id": "mbps", "type": "file", "file": "Knowledge/Optical-Flow/Optical-Flow-MBPS-Relevance.md", "x": -360, "y": 320, "width": 280, "height": 90, "color": "2"}
+  ],
+  "edges": [
+    {"id": "e1", "fromNode": "index", "fromSide": "top", "toNode": "smurf", "toSide": "bottom", "label": "anchor"},
+    {"id": "e2", "fromNode": "smurf", "fromSide": "top", "toNode": "u2flow", "toSide": "bottom", "label": "closest successor"},
+    {"id": "e3", "fromNode": "smurf", "fromSide": "left", "toNode": "reviving", "toSide": "right", "label": "reproduces/simplifies"},
+    {"id": "e4", "fromNode": "smurf", "fromSide": "left", "toNode": "saf", "toSide": "right", "label": "losses as search metric"},
+    {"id": "e5", "fromNode": "flowformer", "fromSide": "bottom", "toNode": "videoflow", "toSide": "top", "label": "backbone family"},
+    {"id": "e6", "fromNode": "videoflow", "fromSide": "right", "toNode": "memfof", "toSide": "left", "label": "multi-frame"},
+    {"id": "e7", "fromNode": "memfof", "fromSide": "bottom", "toNode": "arflow", "toSide": "top", "label": "MoL + memory"},
+    {"id": "e8", "fromNode": "dpflow", "fromSide": "left", "toNode": "flowformer", "toSide": "right", "label": "high-res vs tiling"},
+    {"id": "e9", "fromNode": "megaflow", "fromSide": "bottom", "toNode": "flowformer", "toSide": "top", "label": "global matching"},
+    {"id": "e10", "fromNode": "index", "fromSide": "left", "toNode": "losses", "toSide": "right", "label": "loss taxonomy"},
+    {"id": "e11", "fromNode": "index", "fromSide": "bottom", "toNode": "algos", "toSide": "top", "label": "algorithm taxonomy"},
+    {"id": "e12", "fromNode": "losses", "fromSide": "bottom", "toNode": "mbps", "toSide": "top", "label": "claim hygiene"}
+  ]
+}
