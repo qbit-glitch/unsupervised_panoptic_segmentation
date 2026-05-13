@@ -1,0 +1,19 @@
+{
+  "projects": {
+    "mbps-panoptic-segmentation": {
+      "project_id": "mbps-panoptic-segmentation",
+      "repo_roots": [
+        "/Users/qbit-glitch/Desktop/coding-projects/mbps_panoptic_segmentation"
+      ],
+      "vault_name": "mbps_panoptic_segmentation",
+      "vault_root": "/Users/qbit-glitch/Desktop/coding-projects/mbps_panoptic_segmentation/Research/mbps-panoptic-segmentation",
+      "hub_note": "Research/mbps-panoptic-segmentation/00-Hub.md",
+      "status": "active",
+      "auto_sync": true,
+      "note_language": "en",
+      "created_at": "2026-03-29T13:40:24Z",
+      "updated_at": "2026-03-29T13:40:24Z",
+      "archive_root": "/Users/qbit-glitch/Desktop/coding-projects/mbps_panoptic_segmentation/Archive"
+    }
+  }
+}

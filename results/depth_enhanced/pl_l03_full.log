@@ -1,0 +1,944 @@
+2026-04-14 17:18:27,694 [INFO] Found 2975 train images with paired depth
+2026-04-14 17:18:27,694 [INFO] Fitting k=80 MiniBatchKMeans on 2975 train images (encoding=sinusoidal, depth_weight=0.3, sample_frac=0.3, batch_size=4096)
+Loading train features:   0%|          | 0/2975 [00:00<?, ?it/s]Loading train features:   1%|          | 21/2975 [00:00<00:14, 208.80it/s]Loading train features:   1%|▏         | 43/2975 [00:00<00:13, 212.08it/s]Loading train features:   2%|▏         | 65/2975 [00:00<00:13, 209.37it/s]Loading train features:   3%|▎         | 86/2975 [00:00<00:13, 209.27it/s]Loading train features:   4%|▎         | 108/2975 [00:00<00:13, 210.20it/s]Loading train features:   4%|▍         | 130/2975 [00:00<00:13, 210.37it/s]Loading train features:   5%|▌         | 152/2975 [00:00<00:13, 209.88it/s]Loading train features:   6%|▌         | 173/2975 [00:00<00:13, 209.53it/s]Loading train features:   7%|▋         | 194/2975 [00:00<00:13, 209.62it/s]Loading train features:   7%|▋         | 215/2975 [00:01<00:13, 209.59it/s]Loading train features:   8%|▊         | 237/2975 [00:01<00:13, 210.04it/s]Loading train features:   9%|▊         | 259/2975 [00:01<00:12, 210.87it/s]Loading train features:   9%|▉         | 281/2975 [00:01<00:12, 209.35it/s]Loading train features:  10%|█         | 302/2975 [00:01<00:12, 208.33it/s]Loading train features:  11%|█         | 323/2975 [00:01<00:12, 206.03it/s]Loading train features:  12%|█▏        | 345/2975 [00:01<00:12, 207.91it/s]Loading train features:  12%|█▏        | 367/2975 [00:01<00:12, 208.61it/s]Loading train features:  13%|█▎        | 389/2975 [00:01<00:12, 209.66it/s]Loading train features:  14%|█▍        | 411/2975 [00:01<00:12, 210.66it/s]Loading train features:  15%|█▍        | 433/2975 [00:02<00:12, 208.37it/s]Loading train features:  15%|█▌        | 455/2975 [00:02<00:12, 209.68it/s]Loading train features:  16%|█▌        | 477/2975 [00:02<00:11, 210.65it/s]Loading train features:  17%|█▋        | 499/2975 [00:02<00:11, 210.53it/s]Loading train features:  18%|█▊        | 521/2975 [00:02<00:11, 210.32it/s]Loading train features:  18%|█▊        | 543/2975 [00:02<00:11, 211.07it/s]Loading train features:  19%|█▉        | 565/2975 [00:02<00:11, 210.22it/s]Loading train features:  20%|█▉        | 587/2975 [00:02<00:11, 209.28it/s]Loading train features:  20%|██        | 608/2975 [00:02<00:11, 209.32it/s]Loading train features:  21%|██        | 630/2975 [00:03<00:11, 209.50it/s]Loading train features:  22%|██▏       | 652/2975 [00:03<00:11, 210.00it/s]Loading train features:  23%|██▎       | 674/2975 [00:03<00:10, 210.31it/s]Loading train features:  23%|██▎       | 696/2975 [00:03<00:10, 209.34it/s]Loading train features:  24%|██▍       | 718/2975 [00:03<00:10, 209.99it/s]Loading train features:  25%|██▍       | 740/2975 [00:03<00:10, 209.07it/s]Loading train features:  26%|██▌       | 762/2975 [00:03<00:10, 209.86it/s]Loading train features:  26%|██▋       | 784/2975 [00:03<00:10, 209.85it/s]Loading train features:  27%|██▋       | 806/2975 [00:03<00:10, 210.26it/s]Loading train features:  28%|██▊       | 828/2975 [00:03<00:10, 210.52it/s]Loading train features:  29%|██▊       | 850/2975 [00:04<00:10, 211.05it/s]Loading train features:  29%|██▉       | 872/2975 [00:04<00:09, 211.49it/s]Loading train features:  30%|███       | 894/2975 [00:04<00:09, 211.23it/s]Loading train features:  31%|███       | 916/2975 [00:04<00:09, 210.78it/s]Loading train features:  32%|███▏      | 938/2975 [00:04<00:09, 208.06it/s]Loading train features:  32%|███▏      | 959/2975 [00:04<00:09, 206.99it/s]Loading train features:  33%|███▎      | 981/2975 [00:04<00:09, 208.87it/s]Loading train features:  34%|███▎      | 1002/2975 [00:04<00:09, 208.93it/s]Loading train features:  34%|███▍      | 1024/2975 [00:04<00:09, 210.31it/s]Loading train features:  35%|███▌      | 1046/2975 [00:04<00:09, 211.16it/s]Loading train features:  36%|███▌      | 1068/2975 [00:05<00:09, 211.80it/s]Loading train features:  37%|███▋      | 1090/2975 [00:05<00:09, 199.53it/s]Loading train features:  37%|███▋      | 1112/2975 [00:05<00:09, 202.82it/s]Loading train features:  38%|███▊      | 1134/2975 [00:05<00:08, 206.30it/s]Loading train features:  39%|███▉      | 1156/2975 [00:05<00:08, 208.12it/s]Loading train features:  40%|███▉      | 1177/2975 [00:05<00:08, 208.34it/s]Loading train features:  40%|████      | 1198/2975 [00:05<00:08, 208.35it/s]Loading train features:  41%|████      | 1219/2975 [00:05<00:08, 207.79it/s]Loading train features:  42%|████▏     | 1240/2975 [00:05<00:08, 207.75it/s]Loading train features:  42%|████▏     | 1261/2975 [00:06<00:08, 207.39it/s]Loading train features:  43%|████▎     | 1282/2975 [00:06<00:08, 207.00it/s]Loading train features:  44%|████▍     | 1304/2975 [00:06<00:08, 208.09it/s]Loading train features:  45%|████▍     | 1325/2975 [00:06<00:07, 207.92it/s]Loading train features:  45%|████▌     | 1346/2975 [00:06<00:07, 207.38it/s]Loading train features:  46%|████▌     | 1368/2975 [00:06<00:07, 208.33it/s]Loading train features:  47%|████▋     | 1389/2975 [00:06<00:07, 207.86it/s]Loading train features:  47%|████▋     | 1410/2975 [00:06<00:07, 207.23it/s]Loading train features:  48%|████▊     | 1431/2975 [00:06<00:07, 205.39it/s]Loading train features:  49%|████▉     | 1452/2975 [00:06<00:07, 205.97it/s]Loading train features:  50%|████▉     | 1473/2975 [00:07<00:07, 206.52it/s]Loading train features:  50%|█████     | 1494/2975 [00:07<00:07, 206.14it/s]Loading train features:  51%|█████     | 1515/2975 [00:07<00:07, 206.07it/s]Loading train features:  52%|█████▏    | 1536/2975 [00:07<00:07, 205.54it/s]Loading train features:  52%|█████▏    | 1557/2975 [00:07<00:06, 205.82it/s]Loading train features:  53%|█████▎    | 1578/2975 [00:07<00:06, 205.50it/s]Loading train features:  54%|█████▎    | 1599/2975 [00:07<00:06, 206.29it/s]Loading train features:  54%|█████▍    | 1620/2975 [00:07<00:06, 206.01it/s]Loading train features:  55%|█████▌    | 1641/2975 [00:07<00:06, 205.81it/s]Loading train features:  56%|█████▌    | 1662/2975 [00:07<00:06, 205.62it/s]Loading train features:  57%|█████▋    | 1683/2975 [00:08<00:06, 205.29it/s]Loading train features:  57%|█████▋    | 1704/2975 [00:08<00:06, 203.82it/s]Loading train features:  58%|█████▊    | 1725/2975 [00:08<00:06, 200.87it/s]Loading train features:  59%|█████▊    | 1746/2975 [00:08<00:06, 200.75it/s]Loading train features:  59%|█████▉    | 1767/2975 [00:08<00:06, 200.32it/s]Loading train features:  60%|██████    | 1788/2975 [00:08<00:05, 199.71it/s]Loading train features:  61%|██████    | 1808/2975 [00:08<00:05, 199.44it/s]Loading train features:  61%|██████▏   | 1829/2975 [00:08<00:05, 200.60it/s]Loading train features:  62%|██████▏   | 1850/2975 [00:08<00:05, 201.24it/s]Loading train features:  63%|██████▎   | 1871/2975 [00:09<00:05, 200.33it/s]Loading train features:  64%|██████▎   | 1892/2975 [00:09<00:05, 201.18it/s]Loading train features:  64%|██████▍   | 1913/2975 [00:09<00:05, 201.61it/s]Loading train features:  65%|██████▌   | 1934/2975 [00:09<00:05, 200.92it/s]Loading train features:  66%|██████▌   | 1955/2975 [00:09<00:05, 200.86it/s]Loading train features:  66%|██████▋   | 1976/2975 [00:09<00:04, 202.06it/s]Loading train features:  67%|██████▋   | 1997/2975 [00:09<00:04, 203.26it/s]Loading train features:  68%|██████▊   | 2018/2975 [00:09<00:04, 200.08it/s]Loading train features:  69%|██████▊   | 2039/2975 [00:09<00:04, 200.24it/s]Loading train features:  69%|██████▉   | 2060/2975 [00:09<00:04, 201.15it/s]Loading train features:  70%|██████▉   | 2081/2975 [00:10<00:04, 197.19it/s]Loading train features:  71%|███████   | 2101/2975 [00:10<00:04, 197.16it/s]Loading train features:  71%|███████▏  | 2122/2975 [00:10<00:04, 198.89it/s]Loading train features:  72%|███████▏  | 2143/2975 [00:10<00:04, 200.59it/s]Loading train features:  73%|███████▎  | 2164/2975 [00:10<00:04, 201.52it/s]Loading train features:  73%|███████▎  | 2185/2975 [00:10<00:03, 202.88it/s]Loading train features:  74%|███████▍  | 2206/2975 [00:10<00:03, 203.54it/s]Loading train features:  75%|███████▍  | 2227/2975 [00:10<00:03, 203.84it/s]Loading train features:  76%|███████▌  | 2248/2975 [00:10<00:03, 203.77it/s]Loading train features:  76%|███████▋  | 2269/2975 [00:10<00:03, 203.22it/s]Loading train features:  77%|███████▋  | 2290/2975 [00:11<00:03, 201.62it/s]Loading train features:  78%|███████▊  | 2311/2975 [00:11<00:03, 198.10it/s]Loading train features:  78%|███████▊  | 2331/2975 [00:11<00:03, 198.00it/s]Loading train features:  79%|███████▉  | 2351/2975 [00:11<00:03, 195.96it/s]Loading train features:  80%|███████▉  | 2371/2975 [00:11<00:03, 197.09it/s]Loading train features:  80%|████████  | 2391/2975 [00:11<00:02, 197.59it/s]Loading train features:  81%|████████  | 2412/2975 [00:11<00:02, 199.03it/s]Loading train features:  82%|████████▏ | 2433/2975 [00:11<00:02, 199.50it/s]Loading train features:  82%|████████▏ | 2454/2975 [00:11<00:02, 200.55it/s]Loading train features:  83%|████████▎ | 2475/2975 [00:12<00:02, 201.40it/s]Loading train features:  84%|████████▍ | 2496/2975 [00:12<00:02, 200.44it/s]Loading train features:  85%|████████▍ | 2517/2975 [00:12<00:02, 200.41it/s]Loading train features:  85%|████████▌ | 2538/2975 [00:12<00:02, 198.32it/s]Loading train features:  86%|████████▌ | 2559/2975 [00:12<00:02, 199.13it/s]Loading train features:  87%|████████▋ | 2579/2975 [00:12<00:01, 198.90it/s]Loading train features:  87%|████████▋ | 2599/2975 [00:12<00:01, 198.00it/s]Loading train features:  88%|████████▊ | 2619/2975 [00:12<00:01, 197.58it/s]Loading train features:  89%|████████▊ | 2639/2975 [00:12<00:01, 197.65it/s]Loading train features:  89%|████████▉ | 2660/2975 [00:12<00:01, 198.95it/s]Loading train features:  90%|█████████ | 2681/2975 [00:13<00:01, 199.75it/s]Loading train features:  91%|█████████ | 2702/2975 [00:13<00:01, 200.46it/s]Loading train features:  92%|█████████▏| 2723/2975 [00:13<00:01, 198.31it/s]Loading train features:  92%|█████████▏| 2743/2975 [00:13<00:01, 198.25it/s]Loading train features:  93%|█████████▎| 2763/2975 [00:13<00:01, 193.16it/s]Loading train features:  94%|█████████▎| 2784/2975 [00:13<00:00, 195.69it/s]Loading train features:  94%|█████████▍| 2805/2975 [00:13<00:00, 197.57it/s]Loading train features:  95%|█████████▍| 2825/2975 [00:13<00:00, 197.22it/s]Loading train features:  96%|█████████▌| 2845/2975 [00:13<00:00, 197.34it/s]Loading train features:  96%|█████████▋| 2865/2975 [00:14<00:00, 197.57it/s]Loading train features:  97%|█████████▋| 2885/2975 [00:14<00:00, 196.79it/s]Loading train features:  98%|█████████▊| 2905/2975 [00:14<00:00, 197.01it/s]Loading train features:  98%|█████████▊| 2925/2975 [00:14<00:00, 195.09it/s]Loading train features:  99%|█████████▉| 2945/2975 [00:14<00:00, 195.67it/s]Loading train features: 100%|█████████▉| 2965/2975 [00:14<00:00, 193.46it/s]Loading train features: 100%|██████████| 2975/2975 [00:14<00:00, 204.18it/s]
+2026-04-14 17:18:44,531 [INFO] Feature matrix: (1826650, 780), loaded in 16.8s
+2026-04-14 17:18:44,532 [INFO] Fitting k-means...
+Init 1/5 with method k-means++
+/Users/qbit-glitch/Desktop/datasets/.venv_py310/lib/python3.10/site-packages/sklearn/utils/extmath.py:203: RuntimeWarning: divide by zero encountered in matmul
+  ret = a @ b
+/Users/qbit-glitch/Desktop/datasets/.venv_py310/lib/python3.10/site-packages/sklearn/utils/extmath.py:203: RuntimeWarning: overflow encountered in matmul
+  ret = a @ b
+/Users/qbit-glitch/Desktop/datasets/.venv_py310/lib/python3.10/site-packages/sklearn/utils/extmath.py:203: RuntimeWarning: invalid value encountered in matmul
+  ret = a @ b
+/Users/qbit-glitch/Desktop/datasets/.venv_py310/lib/python3.10/site-packages/sklearn/cluster/_kmeans.py:237: RuntimeWarning: divide by zero encountered in matmul
+  current_pot = closest_dist_sq @ sample_weight
+/Users/qbit-glitch/Desktop/datasets/.venv_py310/lib/python3.10/site-packages/sklearn/cluster/_kmeans.py:237: RuntimeWarning: overflow encountered in matmul
+  current_pot = closest_dist_sq @ sample_weight
+/Users/qbit-glitch/Desktop/datasets/.venv_py310/lib/python3.10/site-packages/sklearn/cluster/_kmeans.py:237: RuntimeWarning: invalid value encountered in matmul
+  current_pot = closest_dist_sq @ sample_weight
+Inertia for init 1/5: 8946.40234375
+Init 2/5 with method k-means++
+Inertia for init 2/5: 8955.734375
+Init 3/5 with method k-means++
+Inertia for init 3/5: 8854.6865234375
+Init 4/5 with method k-means++
+Inertia for init 4/5: 8980.271484375
+Init 5/5 with method k-means++
+Inertia for init 5/5: 8898.94140625
+Minibatch step 1/44595: mean batch inertia: 0.7239209413528442
+Minibatch step 2/44595: mean batch inertia: 0.4623415768146515, ewa inertia: 0.4623415768146515
+Minibatch step 3/44595: mean batch inertia: 0.4580957591533661, ewa inertia: 0.4623225355537422
+Minibatch step 4/44595: mean batch inertia: 0.4524635970592499, ewa inertia: 0.4622783210737201
+Minibatch step 5/44595: mean batch inertia: 0.45136767625808716, ewa inertia: 0.46222938999584606
+Minibatch step 6/44595: mean batch inertia: 0.4515177309513092, ewa inertia: 0.46218135131144883
+Minibatch step 7/44595: mean batch inertia: 0.44855621457099915, ewa inertia: 0.46212024652450384
+Minibatch step 8/44595: mean batch inertia: 0.4435644745826721, ewa inertia: 0.4620370292685817
+Minibatch step 9/44595: mean batch inertia: 0.4511701464653015, ewa inertia: 0.461988294450642
+Minibatch step 10/44595: mean batch inertia: 0.4450942277908325, ewa inertia: 0.46191252946100947
+Minibatch step 11/44595: mean batch inertia: 0.44763922691345215, ewa inertia: 0.46184851783839
+Minibatch step 12/44595: mean batch inertia: 0.4478975236415863, ewa inertia: 0.4617859516752531
+Minibatch step 13/44595: mean batch inertia: 0.44352617859840393, ewa inertia: 0.4617040618883997
+Minibatch step 14/44595: mean batch inertia: 0.44140028953552246, ewa inertia: 0.46161300535756006
+Minibatch step 15/44595: mean batch inertia: 0.4434537887573242, ewa inertia: 0.46153156653734256
+Minibatch step 16/44595: mean batch inertia: 0.4449956715106964, ewa inertia: 0.4614574078436138
+Minibatch step 17/44595: mean batch inertia: 0.44595447182655334, ewa inertia: 0.4613878816714814
+Minibatch step 18/44595: mean batch inertia: 0.4458111524581909, ewa inertia: 0.46131802455826426
+Minibatch step 19/44595: mean batch inertia: 0.4465559124946594, ewa inertia: 0.46125182076672167
+Minibatch step 20/44595: mean batch inertia: 0.44415029883384705, ewa inertia: 0.4611751254003522
+Minibatch step 21/44595: mean batch inertia: 0.4431411027908325, ewa inertia: 0.4610942480388764
+Minibatch step 22/44595: mean batch inertia: 0.4442608952522278, ewa inertia: 0.46101875533335784
+Minibatch step 23/44595: mean batch inertia: 0.4448377192020416, ewa inertia: 0.4609461880788644
+Minibatch step 24/44595: mean batch inertia: 0.4453618824481964, ewa inertia: 0.46087629698761245
+Minibatch step 25/44595: mean batch inertia: 0.4453328549861908, ewa inertia: 0.4608065891578871
+Minibatch step 26/44595: mean batch inertia: 0.4443584680557251, ewa inertia: 0.4607328241047549
+Minibatch step 27/44595: mean batch inertia: 0.4423885941505432, ewa inertia: 0.4606505555532993
+Minibatch step 28/44595: mean batch inertia: 0.4413585960865021, ewa inertia: 0.46056403670982454
+Minibatch step 29/44595: mean batch inertia: 0.44357752799987793, ewa inertia: 0.4604878571444057
+Minibatch step 30/44595: mean batch inertia: 0.4424123167991638, ewa inertia: 0.46040679358792547
+Minibatch step 31/44595: mean batch inertia: 0.44286486506462097, ewa inertia: 0.46032812312571736
+Minibatch step 32/44595: mean batch inertia: 0.4436320960521698, ewa inertia: 0.4602532462861971
+Minibatch step 33/44595: mean batch inertia: 0.4450986683368683, ewa inertia: 0.4601852823989735
+Minibatch step 34/44595: mean batch inertia: 0.44532638788223267, ewa inertia: 0.46011864456619583
+Minibatch step 35/44595: mean batch inertia: 0.4437759816646576, ewa inertia: 0.4600453524625102
+Minibatch step 36/44595: mean batch inertia: 0.44640129804611206, ewa inertia: 0.4599841628352748
+Minibatch step 37/44595: mean batch inertia: 0.4433358907699585, ewa inertia: 0.4599095001631174
+Minibatch step 38/44595: mean batch inertia: 0.44211989641189575, ewa inertia: 0.4598297189493387
+Minibatch step 39/44595: mean batch inertia: 0.442287415266037, ewa inertia: 0.4597510468046468
+Minibatch step 40/44595: mean batch inertia: 0.441557914018631, ewa inertia: 0.4596694558801719
+Minibatch step 41/44595: mean batch inertia: 0.44256865978240967, ewa inertia: 0.4595927637689624
+Minibatch step 42/44595: mean batch inertia: 0.44439971446990967, ewa inertia: 0.4595246273488921
+Minibatch step 43/44595: mean batch inertia: 0.44461220502853394, ewa inertia: 0.45945774945943846
+Minibatch step 44/44595: mean batch inertia: 0.4393646717071533, ewa inertia: 0.45936763783278034
+Minibatch step 45/44595: mean batch inertia: 0.43987131118774414, ewa inertia: 0.45928020246177836
+Minibatch step 46/44595: mean batch inertia: 0.44456660747528076, ewa inertia: 0.4592142162552565
+Minibatch step 47/44595: mean batch inertia: 0.443511039018631, ewa inertia: 0.45914379205932504
+Minibatch step 48/44595: mean batch inertia: 0.44068843126296997, ewa inertia: 0.45906102511827074
+Minibatch step 49/44595: mean batch inertia: 0.4400669038295746, ewa inertia: 0.4589758419926507
+Minibatch step 50/44595: mean batch inertia: 0.4421188235282898, ewa inertia: 0.4589002431534307
+Minibatch step 51/44595: mean batch inertia: 0.44495707750320435, ewa inertia: 0.4588377120990549
+Minibatch step 52/44595: mean batch inertia: 0.44478777050971985, ewa inertia: 0.45877470218555755
+Minibatch step 53/44595: mean batch inertia: 0.44262582063674927, ewa inertia: 0.4587022791350417
+Minibatch step 54/44595: mean batch inertia: 0.4417870342731476, ewa inertia: 0.4586264191673146
+Minibatch step 55/44595: mean batch inertia: 0.4416522681713104, ewa inertia: 0.45855029502265904
+Minibatch step 56/44595: mean batch inertia: 0.4409100413322449, ewa inertia: 0.4584711836005911
+Minibatch step 57/44595: mean batch inertia: 0.44070616364479065, ewa inertia: 0.4583915126380055
+Minibatch step 58/44595: mean batch inertia: 0.4413519501686096, ewa inertia: 0.4583150951418613
+Minibatch step 59/44595: mean batch inertia: 0.44449999928474426, ewa inertia: 0.4582531384433669
+Minibatch step 60/44595: mean batch inertia: 0.4398910403251648, ewa inertia: 0.45817078975837766
+Minibatch step 61/44595: mean batch inertia: 0.4449719190597534, ewa inertia: 0.4581115966510117
+Minibatch step 62/44595: mean batch inertia: 0.4408642053604126, ewa inertia: 0.4580342471028755
+Minibatch step 63/44595: mean batch inertia: 0.44119730591773987, ewa inertia: 0.45795873830443035
+Minibatch step 64/44595: mean batch inertia: 0.4410000443458557, ewa inertia: 0.457882683480105
+Minibatch step 65/44595: mean batch inertia: 0.44128865003585815, ewa inertia: 0.4578082640524337
+Minibatch step 66/44595: mean batch inertia: 0.4440833032131195, ewa inertia: 0.45774671158335467
+Minibatch step 67/44595: mean batch inertia: 0.445812463760376, ewa inertia: 0.457693189942841
+Minibatch step 68/44595: mean batch inertia: 0.4440995156764984, ewa inertia: 0.4576322262559682
+Minibatch step 69/44595: mean batch inertia: 0.4426977038383484, ewa inertia: 0.4575652492539875
+Minibatch step 70/44595: mean batch inertia: 0.4409574270248413, ewa inertia: 0.45749076798761473
+Minibatch step 71/44595: mean batch inertia: 0.4418686032295227, ewa inertia: 0.45742070710915556
+Minibatch step 72/44595: mean batch inertia: 0.44081640243530273, ewa inertia: 0.45734624161799814
+Minibatch step 73/44595: mean batch inertia: 0.4411534368991852, ewa inertia: 0.45727362158480267
+Minibatch step 74/44595: mean batch inertia: 0.4435979723930359, ewa inertia: 0.4572122902641624
+Minibatch step 75/44595: mean batch inertia: 0.44143134355545044, ewa inertia: 0.45714151729470204
+Minibatch step 76/44595: mean batch inertia: 0.4408780038356781, ewa inertia: 0.45706858015331253
+Minibatch step 77/44595: mean batch inertia: 0.4390948414802551, ewa inertia: 0.4569879731478092
+Minibatch step 78/44595: mean batch inertia: 0.44038820266723633, ewa inertia: 0.45691352799119367
+Minibatch step 79/44595: mean batch inertia: 0.44032996892929077, ewa inertia: 0.4568391555380895
+Minibatch step 80/44595: mean batch inertia: 0.44030827283859253, ewa inertia: 0.45676501932319447
+Minibatch step 81/44595: mean batch inertia: 0.44532132148742676, ewa inertia: 0.4567136976571123
+Minibatch step 82/44595: mean batch inertia: 0.4397395849227905, ewa inertia: 0.4566375736840492
+Minibatch step 83/44595: mean batch inertia: 0.4416438341140747, ewa inertia: 0.4565703311103133
+Minibatch step 84/44595: mean batch inertia: 0.441861629486084, ewa inertia: 0.4565043668491021
+Minibatch step 85/44595: mean batch inertia: 0.440744549036026, ewa inertia: 0.4564336886366112
+Minibatch step 86/44595: mean batch inertia: 0.43711188435554504, ewa inertia: 0.4563470359477995
+Minibatch step 87/44595: mean batch inertia: 0.44416847825050354, ewa inertia: 0.4562924186483503
+Minibatch step 88/44595: mean batch inertia: 0.43927425146102905, ewa inertia: 0.4562160971038415
+Minibatch step 89/44595: mean batch inertia: 0.4438830614089966, ewa inertia: 0.4561607870153724
+Minibatch step 90/44595: mean batch inertia: 0.4418891668319702, ewa inertia: 0.4560967829376682
+Minibatch step 91/44595: mean batch inertia: 0.44071725010871887, ewa inertia: 0.45602781019304717
+Minibatch step 92/44595: mean batch inertia: 0.4428202211856842, ewa inertia: 0.45596857798659485
+Minibatch step 93/44595: mean batch inertia: 0.44403669238090515, ewa inertia: 0.4559150669399407
+Minibatch step 94/44595: mean batch inertia: 0.44120174646377563, ewa inertia: 0.4558490819645181
+Minibatch step 95/44595: mean batch inertia: 0.4424439072608948, ewa inertia: 0.4557889636435186
+Minibatch step 96/44595: mean batch inertia: 0.443398654460907, ewa inertia: 0.4557333967000664
+Minibatch step 97/44595: mean batch inertia: 0.44320148229599, ewa inertia: 0.4556771946982619
+Minibatch step 98/44595: mean batch inertia: 0.44188880920410156, ewa inertia: 0.4556153577879993
+Minibatch step 99/44595: mean batch inertia: 0.444877028465271, ewa inertia: 0.45556719949513885
+Minibatch step 100/44595: mean batch inertia: 0.4414544701576233, ewa inertia: 0.4555039079967996
+Minibatch step 101/44595: mean batch inertia: 0.4449896812438965, ewa inertia: 0.4554567547389743
+Minibatch step 102/44595: mean batch inertia: 0.44154679775238037, ewa inertia: 0.45539437261582427
+Minibatch step 103/44595: mean batch inertia: 0.4349711835384369, ewa inertia: 0.45530278053560647
+Minibatch step 104/44595: mean batch inertia: 0.44278091192245483, ewa inertia: 0.45524662358626095
+Minibatch step 105/44595: mean batch inertia: 0.44217756390571594, ewa inertia: 0.45518801264366543
+Minibatch step 106/44595: mean batch inertia: 0.4409243166446686, ewa inertia: 0.4551240441036302
+Minibatch step 107/44595: mean batch inertia: 0.44606348872184753, ewa inertia: 0.45508341014033477
+Minibatch step 108/44595: mean batch inertia: 0.439559668302536, ewa inertia: 0.45501379066013015
+Minibatch step 109/44595: mean batch inertia: 0.43958401679992676, ewa inertia: 0.454944592599054
+Minibatch step 110/44595: mean batch inertia: 0.4411909282207489, ewa inertia: 0.45488291140292675
+Minibatch step 111/44595: mean batch inertia: 0.44071465730667114, ewa inertia: 0.4548193708921469
+Minibatch step 112/44595: mean batch inertia: 0.4354376792907715, ewa inertia: 0.4547324496260712
+Minibatch step 113/44595: mean batch inertia: 0.4456885755062103, ewa inertia: 0.4546918904733978
+Minibatch step 114/44595: mean batch inertia: 0.43764907121658325, ewa inertia: 0.4546154583715065
+Minibatch step 115/44595: mean batch inertia: 0.4399285316467285, ewa inertia: 0.45454959176440457
+Minibatch step 116/44595: mean batch inertia: 0.44355568289756775, ewa inertia: 0.4545002872714078
+Minibatch step 117/44595: mean batch inertia: 0.4420921802520752, ewa inertia: 0.4544446405098193
+Minibatch step 118/44595: mean batch inertia: 0.4430788457393646, ewa inertia: 0.45439366821639293
+Minibatch step 119/44595: mean batch inertia: 0.4404381811618805, ewa inertia: 0.4543310819040921
+Minibatch step 120/44595: mean batch inertia: 0.4397248923778534, ewa inertia: 0.4542655773799115
+Minibatch step 121/44595: mean batch inertia: 0.4425075650215149, ewa inertia: 0.4542128461043477
+Minibatch step 122/44595: mean batch inertia: 0.4409518837928772, ewa inertia: 0.45415337453410487
+Minibatch step 123/44595: mean batch inertia: 0.44635140895843506, ewa inertia: 0.4541183849810945
+Minibatch step 124/44595: mean batch inertia: 0.439648300409317, ewa inertia: 0.4540534908481638
+Minibatch step 125/44595: mean batch inertia: 0.44329357147216797, ewa inertia: 0.45400523573017565
+Minibatch step 126/44595: mean batch inertia: 0.4392504096031189, ewa inertia: 0.4539390646139455
+Minibatch step 127/44595: mean batch inertia: 0.44178062677383423, ewa inertia: 0.45388453754622093
+Minibatch step 128/44595: mean batch inertia: 0.4404066801071167, ewa inertia: 0.45382409326423107
+Minibatch step 129/44595: mean batch inertia: 0.44318079948425293, ewa inertia: 0.45377636117821923
+Minibatch step 130/44595: mean batch inertia: 0.44089868664741516, ewa inertia: 0.453718608542518
+Minibatch step 131/44595: mean batch inertia: 0.44654950499534607, ewa inertia: 0.4536864571921734
+Minibatch step 132/44595: mean batch inertia: 0.4436931014060974, ewa inertia: 0.45364163988958
+Minibatch step 133/44595: mean batch inertia: 0.4417314827442169, ewa inertia: 0.4535882262887691
+Minibatch step 134/44595: mean batch inertia: 0.44481131434440613, ewa inertia: 0.45354886438403297
+Minibatch step 135/44595: mean batch inertia: 0.44593462347984314, ewa inertia: 0.4535147167217334
+Minibatch step 136/44595: mean batch inertia: 0.44115275144577026, ewa inertia: 0.45345927689248267
+Minibatch step 137/44595: mean batch inertia: 0.4418570399284363, ewa inertia: 0.4534072442243871
+Minibatch step 138/44595: mean batch inertia: 0.44170939922332764, ewa inertia: 0.45335478278197217
+Minibatch step 139/44595: mean batch inertia: 0.44445687532424927, ewa inertia: 0.45331487824744765
+Minibatch step 140/44595: mean batch inertia: 0.4418964982032776, ewa inertia: 0.45326367012431856
+Minibatch step 141/44595: mean batch inertia: 0.4392719268798828, ewa inertia: 0.45320092121352035
+Minibatch step 142/44595: mean batch inertia: 0.43921613693237305, ewa inertia: 0.4531382035116544
+Minibatch step 143/44595: mean batch inertia: 0.4418967664241791, ewa inertia: 0.453087788926372
+Minibatch step 144/44595: mean batch inertia: 0.44165289402008057, ewa inertia: 0.4530365067388757
+Minibatch step 145/44595: mean batch inertia: 0.44294366240501404, ewa inertia: 0.4529912432589975
+Minibatch step 146/44595: mean batch inertia: 0.4401506781578064, ewa inertia: 0.45293365704832617
+Minibatch step 147/44595: mean batch inertia: 0.44288507103919983, ewa inertia: 0.45288859205419935
+Minibatch step 148/44595: mean batch inertia: 0.4405832588672638, ewa inertia: 0.45283340620344437
+Minibatch step 149/44595: mean batch inertia: 0.4435561001300812, ewa inertia: 0.45279180017615567
+Minibatch step 150/44595: mean batch inertia: 0.43898698687553406, ewa inertia: 0.4527298895919452
+Minibatch step 151/44595: mean batch inertia: 0.4389216899871826, ewa inertia: 0.4526679638211427
+Minibatch step 152/44595: mean batch inertia: 0.43849629163742065, ewa inertia: 0.45260440798123186
+Minibatch step 153/44595: mean batch inertia: 0.439506471157074, ewa inertia: 0.4525456675330217
+Minibatch step 154/44595: mean batch inertia: 0.4423155188560486, ewa inertia: 0.45249978828298343
+Minibatch step 155/44595: mean batch inertia: 0.4403989613056183, ewa inertia: 0.4524455195832709
+Minibatch step 156/44595: mean batch inertia: 0.4451981782913208, ewa inertia: 0.4524130173593301
+Minibatch step 157/44595: mean batch inertia: 0.43918952345848083, ewa inertia: 0.452353713824043
+Minibatch step 158/44595: mean batch inertia: 0.43866652250289917, ewa inertia: 0.4522923307402997
+Minibatch step 159/44595: mean batch inertia: 0.4419567584991455, ewa inertia: 0.4522459786961492
+Minibatch step 160/44595: mean batch inertia: 0.44215789437294006, ewa inertia: 0.4522007365635383
+Minibatch step 161/44595: mean batch inertia: 0.44105279445648193, ewa inertia: 0.4521507412761293
+Minibatch step 162/44595: mean batch inertia: 0.4415890574455261, ewa inertia: 0.4521033751870733
+Minibatch step 163/44595: mean batch inertia: 0.4420959949493408, ewa inertia: 0.45205849498888134
+Minibatch step 164/44595: mean batch inertia: 0.44158247113227844, ewa inertia: 0.452011513059967
+Minibatch step 165/44595: mean batch inertia: 0.43868762254714966, ewa inertia: 0.4519517592749906
+Minibatch step 166/44595: mean batch inertia: 0.4388401210308075, ewa inertia: 0.4518929573798851
+Minibatch step 167/44595: mean batch inertia: 0.44107237458229065, ewa inertia: 0.4518444302040437
+Minibatch step 168/44595: mean batch inertia: 0.4379943013191223, ewa inertia: 0.45178231639257926
+Minibatch step 169/44595: mean batch inertia: 0.43849945068359375, ewa inertia: 0.4517227465919507
+Minibatch step 170/44595: mean batch inertia: 0.4388118386268616, ewa inertia: 0.4516648449139345
+Minibatch step 171/44595: mean batch inertia: 0.4427282512187958, ewa inertia: 0.4516247668828543
+Minibatch step 172/44595: mean batch inertia: 0.4402496814727783, ewa inertia: 0.4515737529236035
+Minibatch step 173/44595: mean batch inertia: 0.4415737986564636, ewa inertia: 0.45152890602873613
+Minibatch step 174/44595: mean batch inertia: 0.4417465627193451, ewa inertia: 0.4514850350559063
+Minibatch step 175/44595: mean batch inertia: 0.4440712332725525, ewa inertia: 0.4514517863049357
+Minibatch step 176/44595: mean batch inertia: 0.44024741649627686, ewa inertia: 0.4514015379556492
+Minibatch step 177/44595: mean batch inertia: 0.43948036432266235, ewa inertia: 0.45134807494908613
+Minibatch step 178/44595: mean batch inertia: 0.43963292241096497, ewa inertia: 0.4512955358873867
+Minibatch step 179/44595: mean batch inertia: 0.44261398911476135, ewa inertia: 0.4512566016677895
+Minibatch step 180/44595: mean batch inertia: 0.4400365948677063, ewa inertia: 0.45120628319113126
+Minibatch step 181/44595: mean batch inertia: 0.440513014793396, ewa inertia: 0.4511583269834516
+Minibatch step 182/44595: mean batch inertia: 0.44237756729125977, ewa inertia: 0.4511189478226823
+Minibatch step 183/44595: mean batch inertia: 0.44456514716148376, ewa inertia: 0.4510895559273413
+Minibatch step 184/44595: mean batch inertia: 0.43900901079177856, ewa inertia: 0.4510353781858074
+Minibatch step 185/44595: mean batch inertia: 0.43756726384162903, ewa inertia: 0.4509749775987727
+Minibatch step 186/44595: mean batch inertia: 0.4385850727558136, ewa inertia: 0.4509194124686665
+Minibatch step 187/44595: mean batch inertia: 0.4402714967727661, ewa inertia: 0.45087165965470216
+Minibatch step 188/44595: mean batch inertia: 0.4438917636871338, ewa inertia: 0.4508403568454812
+Minibatch step 189/44595: mean batch inertia: 0.444339394569397, ewa inertia: 0.45081120191497415
+Minibatch step 190/44595: mean batch inertia: 0.4398486614227295, ewa inertia: 0.45076203810004045
+Minibatch step 191/44595: mean batch inertia: 0.4425433278083801, ewa inertia: 0.4507251795678363
+Minibatch step 192/44595: mean batch inertia: 0.44047772884368896, ewa inertia: 0.4506792227231341
+Minibatch step 193/44595: mean batch inertia: 0.43666017055511475, ewa inertia: 0.4506163513397333
+Minibatch step 194/44595: mean batch inertia: 0.4427464008331299, ewa inertia: 0.4505810568940236
+Minibatch step 195/44595: mean batch inertia: 0.44256460666656494, ewa inertia: 0.4505451054395513
+Minibatch step 196/44595: mean batch inertia: 0.4393085241317749, ewa inertia: 0.4504947126310327
+Minibatch step 197/44595: mean batch inertia: 0.44275879859924316, ewa inertia: 0.4504600193000415
+Minibatch step 198/44595: mean batch inertia: 0.4419933557510376, ewa inertia: 0.4504220487693854
+Minibatch step 199/44595: mean batch inertia: 0.4364096522331238, ewa inertia: 0.4503592072345629
+Minibatch step 200/44595: mean batch inertia: 0.4393906593322754, ewa inertia: 0.4503100164781373
+Minibatch step 201/44595: mean batch inertia: 0.4392138719558716, ewa inertia: 0.4502602534878746
+Minibatch step 202/44595: mean batch inertia: 0.4406934976577759, ewa inertia: 0.4502173493623683
+Minibatch step 203/44595: mean batch inertia: 0.441722571849823, ewa inertia: 0.4501792527487389
+Minibatch step 204/44595: mean batch inertia: 0.4427478015422821, ewa inertia: 0.45014592484522403
+Minibatch step 205/44595: mean batch inertia: 0.4384561777114868, ewa inertia: 0.4500934997193956
+Minibatch step 206/44595: mean batch inertia: 0.441736102104187, ewa inertia: 0.4500560192147651
+Minibatch step 207/44595: mean batch inertia: 0.4410277009010315, ewa inertia: 0.450015529825371
+Minibatch step 208/44595: mean batch inertia: 0.4407115876674652, ewa inertia: 0.4499738043429677
+Minibatch step 209/44595: mean batch inertia: 0.43971142172813416, ewa inertia: 0.44992778053306604
+Minibatch step 210/44595: mean batch inertia: 0.44090771675109863, ewa inertia: 0.4498873281628531
+Minibatch step 211/44595: mean batch inertia: 0.44254982471466064, ewa inertia: 0.4498544215877889
+Minibatch step 212/44595: mean batch inertia: 0.4409183859825134, ewa inertia: 0.4498143460595799
+Minibatch step 213/44595: mean batch inertia: 0.438638836145401, ewa inertia: 0.4497642271385507
+Minibatch step 214/44595: mean batch inertia: 0.4452645778656006, ewa inertia: 0.4497440475164751
+Minibatch step 215/44595: mean batch inertia: 0.4438314437866211, ewa inertia: 0.44971753120342195
+Minibatch step 216/44595: mean batch inertia: 0.4422730803489685, ewa inertia: 0.4496841450002558
+Minibatch step 217/44595: mean batch inertia: 0.4413870573043823, ewa inertia: 0.44964693496812347
+Minibatch step 218/44595: mean batch inertia: 0.4406496286392212, ewa inertia: 0.4496065846584878
+Minibatch step 219/44595: mean batch inertia: 0.43830636143684387, ewa inertia: 0.4495559064344419
+Minibatch step 220/44595: mean batch inertia: 0.43859997391700745, ewa inertia: 0.4495067722543588
+Minibatch step 221/44595: mean batch inertia: 0.4422864615917206, ewa inertia: 0.4494743912549515
+Minibatch step 222/44595: mean batch inertia: 0.4398591220378876, ewa inertia: 0.44943126956097373
+Minibatch step 223/44595: mean batch inertia: 0.44205042719841003, ewa inertia: 0.44939816862344706
+Minibatch step 224/44595: mean batch inertia: 0.4368748068809509, ewa inertia: 0.4493420049778495
+Minibatch step 225/44595: mean batch inertia: 0.4444429874420166, ewa inertia: 0.449320034304933
+Minibatch step 226/44595: mean batch inertia: 0.44003307819366455, ewa inertia: 0.4492783850000228
+Minibatch step 227/44595: mean batch inertia: 0.44080764055252075, ewa inertia: 0.44924039616772043
+Minibatch step 228/44595: mean batch inertia: 0.4427284598350525, ewa inertia: 0.4492111920217521
+Minibatch step 229/44595: mean batch inertia: 0.4422893524169922, ewa inertia: 0.44918014957848174
+Minibatch step 230/44595: mean batch inertia: 0.440549373626709, ewa inertia: 0.4491414430512924
+Minibatch step 231/44595: mean batch inertia: 0.440856397151947, ewa inertia: 0.4491042870231253
+Minibatch step 232/44595: mean batch inertia: 0.4422960877418518, ewa inertia: 0.44907375422374973
+Minibatch step 233/44595: mean batch inertia: 0.4439700245857239, ewa inertia: 0.4490508654764221
+Minibatch step 234/44595: mean batch inertia: 0.44585198163986206, ewa inertia: 0.4490365194101023
+Minibatch step 235/44595: mean batch inertia: 0.4429221749305725, ewa inertia: 0.4490090983482923
+Minibatch step 236/44595: mean batch inertia: 0.44033312797546387, ewa inertia: 0.448970189137231
+Minibatch step 237/44595: mean batch inertia: 0.44283542037010193, ewa inertia: 0.44894267647841424
+Minibatch step 238/44595: mean batch inertia: 0.44157612323760986, ewa inertia: 0.4489096396234547
+Minibatch step 239/44595: mean batch inertia: 0.4408024847507477, ewa inertia: 0.4488732813849531
+Minibatch step 240/44595: mean batch inertia: 0.4436371326446533, ewa inertia: 0.4488497987763538
+Minibatch step 241/44595: mean batch inertia: 0.4394957423210144, ewa inertia: 0.44880784854585976
+Minibatch step 242/44595: mean batch inertia: 0.440555602312088, ewa inertia: 0.4487708396146807
+Minibatch step 243/44595: mean batch inertia: 0.44105973839759827, ewa inertia: 0.44873625756196767
+Minibatch step 244/44595: mean batch inertia: 0.4420459270477295, ewa inertia: 0.4487062533698299
+Minibatch step 245/44595: mean batch inertia: 0.44049274921417236, ewa inertia: 0.4486694181856359
+Minibatch step 246/44595: mean batch inertia: 0.44180023670196533, ewa inertia: 0.44863861189876764
+Minibatch step 247/44595: mean batch inertia: 0.4422796368598938, ewa inertia: 0.4486100937398427
+Minibatch step 248/44595: mean batch inertia: 0.443796306848526, ewa inertia: 0.4485885053016497
+Minibatch step 249/44595: mean batch inertia: 0.440511018037796, ewa inertia: 0.4485522801137701
+Minibatch step 250/44595: mean batch inertia: 0.44062530994415283, ewa inertia: 0.4485167299514077
+Minibatch step 251/44595: mean batch inertia: 0.442241370677948, ewa inertia: 0.44848858678494175
+Minibatch step 252/44595: mean batch inertia: 0.4388565421104431, ewa inertia: 0.44844538985790233
+Minibatch step 253/44595: mean batch inertia: 0.43870842456817627, ewa inertia: 0.44840172239233095
+Minibatch step 254/44595: mean batch inertia: 0.43942949175834656, ewa inertia: 0.4483614845399149
+Minibatch step 255/44595: mean batch inertia: 0.44529223442077637, ewa inertia: 0.4483477198432236
+Minibatch step 256/44595: mean batch inertia: 0.4398132860660553, ewa inertia: 0.4483094453827478
+Minibatch step 257/44595: mean batch inertia: 0.44406068325042725, ewa inertia: 0.44829039091673983
+Minibatch step 258/44595: mean batch inertia: 0.4411923289299011, ewa inertia: 0.44825855816719096
+Minibatch step 259/44595: mean batch inertia: 0.44105154275894165, ewa inertia: 0.44822623679314394
+Minibatch step 260/44595: mean batch inertia: 0.4429316520690918, ewa inertia: 0.44820249211610413
+Minibatch step 261/44595: mean batch inertia: 0.44323983788490295, ewa inertia: 0.44818023605106383
+Minibatch step 262/44595: mean batch inertia: 0.43705856800079346, ewa inertia: 0.4481303585951799
+Minibatch step 263/44595: mean batch inertia: 0.43851643800735474, ewa inertia: 0.44808724294941316
+Minibatch step 264/44595: mean batch inertia: 0.44128888845443726, ewa inertia: 0.44805675430104913
+Minibatch step 265/44595: mean batch inertia: 0.43986576795578003, ewa inertia: 0.4480200201027045
+Minibatch step 266/44595: mean batch inertia: 0.43900617957115173, ewa inertia: 0.4479795956419648
+Minibatch step 267/44595: mean batch inertia: 0.44319725036621094, ewa inertia: 0.44795814821029944
+Minibatch step 268/44595: mean batch inertia: 0.4397345185279846, ewa inertia: 0.44792126761605483
+Minibatch step 269/44595: mean batch inertia: 0.44061070680618286, ewa inertia: 0.44788848187091
+Minibatch step 270/44595: mean batch inertia: 0.4403131604194641, ewa inertia: 0.44785450875106925
+Minibatch step 271/44595: mean batch inertia: 0.43639618158340454, ewa inertia: 0.4478031214766761
+Minibatch step 272/44595: mean batch inertia: 0.4369374215602875, ewa inertia: 0.44775439196364103
+Minibatch step 273/44595: mean batch inertia: 0.44348669052124023, ewa inertia: 0.44773525256031976
+Minibatch step 274/44595: mean batch inertia: 0.44433873891830444, ewa inertia: 0.4477200201816358
+Minibatch step 275/44595: mean batch inertia: 0.4375218451023102, ewa inertia: 0.4476742843239105
+Minibatch step 276/44595: mean batch inertia: 0.439871221780777, ewa inertia: 0.4476392898513192
+Minibatch step 277/44595: mean batch inertia: 0.438468337059021, ewa inertia: 0.4475981607876532
+Minibatch step 278/44595: mean batch inertia: 0.43830129504203796, ewa inertia: 0.4475564670409068
+Minibatch step 279/44595: mean batch inertia: 0.4441506862640381, ewa inertia: 0.4475411931018105
+Minibatch step 280/44595: mean batch inertia: 0.4393557608127594, ewa inertia: 0.4475044838117973
+Minibatch step 281/44595: mean batch inertia: 0.44048207998275757, ewa inertia: 0.44747299036714505
+Minibatch step 282/44595: mean batch inertia: 0.43841931223869324, ewa inertia: 0.4474323872463364
+Minibatch step 283/44595: mean batch inertia: 0.44324344396591187, ewa inertia: 0.4474136010505315
+Minibatch step 284/44595: mean batch inertia: 0.44200730323791504, ewa inertia: 0.4473893553726867
+Minibatch step 285/44595: mean batch inertia: 0.4403842091560364, ewa inertia: 0.44735793932342127
+Minibatch step 286/44595: mean batch inertia: 0.44120216369628906, ewa inertia: 0.4473303324549294
+Minibatch step 287/44595: mean batch inertia: 0.4448034465312958, ewa inertia: 0.4473190001043674
+Minibatch step 288/44595: mean batch inertia: 0.4409477114677429, ewa inertia: 0.44729042672252756
+Minibatch step 289/44595: mean batch inertia: 0.4400150179862976, ewa inertia: 0.44725779862423887
+Minibatch step 290/44595: mean batch inertia: 0.44120028614997864, ewa inertia: 0.44723063243749106
+Minibatch step 291/44595: mean batch inertia: 0.44307634234428406, ewa inertia: 0.4472120016511813
+Minibatch step 292/44595: mean batch inertia: 0.44125059247016907, ewa inertia: 0.4471852664598334
+Minibatch step 293/44595: mean batch inertia: 0.44054004549980164, ewa inertia: 0.44715546457096433
+Minibatch step 294/44595: mean batch inertia: 0.4392496347427368, ewa inertia: 0.44712000921690226
+Minibatch step 295/44595: mean batch inertia: 0.4402727484703064, ewa inertia: 0.44708930123818263
+Minibatch step 296/44595: mean batch inertia: 0.44497236609458923, ewa inertia: 0.44707980739798203
+Minibatch step 297/44595: mean batch inertia: 0.441947340965271, ewa inertia: 0.44705678977446406
+Minibatch step 298/44595: mean batch inertia: 0.4414430260658264, ewa inertia: 0.44703161367224137
+Minibatch step 299/44595: mean batch inertia: 0.44176989793777466, ewa inertia: 0.44700801640308774
+Minibatch step 300/44595: mean batch inertia: 0.43889904022216797, ewa inertia: 0.446971649996547
+Minibatch step 301/44595: mean batch inertia: 0.43772101402282715, ewa inertia: 0.4469301635769207
+Minibatch step 302/44595: mean batch inertia: 0.43892407417297363, ewa inertia: 0.4468942585877371
+Minibatch step 303/44595: mean batch inertia: 0.43884485960006714, ewa inertia: 0.4468581593676305
+Minibatch step 304/44595: mean batch inertia: 0.44159290194511414, ewa inertia: 0.4468345462150331
+Minibatch step 305/44595: mean batch inertia: 0.4392216205596924, ewa inertia: 0.4468004044512432
+Minibatch step 306/44595: mean batch inertia: 0.4425826370716095, ewa inertia: 0.4467814889877124
+Minibatch step 307/44595: mean batch inertia: 0.44215941429138184, ewa inertia: 0.4467607603231168
+Minibatch step 308/44595: mean batch inertia: 0.4410591125488281, ewa inertia: 0.4467351900863463
+Minibatch step 309/44595: mean batch inertia: 0.43710842728614807, ewa inertia: 0.44669201684698134
+Minibatch step 310/44595: mean batch inertia: 0.44021281599998474, ewa inertia: 0.4466629595101729
+Minibatch step 311/44595: mean batch inertia: 0.4421745240688324, ewa inertia: 0.44664283017888
+Minibatch step 312/44595: mean batch inertia: 0.440593957901001, ewa inertia: 0.4466157027409073
+Minibatch step 313/44595: mean batch inertia: 0.44199615716934204, ewa inertia: 0.44659498541870274
+Minibatch step 314/44595: mean batch inertia: 0.43818235397338867, ewa inertia: 0.44655725720636225
+Minibatch step 315/44595: mean batch inertia: 0.43840304017066956, ewa inertia: 0.4465206879077078
+Minibatch step 316/44595: mean batch inertia: 0.44012564420700073, ewa inertia: 0.44649200799129457
+Minibatch step 317/44595: mean batch inertia: 0.4419372081756592, ewa inertia: 0.4464715810350289
+Minibatch step 318/44595: mean batch inertia: 0.4403678774833679, ewa inertia: 0.44644420769469445
+Minibatch step 319/44595: mean batch inertia: 0.4354695975780487, ewa inertia: 0.44639498975099556
+Minibatch step 320/44595: mean batch inertia: 0.44053393602371216, ewa inertia: 0.4463687046247542
+Minibatch step 321/44595: mean batch inertia: 0.443147212266922, ewa inertia: 0.4463542571657731
+Minibatch step 322/44595: mean batch inertia: 0.4435119926929474, ewa inertia: 0.4463415104338789
+Minibatch step 323/44595: mean batch inertia: 0.4418458938598633, ewa inertia: 0.4463213488972885
+Minibatch step 324/44595: mean batch inertia: 0.43880778551101685, ewa inertia: 0.44628765274446
+Minibatch step 325/44595: mean batch inertia: 0.44124549627304077, ewa inertia: 0.4462650401349282
+Minibatch step 326/44595: mean batch inertia: 0.443697988986969, ewa inertia: 0.44625352765498316
+Minibatch step 327/44595: mean batch inertia: 0.44264984130859375, ewa inertia: 0.4462373661668009
+Minibatch step 328/44595: mean batch inertia: 0.44169917702674866, ewa inertia: 0.446217013704598
+Minibatch step 329/44595: mean batch inertia: 0.44116640090942383, ewa inertia: 0.4461943631709065
+Minibatch step 330/44595: mean batch inertia: 0.4401394724845886, ewa inertia: 0.44616720874211724
+Minibatch step 331/44595: mean batch inertia: 0.44550877809524536, ewa inertia: 0.4461642558716131
+Minibatch step 332/44595: mean batch inertia: 0.4381561875343323, ewa inertia: 0.44612834200748747
+Minibatch step 333/44595: mean batch inertia: 0.4345438480377197, ewa inertia: 0.4460763889115757
+Minibatch step 334/44595: mean batch inertia: 0.44294965267181396, ewa inertia: 0.4460623664063045
+Minibatch step 335/44595: mean batch inertia: 0.44128215312957764, ewa inertia: 0.4460409285360365
+Minibatch step 336/44595: mean batch inertia: 0.44181784987449646, ewa inertia: 0.44602198925294667
+Minibatch step 337/44595: mean batch inertia: 0.4408423602581024, ewa inertia: 0.4459987601190148
+Minibatch step 338/44595: mean batch inertia: 0.44288450479507446, ewa inertia: 0.4459847935870315
+Minibatch step 339/44595: mean batch inertia: 0.43775850534439087, ewa inertia: 0.44594790106991483
+Minibatch step 340/44595: mean batch inertia: 0.44294676184654236, ewa inertia: 0.4459344418308386
+Minibatch step 341/44595: mean batch inertia: 0.44240933656692505, ewa inertia: 0.44591863275602245
+Minibatch step 342/44595: mean batch inertia: 0.44280529022216797, ewa inertia: 0.44590467031763803
+Minibatch step 343/44595: mean batch inertia: 0.4412692189216614, ewa inertia: 0.44588388166242376
+Minibatch step 344/44595: mean batch inertia: 0.43803584575653076, ewa inertia: 0.4458486854973429
+Minibatch step 345/44595: mean batch inertia: 0.44158735871315, ewa inertia: 0.4458295746825151
+Minibatch step 346/44595: mean batch inertia: 0.43807169795036316, ewa inertia: 0.44579478285518204
+Minibatch step 347/44595: mean batch inertia: 0.44409435987472534, ewa inertia: 0.44578715695124316
+Minibatch step 348/44595: mean batch inertia: 0.43787017464637756, ewa inertia: 0.4457516515815576
+Minibatch step 349/44595: mean batch inertia: 0.4400864243507385, ewa inertia: 0.44572624468036254
+Minibatch step 350/44595: mean batch inertia: 0.44631826877593994, ewa inertia: 0.44572889973674223
+Minibatch step 351/44595: mean batch inertia: 0.44418835639953613, ewa inertia: 0.4457219908466377
+Minibatch step 352/44595: mean batch inertia: 0.4404021203517914, ewa inertia: 0.4456981327702489
+Minibatch step 353/44595: mean batch inertia: 0.4394606351852417, ewa inertia: 0.4456701594024757
+Minibatch step 354/44595: mean batch inertia: 0.4390554428100586, ewa inertia: 0.445640494316849
+Minibatch step 355/44595: mean batch inertia: 0.4418931305408478, ewa inertia: 0.44562368847706185
+Minibatch step 356/44595: mean batch inertia: 0.43730491399765015, ewa inertia: 0.4455863811859946
+Minibatch step 357/44595: mean batch inertia: 0.4402993321418762, ewa inertia: 0.4455626703042939
+Minibatch step 358/44595: mean batch inertia: 0.4369625747203827, ewa inertia: 0.44552410136965703
+Minibatch step 359/44595: mean batch inertia: 0.4437425434589386, ewa inertia: 0.44551611159908533
+Minibatch step 360/44595: mean batch inertia: 0.4404729902744293, ewa inertia: 0.44549349466246657
+Minibatch step 361/44595: mean batch inertia: 0.43948960304260254, ewa inertia: 0.4454665689497005
+Minibatch step 362/44595: mean batch inertia: 0.44313547015190125, ewa inertia: 0.4454561146476189
+Minibatch step 363/44595: mean batch inertia: 0.4377974271774292, ewa inertia: 0.4454217676553605
+Minibatch step 364/44595: mean batch inertia: 0.43879154324531555, ewa inertia: 0.4453920330216691
+Minibatch step 365/44595: mean batch inertia: 0.44283056259155273, ewa inertia: 0.44538054556962514
+Minibatch step 366/44595: mean batch inertia: 0.4391435384750366, ewa inertia: 0.4453525744015592
+Minibatch step 367/44595: mean batch inertia: 0.4408470392227173, ewa inertia: 0.4453323683829026
+Minibatch step 368/44595: mean batch inertia: 0.4395471215248108, ewa inertia: 0.4453064232284853
+Minibatch step 369/44595: mean batch inertia: 0.4422467052936554, ewa inertia: 0.44529270128087617
+Minibatch step 370/44595: mean batch inertia: 0.4392252564430237, ewa inertia: 0.445265490550358
+Minibatch step 371/44595: mean batch inertia: 0.4411792755126953, ewa inertia: 0.44524716506093037
+Minibatch step 372/44595: mean batch inertia: 0.4391850233078003, ewa inertia: 0.4452199781132093
+Minibatch step 373/44595: mean batch inertia: 0.4384259283542633, ewa inertia: 0.4451895087703379
+Minibatch step 374/44595: mean batch inertia: 0.4407346248626709, ewa inertia: 0.4451695299079435
+Minibatch step 375/44595: mean batch inertia: 0.44462552666664124, ewa inertia: 0.44516709021116907
+Minibatch step 376/44595: mean batch inertia: 0.44382429122924805, ewa inertia: 0.44516106814715145
+Minibatch step 377/44595: mean batch inertia: 0.44072189927101135, ewa inertia: 0.44514115976211605
+Minibatch step 378/44595: mean batch inertia: 0.4370293617248535, ewa inertia: 0.44510478070036796
+Minibatch step 379/44595: mean batch inertia: 0.440201997756958, ewa inertia: 0.4450827931406905
+Minibatch step 380/44595: mean batch inertia: 0.4410223364830017, ewa inertia: 0.445064583170127
+Minibatch step 381/44595: mean batch inertia: 0.4375154674053192, ewa inertia: 0.4450307275751911
+Minibatch step 382/44595: mean batch inertia: 0.4439331889152527, ewa inertia: 0.44502580543259124
+Minibatch step 383/44595: mean batch inertia: 0.4398600459098816, ewa inertia: 0.4450026384992197
+Minibatch step 384/44595: mean batch inertia: 0.43999749422073364, ewa inertia: 0.4449801918786396
+Minibatch step 385/44595: mean batch inertia: 0.4424424171447754, ewa inertia: 0.4449688106949215
+Minibatch step 386/44595: mean batch inertia: 0.441657155752182, ewa inertia: 0.4449539588828945
+Minibatch step 387/44595: mean batch inertia: 0.44486427307128906, ewa inertia: 0.44495355666803865
+Minibatch step 388/44595: mean batch inertia: 0.4411572813987732, ewa inertia: 0.4449365314743887
+Minibatch step 389/44595: mean batch inertia: 0.440493643283844, ewa inertia: 0.4449166064093068
+Minibatch step 390/44595: mean batch inertia: 0.43841949105262756, ewa inertia: 0.4448874687311177
+Minibatch step 391/44595: mean batch inertia: 0.44004058837890625, ewa inertia: 0.44486573187834977
+Minibatch step 392/44595: mean batch inertia: 0.4401121139526367, ewa inertia: 0.4448444132805183
+Minibatch step 393/44595: mean batch inertia: 0.4434972405433655, ewa inertia: 0.4448383716014768
+Minibatch step 394/44595: mean batch inertia: 0.440862774848938, ewa inertia: 0.4448205422029783
+Minibatch step 395/44595: mean batch inertia: 0.4429090619087219, ewa inertia: 0.4448119697681943
+Minibatch step 396/44595: mean batch inertia: 0.4389367699623108, ewa inertia: 0.4447856212008929
+Minibatch step 397/44595: mean batch inertia: 0.441622257232666, ewa inertia: 0.4447714344308817
+Minibatch step 398/44595: mean batch inertia: 0.4421597719192505, ewa inertia: 0.44475972188190804
+Minibatch step 399/44595: mean batch inertia: 0.4420813322067261, ewa inertia: 0.4447477100809569
+Minibatch step 400/44595: mean batch inertia: 0.4404919743537903, ewa inertia: 0.44472862434039845
+Minibatch step 401/44595: mean batch inertia: 0.43949180841445923, ewa inertia: 0.444705138739665
+Minibatch step 402/44595: mean batch inertia: 0.4408562183380127, ewa inertia: 0.4446878774478636
+Minibatch step 403/44595: mean batch inertia: 0.4416133761405945, ewa inertia: 0.44467408920111634
+Minibatch step 404/44595: mean batch inertia: 0.4393221139907837, ewa inertia: 0.44465008714438903
+Minibatch step 405/44595: mean batch inertia: 0.43979737162590027, ewa inertia: 0.44462832412259257
+Minibatch step 406/44595: mean batch inertia: 0.4465295970439911, ewa inertia: 0.44463685078026943
+Minibatch step 407/44595: mean batch inertia: 0.44157153367996216, ewa inertia: 0.44462310372202696
+Minibatch step 408/44595: mean batch inertia: 0.44024789333343506, ewa inertia: 0.44460348217226003
+Minibatch step 409/44595: mean batch inertia: 0.4371304214000702, ewa inertia: 0.4445699676619098
+Minibatch step 410/44595: mean batch inertia: 0.44071418046951294, ewa inertia: 0.4445526755745433
+Minibatch step 411/44595: mean batch inertia: 0.440792441368103, ewa inertia: 0.4445358120146082
+Minibatch step 412/44595: mean batch inertia: 0.4392964541912079, ewa inertia: 0.4445123150142018
+Minibatch step 413/44595: mean batch inertia: 0.4425792694091797, ewa inertia: 0.44450364586525304
+Minibatch step 414/44595: mean batch inertia: 0.4425009489059448, ewa inertia: 0.4444946643501795
+Minibatch step 415/44595: mean batch inertia: 0.4417051076889038, ewa inertia: 0.44448215399753455
+Minibatch step 416/44595: mean batch inertia: 0.44113925099372864, ewa inertia: 0.4444671620470157
+Minibatch step 417/44595: mean batch inertia: 0.4421998858451843, ewa inertia: 0.44445699397076827
+Minibatch step 418/44595: mean batch inertia: 0.4415655732154846, ewa inertia: 0.4444440267872027
+Minibatch step 419/44595: mean batch inertia: 0.4424603581428528, ewa inertia: 0.44443513060860346
+Minibatch step 420/44595: mean batch inertia: 0.44169315695762634, ewa inertia: 0.4444228336519605
+Minibatch step 421/44595: mean batch inertia: 0.44279244542121887, ewa inertia: 0.4444155218335638
+Minibatch step 422/44595: mean batch inertia: 0.44187450408935547, ewa inertia: 0.44440412610588487
+Minibatch step 423/44595: mean batch inertia: 0.43940192461013794, ewa inertia: 0.4443816926828319
+Minibatch step 424/44595: mean batch inertia: 0.4417702853679657, ewa inertia: 0.4443699812783417
+Minibatch step 425/44595: mean batch inertia: 0.4417020082473755, ewa inertia: 0.44435801619301907
+Minibatch step 426/44595: mean batch inertia: 0.44351840019226074, ewa inertia: 0.4443542507587472
+Minibatch step 427/44595: mean batch inertia: 0.4403563141822815, ewa inertia: 0.4443363211726169
+Minibatch step 428/44595: mean batch inertia: 0.4392393231391907, ewa inertia: 0.44431346261458377
+Minibatch step 429/44595: mean batch inertia: 0.4360622763633728, ewa inertia: 0.44427645843711916
+Minibatch step 430/44595: mean batch inertia: 0.4376969337463379, ewa inertia: 0.4442469511769655
+Minibatch step 431/44595: mean batch inertia: 0.44114989042282104, ewa inertia: 0.4442330617576413
+Minibatch step 432/44595: mean batch inertia: 0.43697696924209595, ewa inertia: 0.4442005202870006
+Minibatch step 433/44595: mean batch inertia: 0.4376998543739319, ewa inertia: 0.44417136668559565
+Minibatch step 434/44595: mean batch inertia: 0.4400269687175751, ewa inertia: 0.4441527802625986
+Minibatch step 435/44595: mean batch inertia: 0.43719324469566345, ewa inertia: 0.4441215687638699
+Minibatch step 436/44595: mean batch inertia: 0.44463568925857544, ewa inertia: 0.44412387444519197
+Minibatch step 437/44595: mean batch inertia: 0.43838393688201904, ewa inertia: 0.44409813248982255
+Minibatch step 438/44595: mean batch inertia: 0.4414673447608948, ewa inertia: 0.44408633416979565
+Minibatch step 439/44595: mean batch inertia: 0.44256627559661865, ewa inertia: 0.4440795171479171
+Minibatch step 440/44595: mean batch inertia: 0.4399236738681793, ewa inertia: 0.44406087939601613
+Minibatch step 441/44595: mean batch inertia: 0.4419054388999939, ewa inertia: 0.44405121287047655
+Minibatch step 442/44595: mean batch inertia: 0.43830281496047974, ewa inertia: 0.44402543297290514
+Minibatch step 443/44595: mean batch inertia: 0.4366091787815094, ewa inertia: 0.44399217322359563
+Minibatch step 444/44595: mean batch inertia: 0.44137799739837646, ewa inertia: 0.44398044940313935
+Minibatch step 445/44595: mean batch inertia: 0.44523245096206665, ewa inertia: 0.44398606426704645
+Minibatch step 446/44595: mean batch inertia: 0.43892785906791687, ewa inertia: 0.44396337968362504
+Minibatch step 447/44595: mean batch inertia: 0.4414812922477722, ewa inertia: 0.44395224824128904
+Minibatch step 448/44595: mean batch inertia: 0.441106379032135, ewa inertia: 0.44393948534319777
+Minibatch step 449/44595: mean batch inertia: 0.4391854703426361, ewa inertia: 0.4439181649646008
+Minibatch step 450/44595: mean batch inertia: 0.44025927782058716, ewa inertia: 0.4439017559168496
+Minibatch step 451/44595: mean batch inertia: 0.4377429485321045, ewa inertia: 0.44387413545180415
+Minibatch step 452/44595: mean batch inertia: 0.43738412857055664, ewa inertia: 0.4438450296530658
+Minibatch step 453/44595: mean batch inertia: 0.4402906894683838, ewa inertia: 0.44382908946810823
+Minibatch step 454/44595: mean batch inertia: 0.4405336380004883, ewa inertia: 0.44381431032396806
+Minibatch step 455/44595: mean batch inertia: 0.44080692529678345, ewa inertia: 0.44380082307427304
+Minibatch step 456/44595: mean batch inertia: 0.44269242882728577, ewa inertia: 0.44379585224751344
+Minibatch step 457/44595: mean batch inertia: 0.4410402178764343, ewa inertia: 0.4437834940265025
+Minibatch step 458/44595: mean batch inertia: 0.4377986788749695, ewa inertia: 0.44375665386616464
+Minibatch step 459/44595: mean batch inertia: 0.4378509521484375, ewa inertia: 0.4437301685066342
+Minibatch step 460/44595: mean batch inertia: 0.4414719343185425, ewa inertia: 0.4437200409811962
+Minibatch step 461/44595: mean batch inertia: 0.4391745626926422, ewa inertia: 0.44369965582927623
+Minibatch step 462/44595: mean batch inertia: 0.44175201654434204, ewa inertia: 0.44369092123190534
+Minibatch step 463/44595: mean batch inertia: 0.4418831467628479, ewa inertia: 0.4436828138876724
+Minibatch step 464/44595: mean batch inertia: 0.44052499532699585, ewa inertia: 0.44366865198720584
+Minibatch step 465/44595: mean batch inertia: 0.4383755922317505, ewa inertia: 0.4436449141492079
+Minibatch step 466/44595: mean batch inertia: 0.4414730668067932, ewa inertia: 0.4436351740437203
+Minibatch step 467/44595: mean batch inertia: 0.4433417320251465, ewa inertia: 0.4436338580413662
+Minibatch step 468/44595: mean batch inertia: 0.4419129192829132, ewa inertia: 0.4436261401301126
+Minibatch step 469/44595: mean batch inertia: 0.44181692600250244, ewa inertia: 0.4436180263294285
+Minibatch step 470/44595: mean batch inertia: 0.4422517418861389, ewa inertia: 0.4436118989399274
+Minibatch step 471/44595: mean batch inertia: 0.4407866299152374, ewa inertia: 0.4435992284276893
+Minibatch step 472/44595: mean batch inertia: 0.4436669945716858, ewa inertia: 0.4435995323391927
+Minibatch step 473/44595: mean batch inertia: 0.4414348006248474, ewa inertia: 0.4435898241452334
+Minibatch step 474/44595: mean batch inertia: 0.44352805614471436, ewa inertia: 0.443589547133664
+Minibatch step 475/44595: mean batch inertia: 0.441976398229599, ewa inertia: 0.4435823126286479
+Minibatch step 476/44595: mean batch inertia: 0.43882066011428833, ewa inertia: 0.4435609579980164
+Minibatch step 477/44595: mean batch inertia: 0.437804639339447, ewa inertia: 0.44353514257818477
+Minibatch step 478/44595: mean batch inertia: 0.4378749132156372, ewa inertia: 0.4435097580909795
+Minibatch step 479/44595: mean batch inertia: 0.4427606463432312, ewa inertia: 0.4435063985420358
+Minibatch step 480/44595: mean batch inertia: 0.4434477686882019, ewa inertia: 0.44350613560414415
+Minibatch step 481/44595: mean batch inertia: 0.4431646466255188, ewa inertia: 0.443504604125108
+Minibatch step 482/44595: mean batch inertia: 0.43909990787506104, ewa inertia: 0.4434848503398034
+Minibatch step 483/44595: mean batch inertia: 0.444547176361084, ewa inertia: 0.4434896145639307
+Minibatch step 484/44595: mean batch inertia: 0.4416532516479492, ewa inertia: 0.443481379008804
+Minibatch step 485/44595: mean batch inertia: 0.4395163655281067, ewa inertia: 0.4434635970732105
+Minibatch step 486/44595: mean batch inertia: 0.43900376558303833, ewa inertia: 0.44344359602234334
+Minibatch step 487/44595: mean batch inertia: 0.44475865364074707, ewa inertia: 0.4434494936743907
+Minibatch step 488/44595: mean batch inertia: 0.44147738814353943, ewa inertia: 0.44344064935300215
+Minibatch step 489/44595: mean batch inertia: 0.4433003067970276, ewa inertia: 0.44344001995733845
+Minibatch step 490/44595: mean batch inertia: 0.441301554441452, ewa inertia: 0.44343042955966194
+Minibatch step 491/44595: mean batch inertia: 0.4438883662223816, ewa inertia: 0.443432483272791
+Minibatch step 492/44595: mean batch inertia: 0.4390386641025543, ewa inertia: 0.443412778268035
+Minibatch step 493/44595: mean batch inertia: 0.43901488184928894, ewa inertia: 0.44339305497800185
+Minibatch step 494/44595: mean batch inertia: 0.43805497884750366, ewa inertia: 0.44336911525461675
+Minibatch step 495/44595: mean batch inertia: 0.43640005588531494, ewa inertia: 0.4433378610443964
+Minibatch step 496/44595: mean batch inertia: 0.4406595230102539, ewa inertia: 0.4433258494750404
+Minibatch step 497/44595: mean batch inertia: 0.44447439908981323, ewa inertia: 0.44333100038697937
+Minibatch step 498/44595: mean batch inertia: 0.4428378939628601, ewa inertia: 0.44332878894766975
+Minibatch step 499/44595: mean batch inertia: 0.4398531913757324, ewa inertia: 0.4433132019004947
+Minibatch step 500/44595: mean batch inertia: 0.4356488883495331, ewa inertia: 0.44327882967689564
+Minibatch step 501/44595: mean batch inertia: 0.4387659728527069, ewa inertia: 0.44325859082278296
+Minibatch step 502/44595: mean batch inertia: 0.439566433429718, ewa inertia: 0.4432420325676133
+Minibatch step 503/44595: mean batch inertia: 0.4376269578933716, ewa inertia: 0.44321685058609006
+Minibatch step 504/44595: mean batch inertia: 0.44408994913101196, ewa inertia: 0.44322076617986245
+Minibatch step 505/44595: mean batch inertia: 0.43602535128593445, ewa inertia: 0.443188496830758
+Minibatch step 506/44595: mean batch inertia: 0.44232067465782166, ewa inertia: 0.44318460489998374
+Minibatch step 507/44595: mean batch inertia: 0.44317126274108887, ewa inertia: 0.4431845450642704
+Minibatch step 508/44595: mean batch inertia: 0.4409531354904175, ewa inertia: 0.44317453783944805
+Minibatch step 509/44595: mean batch inertia: 0.4445053040981293, ewa inertia: 0.44318050594019154
+Minibatch step 510/44595: mean batch inertia: 0.4446970224380493, ewa inertia: 0.44318730707688947
+Minibatch step 511/44595: mean batch inertia: 0.442471981048584, ewa inertia: 0.4431840990470995
+Minibatch step 512/44595: mean batch inertia: 0.4409371018409729, ewa inertia: 0.44317402191626687
+Minibatch step 513/44595: mean batch inertia: 0.4420713484287262, ewa inertia: 0.4431690767454543
+Minibatch step 514/44595: mean batch inertia: 0.4406142830848694, ewa inertia: 0.4431576192367854
+Minibatch step 515/44595: mean batch inertia: 0.44042325019836426, ewa inertia: 0.44314535638462443
+Minibatch step 516/44595: mean batch inertia: 0.4418935477733612, ewa inertia: 0.4431397423860317
+Minibatch step 517/44595: mean batch inertia: 0.4436684846878052, ewa inertia: 0.4431421136419181
+Minibatch step 518/44595: mean batch inertia: 0.4410613775253296, ewa inertia: 0.4431327821438557
+Minibatch step 519/44595: mean batch inertia: 0.44088244438171387, ewa inertia: 0.4431226900315981
+Minibatch step 520/44595: mean batch inertia: 0.4423201084136963, ewa inertia: 0.4431190906857932
+Minibatch step 521/44595: mean batch inertia: 0.4411008059978485, ewa inertia: 0.44311003926427717
+Minibatch step 522/44595: mean batch inertia: 0.4381544888019562, ewa inertia: 0.4430878150575801
+Minibatch step 523/44595: mean batch inertia: 0.4378010034561157, ewa inertia: 0.44306410524074086
+Minibatch step 524/44595: mean batch inertia: 0.44346433877944946, ewa inertia: 0.4430659001720929
+Minibatch step 525/44595: mean batch inertia: 0.4384607970714569, ewa inertia: 0.4430452476201821
+Minibatch step 526/44595: mean batch inertia: 0.44034409523010254, ewa inertia: 0.44303313373505593
+Minibatch step 527/44595: mean batch inertia: 0.4407801032066345, ewa inertia: 0.44302302954652245
+Minibatch step 528/44595: mean batch inertia: 0.43848472833633423, ewa inertia: 0.44300267658171755
+Minibatch step 529/44595: mean batch inertia: 0.43895789980888367, ewa inertia: 0.4429845369308904
+Minibatch step 530/44595: mean batch inertia: 0.4414364695549011, ewa inertia: 0.4429775942976539
+Minibatch step 531/44595: mean batch inertia: 0.44186124205589294, ewa inertia: 0.44297258778159554
+Minibatch step 532/44595: mean batch inertia: 0.4380640983581543, ewa inertia: 0.44295057463001003
+Minibatch step 533/44595: mean batch inertia: 0.4393461346626282, ewa inertia: 0.44293440976205617
+Minibatch step 534/44595: mean batch inertia: 0.4373239576816559, ewa inertia: 0.44290924851152574
+Minibatch step 535/44595: mean batch inertia: 0.438537061214447, ewa inertia: 0.4428896405194475
+Minibatch step 536/44595: mean batch inertia: 0.4434511959552765, ewa inertia: 0.4428921589327242
+Minibatch step 537/44595: mean batch inertia: 0.4417264461517334, ewa inertia: 0.44288693104896215
+Minibatch step 538/44595: mean batch inertia: 0.44087910652160645, ewa inertia: 0.4428779265382329
+Minibatch step 539/44595: mean batch inertia: 0.44232890009880066, ewa inertia: 0.44287546431387154
+Minibatch step 540/44595: mean batch inertia: 0.43910208344459534, ewa inertia: 0.44285854179496614
+Minibatch step 541/44595: mean batch inertia: 0.4381867051124573, ewa inertia: 0.4428375899622936
+Minibatch step 542/44595: mean batch inertia: 0.4393927752971649, ewa inertia: 0.4428221409675285
+Minibatch step 543/44595: mean batch inertia: 0.4403937757015228, ewa inertia: 0.44281125045354464
+Minibatch step 544/44595: mean batch inertia: 0.4371158480644226, ewa inertia: 0.44278570822551544
+Minibatch step 545/44595: mean batch inertia: 0.44056135416030884, ewa inertia: 0.4427757326426032
+Minibatch step 546/44595: mean batch inertia: 0.44099435210227966, ewa inertia: 0.4427677436674863
+Minibatch step 547/44595: mean batch inertia: 0.4401271343231201, ewa inertia: 0.44275590130036246
+Minibatch step 548/44595: mean batch inertia: 0.4405418038368225, ewa inertia: 0.44274597171533425
+Minibatch step 549/44595: mean batch inertia: 0.4392755329608917, ewa inertia: 0.4427304078039596
+Minibatch step 550/44595: mean batch inertia: 0.4432014226913452, ewa inertia: 0.4427325201691336
+Minibatch step 551/44595: mean batch inertia: 0.43894416093826294, ewa inertia: 0.4427155304766202
+Minibatch step 552/44595: mean batch inertia: 0.4419783353805542, ewa inertia: 0.4427122243704035
+Minibatch step 553/44595: mean batch inertia: 0.440774142742157, ewa inertia: 0.44270353263635104
+Minibatch step 554/44595: mean batch inertia: 0.44072991609573364, ewa inertia: 0.4426946815385219
+Minibatch step 555/44595: mean batch inertia: 0.4396706819534302, ewa inertia: 0.4426811197773529
+Minibatch step 556/44595: mean batch inertia: 0.4399412274360657, ewa inertia: 0.4426688321547803
+Minibatch step 557/44595: mean batch inertia: 0.4418003559112549, ewa inertia: 0.4426649372906892
+Minibatch step 558/44595: mean batch inertia: 0.44469285011291504, ewa inertia: 0.44267403189159527
+Minibatch step 559/44595: mean batch inertia: 0.4409329891204834, ewa inertia: 0.44266622381967513
+Minibatch step 560/44595: mean batch inertia: 0.4384097158908844, ewa inertia: 0.4426471346160163
+Minibatch step 561/44595: mean batch inertia: 0.4387674927711487, ewa inertia: 0.4426297355474514
+Minibatch step 562/44595: mean batch inertia: 0.441719651222229, ewa inertia: 0.44262565408318033
+Minibatch step 563/44595: mean batch inertia: 0.43935859203338623, ewa inertia: 0.4426110022573461
+Minibatch step 564/44595: mean batch inertia: 0.43867215514183044, ewa inertia: 0.44259333767031206
+Minibatch step 565/44595: mean batch inertia: 0.4377855658531189, ewa inertia: 0.4425717762079821
+Minibatch step 566/44595: mean batch inertia: 0.4436884820461273, ewa inertia: 0.4425767843098177
+Minibatch step 567/44595: mean batch inertia: 0.43901073932647705, ewa inertia: 0.44256079163223255
+Minibatch step 568/44595: mean batch inertia: 0.4409286081790924, ewa inertia: 0.442553471762784
+Minibatch step 569/44595: mean batch inertia: 0.4410164952278137, ewa inertia: 0.44254657886875304
+Minibatch step 570/44595: mean batch inertia: 0.44096753001213074, ewa inertia: 0.44253949729256065
+Minibatch step 571/44595: mean batch inertia: 0.4418866038322449, ewa inertia: 0.44253656925473245
+Minibatch step 572/44595: mean batch inertia: 0.4387162923812866, ewa inertia: 0.44251943642084834
+Minibatch step 573/44595: mean batch inertia: 0.44041359424591064, ewa inertia: 0.44250999232939514
+Minibatch step 574/44595: mean batch inertia: 0.43875497579574585, ewa inertia: 0.4424931521692093
+Minibatch step 575/44595: mean batch inertia: 0.4395298361778259, ewa inertia: 0.4424798625563597
+Minibatch step 576/44595: mean batch inertia: 0.4392792284488678, ewa inertia: 0.4424655086405824
+Minibatch step 577/44595: mean batch inertia: 0.44216498732566833, ewa inertia: 0.4424641608896372
+Minibatch step 578/44595: mean batch inertia: 0.4428479075431824, ewa inertia: 0.4424658818820905
+Minibatch step 579/44595: mean batch inertia: 0.4399135708808899, ewa inertia: 0.442454435507429
+Minibatch step 580/44595: mean batch inertia: 0.4418119490146637, ewa inertia: 0.44245155414183224
+Minibatch step 581/44595: mean batch inertia: 0.44410955905914307, ewa inertia: 0.4424589898130593
+Minibatch step 582/44595: mean batch inertia: 0.4418216049671173, ewa inertia: 0.44245613132686906
+Minibatch step 583/44595: mean batch inertia: 0.44008779525756836, ewa inertia: 0.44244551002642374
+Minibatch step 584/44595: mean batch inertia: 0.4439198672771454, ewa inertia: 0.4424521220911246
+Minibatch step 585/44595: mean batch inertia: 0.4397539794445038, ewa inertia: 0.44244002170382507
+Minibatch step 586/44595: mean batch inertia: 0.4434015154838562, ewa inertia: 0.442444333724592
+Minibatch step 587/44595: mean batch inertia: 0.43887007236480713, ewa inertia: 0.44242830419894136
+Minibatch step 588/44595: mean batch inertia: 0.44202813506126404, ewa inertia: 0.4424265095564093
+Minibatch step 589/44595: mean batch inertia: 0.44017356634140015, ewa inertia: 0.4424164057594512
+Minibatch step 590/44595: mean batch inertia: 0.4411191940307617, ewa inertia: 0.4424105881410438
+Minibatch step 591/44595: mean batch inertia: 0.44301360845565796, ewa inertia: 0.4424132925122769
+Minibatch step 592/44595: mean batch inertia: 0.4429202675819397, ewa inertia: 0.44241556614843985
+Minibatch step 593/44595: mean batch inertia: 0.43986040353775024, ewa inertia: 0.44240410698513677
+Minibatch step 594/44595: mean batch inertia: 0.4391106367111206, ewa inertia: 0.4423893367260754
+Minibatch step 595/44595: mean batch inertia: 0.4385271668434143, ewa inertia: 0.442372016014194
+Minibatch step 596/44595: mean batch inertia: 0.4448980689048767, ewa inertia: 0.4423833446288448
+Minibatch step 597/44595: mean batch inertia: 0.44017118215560913, ewa inertia: 0.442373423721687
+Minibatch step 598/44595: mean batch inertia: 0.4394241273403168, ewa inertia: 0.4423601969827225
+Minibatch step 599/44595: mean batch inertia: 0.44101470708847046, ewa inertia: 0.4423541628507434
+Minibatch step 600/44595: mean batch inertia: 0.441139280796051, ewa inertia: 0.44234871445704804
+Minibatch step 601/44595: mean batch inertia: 0.4431154131889343, ewa inertia: 0.4423521528785153
+Minibatch step 602/44595: mean batch inertia: 0.44166848063468933, ewa inertia: 0.44234908680676904
+Minibatch step 603/44595: mean batch inertia: 0.44057780504226685, ewa inertia: 0.442341143121733
+Minibatch step 604/44595: mean batch inertia: 0.44153422117233276, ewa inertia: 0.4423375243108001
+Minibatch step 605/44595: mean batch inertia: 0.44280898571014404, ewa inertia: 0.4423396386784508
+Minibatch step 606/44595: mean batch inertia: 0.4388813376426697, ewa inertia: 0.4423241292012243
+Minibatch step 607/44595: mean batch inertia: 0.43808895349502563, ewa inertia: 0.4423051356663974
+Minibatch step 608/44595: mean batch inertia: 0.4386298358440399, ewa inertia: 0.44228865301254355
+Minibatch step 609/44595: mean batch inertia: 0.43965744972229004, ewa inertia: 0.44227685282884466
+Minibatch step 610/44595: mean batch inertia: 0.4409654140472412, ewa inertia: 0.44227097140623084
+Minibatch step 611/44595: mean batch inertia: 0.44020336866378784, ewa inertia: 0.4422616988075428
+Minibatch step 612/44595: mean batch inertia: 0.4396161139011383, ewa inertia: 0.4422498341264662
+Minibatch step 613/44595: mean batch inertia: 0.4392286539077759, ewa inertia: 0.44223628500933787
+Minibatch step 614/44595: mean batch inertia: 0.43998968601226807, ewa inertia: 0.4422262096643574
+Minibatch step 615/44595: mean batch inertia: 0.442423939704895, ewa inertia: 0.4422270964262468
+Minibatch step 616/44595: mean batch inertia: 0.44001686573028564, ewa inertia: 0.44221718418254985
+Minibatch step 617/44595: mean batch inertia: 0.440441370010376, ewa inertia: 0.4422092201709798
+Minibatch step 618/44595: mean batch inertia: 0.44179877638816833, ewa inertia: 0.442207379449644
+Minibatch step 619/44595: mean batch inertia: 0.4385588765144348, ewa inertia: 0.4421910169720578
+Minibatch step 620/44595: mean batch inertia: 0.4407232999801636, ewa inertia: 0.4421844346869921
+Minibatch step 621/44595: mean batch inertia: 0.44232967495918274, ewa inertia: 0.4421850860474927
+Minibatch step 622/44595: mean batch inertia: 0.4388243854045868, ewa inertia: 0.44217001427972386
+Minibatch step 623/44595: mean batch inertia: 0.443942666053772, ewa inertia: 0.44217796410885546
+Minibatch step 624/44595: mean batch inertia: 0.44216808676719666, ewa inertia: 0.44217791981184257
+Minibatch step 625/44595: mean batch inertia: 0.4373897910118103, ewa inertia: 0.44215644644274804
+Minibatch step 626/44595: mean batch inertia: 0.4436405599117279, ewa inertia: 0.4421631022612585
+Minibatch step 627/44595: mean batch inertia: 0.4386705160140991, ewa inertia: 0.44214743902480186
+Minibatch step 628/44595: mean batch inertia: 0.4377492666244507, ewa inertia: 0.4421277144970712
+Minibatch step 629/44595: mean batch inertia: 0.4379402995109558, ewa inertia: 0.44210893515522304
+Minibatch step 630/44595: mean batch inertia: 0.4400555491447449, ewa inertia: 0.442099726314455
+Minibatch step 631/44595: mean batch inertia: 0.43888330459594727, ewa inertia: 0.4420853015958207
+Minibatch step 632/44595: mean batch inertia: 0.44122785329818726, ewa inertia: 0.4420814561888688
+Minibatch step 633/44595: mean batch inertia: 0.4429161548614502, ewa inertia: 0.4420851995703499
+Minibatch step 634/44595: mean batch inertia: 0.44125840067863464, ewa inertia: 0.44208149161709503
+Minibatch step 635/44595: mean batch inertia: 0.441641628742218, ewa inertia: 0.4420795189596629
+Minibatch step 636/44595: mean batch inertia: 0.4394340515136719, ewa inertia: 0.4420676548053622
+Minibatch step 637/44595: mean batch inertia: 0.4401964545249939, ewa inertia: 0.44205926301475923
+Minibatch step 638/44595: mean batch inertia: 0.4344317317008972, ewa inertia: 0.4420250557488266
+Minibatch step 639/44595: mean batch inertia: 0.44059985876083374, ewa inertia: 0.44201866415364743
+Minibatch step 640/44595: mean batch inertia: 0.44063320755958557, ewa inertia: 0.4420124507826102
+Minibatch step 641/44595: mean batch inertia: 0.43830934166908264, ewa inertia: 0.44199584341215026
+Minibatch step 642/44595: mean batch inertia: 0.4436088800430298, ewa inertia: 0.44200307741365363
+Minibatch step 643/44595: mean batch inertia: 0.4394776225090027, ewa inertia: 0.4419917514807968
+Minibatch step 644/44595: mean batch inertia: 0.4401448369026184, ewa inertia: 0.44198346860452514
+Minibatch step 645/44595: mean batch inertia: 0.4393990635871887, ewa inertia: 0.4419718782975086
+Minibatch step 646/44595: mean batch inertia: 0.44465625286102295, ewa inertia: 0.44198391693894823
+Minibatch step 647/44595: mean batch inertia: 0.43789607286453247, ewa inertia: 0.44196558414376313
+Minibatch step 648/44595: mean batch inertia: 0.4361875057220459, ewa inertia: 0.44193967113770416
+Minibatch step 649/44595: mean batch inertia: 0.4413205087184906, ewa inertia: 0.44193689437381317
+Minibatch step 650/44595: mean batch inertia: 0.44206923246383667, ewa inertia: 0.44193748787176845
+Minibatch step 651/44595: mean batch inertia: 0.4395660161972046, ewa inertia: 0.4419268525090429
+Minibatch step 652/44595: mean batch inertia: 0.44209742546081543, ewa inertia: 0.44192761747926484
+Minibatch step 653/44595: mean batch inertia: 0.4409201741218567, ewa inertia: 0.44192309938796887
+Minibatch step 654/44595: mean batch inertia: 0.4432837963104248, ewa inertia: 0.44192920171905936
+Minibatch step 655/44595: mean batch inertia: 0.4443914294242859, ewa inertia: 0.4419402440962629
+Minibatch step 656/44595: mean batch inertia: 0.437378853559494, ewa inertia: 0.44191978758252426
+Minibatch step 657/44595: mean batch inertia: 0.4396795928478241, ewa inertia: 0.4419097409588032
+Minibatch step 658/44595: mean batch inertia: 0.43783196806907654, ewa inertia: 0.44189145332996077
+Minibatch step 659/44595: mean batch inertia: 0.44149351119995117, ewa inertia: 0.44188966867491225
+Minibatch step 660/44595: mean batch inertia: 0.43804994225502014, ewa inertia: 0.4418724486154528
+Minibatch step 661/44595: mean batch inertia: 0.44046351313591003, ewa inertia: 0.44186612994842306
+Minibatch step 662/44595: mean batch inertia: 0.4419857859611511, ewa inertia: 0.4418666665709395
+Minibatch step 663/44595: mean batch inertia: 0.4408855438232422, ewa inertia: 0.441862266519945
+Minibatch step 664/44595: mean batch inertia: 0.4419131278991699, ewa inertia: 0.4418624946184808
+Minibatch step 665/44595: mean batch inertia: 0.4443327486515045, ewa inertia: 0.44187357299143687
+Minibatch step 666/44595: mean batch inertia: 0.44189056754112244, ewa inertia: 0.44187364920706373
+Minibatch step 667/44595: mean batch inertia: 0.44085240364074707, ewa inertia: 0.44186906921686353
+Minibatch step 668/44595: mean batch inertia: 0.4401373863220215, ewa inertia: 0.4418613031212741
+Minibatch step 669/44595: mean batch inertia: 0.4400704801082611, ewa inertia: 0.4418532717994055
+Minibatch step 670/44595: mean batch inertia: 0.4419640898704529, ewa inertia: 0.4418537687863165
+Minibatch step 671/44595: mean batch inertia: 0.4391220211982727, ewa inertia: 0.4418415176906002
+Minibatch step 672/44595: mean batch inertia: 0.44071558117866516, ewa inertia: 0.44183646819186956
+Minibatch step 673/44595: mean batch inertia: 0.43910685181617737, ewa inertia: 0.4418242266540226
+Minibatch step 674/44595: mean batch inertia: 0.4415961503982544, ewa inertia: 0.44182320379815837
+Minibatch step 675/44595: mean batch inertia: 0.44355911016464233, ewa inertia: 0.4418309888347933
+Minibatch step 676/44595: mean batch inertia: 0.4419976472854614, ewa inertia: 0.4418317362496131
+Minibatch step 677/44595: mean batch inertia: 0.4397357404232025, ewa inertia: 0.44182233631617757
+Minibatch step 678/44595: mean batch inertia: 0.4423392415046692, ewa inertia: 0.4418246544860437
+Minibatch step 679/44595: mean batch inertia: 0.4402177333831787, ewa inertia: 0.44181744791090993
+Minibatch step 680/44595: mean batch inertia: 0.442365825176239, ewa inertia: 0.4418199072239137
+Minibatch step 681/44595: mean batch inertia: 0.440912127494812, ewa inertia: 0.4418158360950879
+Minibatch step 682/44595: mean batch inertia: 0.43747714161872864, ewa inertia: 0.4417963783085976
+Minibatch step 683/44595: mean batch inertia: 0.4383942484855652, ewa inertia: 0.44178112074297055
+Minibatch step 684/44595: mean batch inertia: 0.43900513648986816, ewa inertia: 0.4417686712586402
+Minibatch step 685/44595: mean batch inertia: 0.44278910756111145, ewa inertia: 0.4417732476195268
+Minibatch step 686/44595: mean batch inertia: 0.4391796588897705, ewa inertia: 0.4417616161262234
+Minibatch step 687/44595: mean batch inertia: 0.4410909414291382, ewa inertia: 0.4417586083447049
+Minibatch step 688/44595: mean batch inertia: 0.44237130880355835, ewa inertia: 0.4417613561285776
+Minibatch step 689/44595: mean batch inertia: 0.44249096512794495, ewa inertia: 0.44176462821335066
+Minibatch step 690/44595: mean batch inertia: 0.4409397840499878, ewa inertia: 0.4417609290264856
+Minibatch step 691/44595: mean batch inertia: 0.440848708152771, ewa inertia: 0.4417568379804142
+Minibatch step 692/44595: mean batch inertia: 0.4410375952720642, ewa inertia: 0.4417536123854501
+Minibatch step 693/44595: mean batch inertia: 0.4356222152709961, ewa inertia: 0.4417261148475178
+Minibatch step 694/44595: mean batch inertia: 0.4421482980251312, ewa inertia: 0.4417280082166348
+Minibatch step 695/44595: mean batch inertia: 0.44135844707489014, ewa inertia: 0.44172635084208806
+Minibatch step 696/44595: mean batch inertia: 0.4398554265499115, ewa inertia: 0.44171796028921206
+Minibatch step 697/44595: mean batch inertia: 0.43886131048202515, ewa inertia: 0.44170514904326497
+Minibatch step 698/44595: mean batch inertia: 0.44181084632873535, ewa inertia: 0.44170562306493777
+Minibatch step 699/44595: mean batch inertia: 0.43928396701812744, ewa inertia: 0.4416947626398563
+Minibatch step 700/44595: mean batch inertia: 0.4409337639808655, ewa inertia: 0.44169134978156294
+Minibatch step 701/44595: mean batch inertia: 0.441753625869751, ewa inertia: 0.4416916290717582
+Minibatch step 702/44595: mean batch inertia: 0.4401615560054779, ewa inertia: 0.4416847671377823
+Minibatch step 703/44595: mean batch inertia: 0.43778473138809204, ewa inertia: 0.4416672766084686
+Minibatch step 704/44595: mean batch inertia: 0.4420172870159149, ewa inertia: 0.4416688463036418
+Minibatch step 705/44595: mean batch inertia: 0.43808960914611816, ewa inertia: 0.4416527944629812
+Minibatch step 706/44595: mean batch inertia: 0.4420902132987976, ewa inertia: 0.44165475615960686
+Minibatch step 707/44595: mean batch inertia: 0.44218409061431885, ewa inertia: 0.44165713007112745
+Minibatch step 708/44595: mean batch inertia: 0.44249987602233887, ewa inertia: 0.44166090954231946
+Minibatch step 709/44595: mean batch inertia: 0.4409681260585785, ewa inertia: 0.4416578026093045
+Minibatch step 710/44595: mean batch inertia: 0.4428068995475769, ewa inertia: 0.4416629559758306
+Minibatch step 711/44595: mean batch inertia: 0.4361903667449951, ewa inertia: 0.4416384130001998
+Minibatch step 712/44595: mean batch inertia: 0.44082796573638916, ewa inertia: 0.4416347783792541
+Minibatch step 713/44595: mean batch inertia: 0.44274771213531494, ewa inertia: 0.44163976956439543
+Minibatch step 714/44595: mean batch inertia: 0.4398280084133148, ewa inertia: 0.44163164434104973
+Minibatch step 715/44595: mean batch inertia: 0.4410472512245178, ewa inertia: 0.4416290235073981
+Minibatch step 716/44595: mean batch inertia: 0.4409586191177368, ewa inertia: 0.44162601693813
+Minibatch step 717/44595: mean batch inertia: 0.4410713016986847, ewa inertia: 0.44162352920115033
+Minibatch step 718/44595: mean batch inertia: 0.4424070417881012, ewa inertia: 0.44162704302788147
+Minibatch step 719/44595: mean batch inertia: 0.4401772916316986, ewa inertia: 0.4416205413133024
+Minibatch step 720/44595: mean batch inertia: 0.4442875385284424, ewa inertia: 0.4416325020223741
+Minibatch step 721/44595: mean batch inertia: 0.4384634494781494, ewa inertia: 0.44161828974074924
+Minibatch step 722/44595: mean batch inertia: 0.440791517496109, ewa inertia: 0.4416145819069988
+Minibatch step 723/44595: mean batch inertia: 0.44042569398880005, ewa inertia: 0.4416092500894673
+Minibatch step 724/44595: mean batch inertia: 0.4404759407043457, ewa inertia: 0.4416041675255386
+Minibatch step 725/44595: mean batch inertia: 0.43979886174201965, ewa inertia: 0.4415960712526444
+Minibatch step 726/44595: mean batch inertia: 0.4411173462867737, ewa inertia: 0.4415939243100043
+Minibatch step 727/44595: mean batch inertia: 0.44225043058395386, ewa inertia: 0.44159686855025393
+Minibatch step 728/44595: mean batch inertia: 0.4404312074184418, ewa inertia: 0.4415916408981234
+Minibatch step 729/44595: mean batch inertia: 0.443723201751709, ewa inertia: 0.44160120033039185
+Minibatch step 730/44595: mean batch inertia: 0.44155558943748474, ewa inertia: 0.4416009957787645
+Minibatch step 731/44595: mean batch inertia: 0.4420109689235687, ewa inertia: 0.4416028343894254
+Minibatch step 732/44595: mean batch inertia: 0.43847811222076416, ewa inertia: 0.441588820916679
+Minibatch step 733/44595: mean batch inertia: 0.43895819783210754, ewa inertia: 0.44157702333503435
+Minibatch step 734/44595: mean batch inertia: 0.44014397263526917, ewa inertia: 0.44157059651823544
+Minibatch step 735/44595: mean batch inertia: 0.44535768032073975, ewa inertia: 0.44158758049082253
+Minibatch step 736/44595: mean batch inertia: 0.44142767786979675, ewa inertia: 0.44158686337393954
+Minibatch step 737/44595: mean batch inertia: 0.4413194954395294, ewa inertia: 0.4415856643062913
+Minibatch step 738/44595: mean batch inertia: 0.4412785470485687, ewa inertia: 0.44158428697445545
+Minibatch step 739/44595: mean batch inertia: 0.43588903546333313, ewa inertia: 0.44155874542307033
+Minibatch step 740/44595: mean batch inertia: 0.4422675371170044, ewa inertia: 0.4415619241482656
+Minibatch step 741/44595: mean batch inertia: 0.4398157000541687, ewa inertia: 0.4415540928396145
+Minibatch step 742/44595: mean batch inertia: 0.44016367197036743, ewa inertia: 0.4415478572052427
+Minibatch step 743/44595: mean batch inertia: 0.442266583442688, ewa inertia: 0.4415510804839846
+Minibatch step 744/44595: mean batch inertia: 0.4398297071456909, ewa inertia: 0.44154336062376653
+Minibatch step 745/44595: mean batch inertia: 0.43763118982315063, ewa inertia: 0.44152581567226856
+Minibatch step 746/44595: mean batch inertia: 0.43971318006515503, ewa inertia: 0.44151768652724116
+Minibatch step 747/44595: mean batch inertia: 0.4432194232940674, ewa inertia: 0.44152531832313097
+Minibatch step 748/44595: mean batch inertia: 0.44036930799484253, ewa inertia: 0.4415201339520555
+Minibatch step 749/44595: mean batch inertia: 0.44164299964904785, ewa inertia: 0.44152068496907504
+Minibatch step 750/44595: mean batch inertia: 0.43974748253822327, ewa inertia: 0.4415127326704074
+Minibatch step 751/44595: mean batch inertia: 0.43705400824546814, ewa inertia: 0.4414927365844068
+Minibatch step 752/44595: mean batch inertia: 0.4421079158782959, ewa inertia: 0.44149549548513584
+Minibatch step 753/44595: mean batch inertia: 0.440174400806427, ewa inertia: 0.4414895707586238
+Minibatch step 754/44595: mean batch inertia: 0.442253053188324, ewa inertia: 0.44149299475590853
+Minibatch step 755/44595: mean batch inertia: 0.4402729868888855, ewa inertia: 0.44148752337443137
+Minibatch step 756/44595: mean batch inertia: 0.44374266266822815, ewa inertia: 0.441497637020166
+Minibatch step 757/44595: mean batch inertia: 0.44094428420066833, ewa inertia: 0.44149515539324474
+Minibatch step 758/44595: mean batch inertia: 0.44035014510154724, ewa inertia: 0.44149002035414336
+Minibatch step 759/44595: mean batch inertia: 0.4415985643863678, ewa inertia: 0.44149050714264976
+Minibatch step 760/44595: mean batch inertia: 0.44056832790374756, ewa inertia: 0.4414863714361984
+Minibatch step 761/44595: mean batch inertia: 0.43793433904647827, ewa inertia: 0.441470441601032
+Minibatch step 762/44595: mean batch inertia: 0.4392163157463074, ewa inertia: 0.4414603325002777
+Minibatch step 763/44595: mean batch inertia: 0.44547727704048157, ewa inertia: 0.44147834733161295
+Minibatch step 764/44595: mean batch inertia: 0.43957746028900146, ewa inertia: 0.44146982240449056
+Minibatch step 765/44595: mean batch inertia: 0.4401255249977112, ewa inertia: 0.44146379362047194
+Minibatch step 766/44595: mean batch inertia: 0.43926721811294556, ewa inertia: 0.4414539426163351
+Minibatch step 767/44595: mean batch inertia: 0.44163939356803894, ewa inertia: 0.4414547743100721
+Minibatch step 768/44595: mean batch inertia: 0.4416038691997528, ewa inertia: 0.44145544295741423
+Minibatch step 769/44595: mean batch inertia: 0.4429744482040405, ewa inertia: 0.44146225525542865
+Minibatch step 770/44595: mean batch inertia: 0.4419759511947632, ewa inertia: 0.441464559032743
+Minibatch step 771/44595: mean batch inertia: 0.4420050382614136, ewa inertia: 0.4414669829253428
+Minibatch step 772/44595: mean batch inertia: 0.4361996054649353, ewa inertia: 0.44144336026499026
+Minibatch step 773/44595: mean batch inertia: 0.43897294998168945, ewa inertia: 0.44143228119129707
+Minibatch step 774/44595: mean batch inertia: 0.44185763597488403, ewa inertia: 0.44143418878414714
+Minibatch step 775/44595: mean batch inertia: 0.4412704110145569, ewa inertia: 0.4414334542883467
+Minibatch step 776/44595: mean batch inertia: 0.4416024088859558, ewa inertia: 0.44143421200071953
+Minibatch step 777/44595: mean batch inertia: 0.44118791818618774, ewa inertia: 0.4414331074443874
+Minibatch step 778/44595: mean batch inertia: 0.43964123725891113, ewa inertia: 0.441425071426254
+Minibatch step 779/44595: mean batch inertia: 0.44186949729919434, ewa inertia: 0.4414270645474091
+Minibatch step 780/44595: mean batch inertia: 0.4375036954879761, ewa inertia: 0.4414094693749679
+Minibatch step 781/44595: mean batch inertia: 0.43968793749809265, ewa inertia: 0.4414017488037502
+Minibatch step 782/44595: mean batch inertia: 0.43976891040802, ewa inertia: 0.44139442599707407
+Minibatch step 783/44595: mean batch inertia: 0.43982237577438354, ewa inertia: 0.4413873758077252
+Minibatch step 784/44595: mean batch inertia: 0.4399082660675049, ewa inertia: 0.4413807424294871
+Minibatch step 785/44595: mean batch inertia: 0.43653661012649536, ewa inertia: 0.441359017900923
+Minibatch step 786/44595: mean batch inertia: 0.4374692142009735, ewa inertia: 0.44134157325938506
+Minibatch step 787/44595: mean batch inertia: 0.43978428840637207, ewa inertia: 0.44133458928843716
+Minibatch step 788/44595: mean batch inertia: 0.4399649500846863, ewa inertia: 0.44132844685380834
+Minibatch step 789/44595: mean batch inertia: 0.4433887004852295, ewa inertia: 0.44133768649386473
+Minibatch step 790/44595: mean batch inertia: 0.4379924535751343, ewa inertia: 0.44132268409435316
+Minibatch step 791/44595: mean batch inertia: 0.4402249753475189, ewa inertia: 0.4413177611889629
+Minibatch step 792/44595: mean batch inertia: 0.4426678717136383, ewa inertia: 0.4413238160431294
+Minibatch step 793/44595: mean batch inertia: 0.44587668776512146, ewa inertia: 0.4413442343524543
+Minibatch step 794/44595: mean batch inertia: 0.44167226552963257, ewa inertia: 0.4413457054771538
+Minibatch step 795/44595: mean batch inertia: 0.43948978185653687, ewa inertia: 0.4413373821979395
+Minibatch step 796/44595: mean batch inertia: 0.44015800952911377, ewa inertia: 0.4413320930535419
+Minibatch step 797/44595: mean batch inertia: 0.4412878751754761, ewa inertia: 0.44133189474918205
+Minibatch step 798/44595: mean batch inertia: 0.4416840970516205, ewa inertia: 0.4413334742743686
+Minibatch step 799/44595: mean batch inertia: 0.4401097893714905, ewa inertia: 0.44132798640245197
+Minibatch step 800/44595: mean batch inertia: 0.44376224279403687, ewa inertia: 0.44133890333642556
+Minibatch step 801/44595: mean batch inertia: 0.4403785169124603, ewa inertia: 0.4413345962818294
+Converged (lack of improvement in inertia) at step 801/44595
+2026-04-14 17:18:54,499 [INFO] Fitting done in 10.0s, inertia=804553.312
+2026-04-14 17:18:54,606 [INFO] Saved centroids to /Users/qbit-glitch/Desktop/datasets/cityscapes/pseudo_semantic_dw_k80_l03/kmeans_centroids.npz
+2026-04-14 17:18:54,633 [INFO] Assigning train: 2975 images
+Assigning train:   0%|          | 0/2975 [00:00<?, ?it/s]Assigning train:   0%|          | 12/2975 [00:00<00:26, 113.09it/s]Assigning train:   1%|          | 27/2975 [00:00<00:23, 127.96it/s]Assigning train:   1%|▏         | 42/2975 [00:00<00:21, 135.12it/s]Assigning train:   2%|▏         | 57/2975 [00:00<00:21, 137.22it/s]Assigning train:   2%|▏         | 71/2975 [00:00<00:21, 137.13it/s]Assigning train:   3%|▎         | 86/2975 [00:00<00:20, 138.17it/s]Assigning train:   3%|▎         | 101/2975 [00:00<00:20, 139.31it/s]Assigning train:   4%|▍         | 116/2975 [00:00<00:20, 139.88it/s]Assigning train:   4%|▍         | 131/2975 [00:00<00:20, 141.46it/s]Assigning train:   5%|▍         | 146/2975 [00:01<00:20, 141.04it/s]Assigning train:   5%|▌         | 161/2975 [00:01<00:19, 142.15it/s]Assigning train:   6%|▌         | 176/2975 [00:01<00:19, 142.49it/s]Assigning train:   6%|▋         | 191/2975 [00:01<00:20, 138.53it/s]Assigning train:   7%|▋         | 205/2975 [00:01<00:20, 136.65it/s]Assigning train:   7%|▋         | 219/2975 [00:01<00:20, 137.52it/s]Assigning train:   8%|▊         | 233/2975 [00:01<00:20, 136.84it/s]Assigning train:   8%|▊         | 247/2975 [00:01<00:19, 136.87it/s]Assigning train:   9%|▉         | 261/2975 [00:01<00:19, 137.28it/s]Assigning train:   9%|▉         | 275/2975 [00:01<00:19, 137.30it/s]Assigning train:  10%|▉         | 289/2975 [00:02<00:19, 137.70it/s]Assigning train:  10%|█         | 303/2975 [00:02<00:19, 137.36it/s]Assigning train:  11%|█         | 317/2975 [00:02<00:19, 138.01it/s]Assigning train:  11%|█         | 331/2975 [00:02<00:19, 138.02it/s]Assigning train:  12%|█▏        | 345/2975 [00:02<00:19, 137.91it/s]Assigning train:  12%|█▏        | 359/2975 [00:02<00:18, 138.19it/s]Assigning train:  13%|█▎        | 373/2975 [00:02<00:18, 138.06it/s]Assigning train:  13%|█▎        | 387/2975 [00:02<00:18, 137.34it/s]Assigning train:  13%|█▎        | 401/2975 [00:02<00:18, 137.99it/s]Assigning train:  14%|█▍        | 415/2975 [00:03<00:18, 136.19it/s]Assigning train:  14%|█▍        | 429/2975 [00:03<00:18, 136.43it/s]Assigning train:  15%|█▍        | 443/2975 [00:03<00:18, 136.05it/s]Assigning train:  15%|█▌        | 457/2975 [00:03<00:18, 136.95it/s]Assigning train:  16%|█▌        | 471/2975 [00:03<00:18, 136.26it/s]Assigning train:  16%|█▋        | 485/2975 [00:03<00:18, 136.58it/s]Assigning train:  17%|█▋        | 499/2975 [00:03<00:18, 135.71it/s]Assigning train:  17%|█▋        | 513/2975 [00:03<00:18, 135.99it/s]Assigning train:  18%|█▊        | 527/2975 [00:03<00:18, 135.85it/s]Assigning train:  18%|█▊        | 541/2975 [00:03<00:17, 135.55it/s]Assigning train:  19%|█▊        | 555/2975 [00:04<00:23, 102.95it/s]Assigning train:  19%|█▉        | 568/2975 [00:04<00:22, 108.87it/s]Assigning train:  20%|█▉        | 582/2975 [00:04<00:20, 115.04it/s]Assigning train:  20%|██        | 595/2975 [00:04<00:20, 116.31it/s]Assigning train:  20%|██        | 609/2975 [00:04<00:19, 121.40it/s]Assigning train:  21%|██        | 623/2975 [00:04<00:18, 126.12it/s]Assigning train:  21%|██▏       | 637/2975 [00:04<00:18, 129.08it/s]Assigning train:  22%|██▏       | 652/2975 [00:04<00:17, 132.66it/s]Assigning train:  22%|██▏       | 666/2975 [00:04<00:17, 133.82it/s]Assigning train:  23%|██▎       | 680/2975 [00:05<00:17, 134.06it/s]Assigning train:  23%|██▎       | 694/2975 [00:05<00:16, 134.46it/s]Assigning train:  24%|██▍       | 708/2975 [00:05<00:16, 134.89it/s]Assigning train:  24%|██▍       | 722/2975 [00:05<00:16, 136.02it/s]Assigning train:  25%|██▍       | 736/2975 [00:05<00:16, 135.28it/s]Assigning train:  25%|██▌       | 750/2975 [00:05<00:16, 134.66it/s]Assigning train:  26%|██▌       | 764/2975 [00:05<00:16, 134.67it/s]Assigning train:  26%|██▌       | 778/2975 [00:05<00:16, 133.92it/s]Assigning train:  27%|██▋       | 792/2975 [00:05<00:16, 135.21it/s]Assigning train:  27%|██▋       | 806/2975 [00:06<00:16, 134.20it/s]Assigning train:  28%|██▊       | 820/2975 [00:06<00:16, 133.90it/s]Assigning train:  28%|██▊       | 834/2975 [00:06<00:16, 131.29it/s]Assigning train:  29%|██▊       | 848/2975 [00:06<00:16, 129.01it/s]Assigning train:  29%|██▉       | 862/2975 [00:06<00:16, 130.63it/s]Assigning train:  29%|██▉       | 876/2975 [00:06<00:15, 131.98it/s]Assigning train:  30%|██▉       | 890/2975 [00:06<00:15, 130.36it/s]Assigning train:  30%|███       | 904/2975 [00:06<00:15, 131.31it/s]Assigning train:  31%|███       | 918/2975 [00:06<00:15, 133.25it/s]Assigning train:  31%|███▏      | 933/2975 [00:06<00:15, 135.87it/s]Assigning train:  32%|███▏      | 947/2975 [00:07<00:14, 137.01it/s]Assigning train:  32%|███▏      | 962/2975 [00:07<00:14, 138.82it/s]Assigning train:  33%|███▎      | 977/2975 [00:07<00:14, 140.41it/s]Assigning train:  33%|███▎      | 992/2975 [00:07<00:14, 140.30it/s]Assigning train:  34%|███▍      | 1007/2975 [00:07<00:14, 139.99it/s]Assigning train:  34%|███▍      | 1022/2975 [00:07<00:13, 141.59it/s]Assigning train:  35%|███▍      | 1037/2975 [00:07<00:13, 141.41it/s]Assigning train:  35%|███▌      | 1052/2975 [00:07<00:13, 143.48it/s]Assigning train:  36%|███▌      | 1067/2975 [00:07<00:13, 143.17it/s]Assigning train:  36%|███▋      | 1082/2975 [00:08<00:13, 144.04it/s]Assigning train:  37%|███▋      | 1097/2975 [00:08<00:13, 143.89it/s]Assigning train:  37%|███▋      | 1112/2975 [00:08<00:12, 144.49it/s]Assigning train:  38%|███▊      | 1127/2975 [00:08<00:12, 144.24it/s]Assigning train:  38%|███▊      | 1142/2975 [00:08<00:12, 144.69it/s]Assigning train:  39%|███▉      | 1157/2975 [00:08<00:12, 142.22it/s]Assigning train:  39%|███▉      | 1172/2975 [00:08<00:12, 140.17it/s]Assigning train:  40%|███▉      | 1187/2975 [00:08<00:12, 139.49it/s]Assigning train:  40%|████      | 1201/2975 [00:08<00:12, 138.75it/s]Assigning train:  41%|████      | 1215/2975 [00:08<00:12, 137.82it/s]Assigning train:  41%|████▏     | 1229/2975 [00:09<00:12, 137.56it/s]Assigning train:  42%|████▏     | 1243/2975 [00:09<00:12, 134.89it/s]Assigning train:  42%|████▏     | 1257/2975 [00:09<00:12, 135.81it/s]Assigning train:  43%|████▎     | 1271/2975 [00:09<00:12, 135.98it/s]Assigning train:  43%|████▎     | 1285/2975 [00:09<00:12, 135.88it/s]Assigning train:  44%|████▎     | 1299/2975 [00:09<00:12, 133.69it/s]Assigning train:  44%|████▍     | 1313/2975 [00:09<00:12, 133.05it/s]Assigning train:  45%|████▍     | 1327/2975 [00:09<00:12, 132.96it/s]Assigning train:  45%|████▌     | 1341/2975 [00:09<00:12, 133.07it/s]Assigning train:  46%|████▌     | 1355/2975 [00:10<00:12, 132.55it/s]Assigning train:  46%|████▌     | 1369/2975 [00:10<00:12, 132.81it/s]Assigning train:  46%|████▋     | 1383/2975 [00:10<00:11, 133.20it/s]Assigning train:  47%|████▋     | 1397/2975 [00:10<00:11, 135.08it/s]Assigning train:  47%|████▋     | 1411/2975 [00:10<00:11, 135.97it/s]Assigning train:  48%|████▊     | 1425/2975 [00:10<00:11, 137.02it/s]Assigning train:  48%|████▊     | 1439/2975 [00:10<00:11, 137.14it/s]Assigning train:  49%|████▉     | 1454/2975 [00:10<00:10, 138.98it/s]Assigning train:  49%|████▉     | 1468/2975 [00:10<00:11, 136.91it/s]Assigning train:  50%|████▉     | 1482/2975 [00:10<00:10, 137.64it/s]Assigning train:  50%|█████     | 1496/2975 [00:11<00:10, 137.43it/s]Assigning train:  51%|█████     | 1511/2975 [00:11<00:10, 138.59it/s]Assigning train:  51%|█████▏    | 1526/2975 [00:11<00:10, 139.47it/s]Assigning train:  52%|█████▏    | 1541/2975 [00:11<00:10, 139.99it/s]Assigning train:  52%|█████▏    | 1555/2975 [00:11<00:10, 139.75it/s]Assigning train:  53%|█████▎    | 1570/2975 [00:11<00:09, 140.75it/s]Assigning train:  53%|█████▎    | 1585/2975 [00:11<00:09, 140.72it/s]Assigning train:  54%|█████▍    | 1600/2975 [00:11<00:09, 141.75it/s]Assigning train:  54%|█████▍    | 1615/2975 [00:11<00:09, 142.64it/s]Assigning train:  55%|█████▍    | 1630/2975 [00:11<00:09, 142.00it/s]Assigning train:  55%|█████▌    | 1645/2975 [00:12<00:12, 107.80it/s]Assigning train:  56%|█████▌    | 1660/2975 [00:12<00:11, 116.16it/s]Assigning train:  56%|█████▋    | 1675/2975 [00:12<00:10, 122.61it/s]Assigning train:  57%|█████▋    | 1689/2975 [00:12<00:10, 126.37it/s]Assigning train:  57%|█████▋    | 1703/2975 [00:12<00:09, 129.94it/s]Assigning train:  58%|█████▊    | 1718/2975 [00:12<00:09, 133.64it/s]Assigning train:  58%|█████▊    | 1733/2975 [00:12<00:09, 136.16it/s]Assigning train:  59%|█████▉    | 1748/2975 [00:12<00:08, 138.28it/s]Assigning train:  59%|█████▉    | 1763/2975 [00:13<00:08, 139.86it/s]Assigning train:  60%|█████▉    | 1778/2975 [00:13<00:08, 140.13it/s]Assigning train:  60%|██████    | 1793/2975 [00:13<00:08, 141.03it/s]Assigning train:  61%|██████    | 1808/2975 [00:13<00:08, 141.21it/s]Assigning train:  61%|██████▏   | 1823/2975 [00:13<00:08, 141.83it/s]Assigning train:  62%|██████▏   | 1838/2975 [00:13<00:08, 140.50it/s]Assigning train:  62%|██████▏   | 1853/2975 [00:13<00:07, 142.54it/s]Assigning train:  63%|██████▎   | 1868/2975 [00:13<00:07, 142.84it/s]Assigning train:  63%|██████▎   | 1883/2975 [00:13<00:07, 144.65it/s]Assigning train:  64%|██████▍   | 1898/2975 [00:14<00:07, 141.08it/s]Assigning train:  64%|██████▍   | 1913/2975 [00:14<00:07, 141.95it/s]Assigning train:  65%|██████▍   | 1928/2975 [00:14<00:07, 142.11it/s]Assigning train:  65%|██████▌   | 1943/2975 [00:14<00:07, 143.17it/s]Assigning train:  66%|██████▌   | 1958/2975 [00:14<00:07, 141.67it/s]Assigning train:  66%|██████▋   | 1973/2975 [00:14<00:07, 141.92it/s]Assigning train:  67%|██████▋   | 1988/2975 [00:14<00:06, 141.51it/s]Assigning train:  67%|██████▋   | 2003/2975 [00:14<00:06, 141.98it/s]Assigning train:  68%|██████▊   | 2018/2975 [00:14<00:06, 140.88it/s]Assigning train:  68%|██████▊   | 2033/2975 [00:14<00:06, 140.31it/s]Assigning train:  69%|██████▉   | 2048/2975 [00:15<00:06, 139.60it/s]Assigning train:  69%|██████▉   | 2062/2975 [00:15<00:06, 139.27it/s]Assigning train:  70%|██████▉   | 2076/2975 [00:15<00:06, 138.42it/s]Assigning train:  70%|███████   | 2090/2975 [00:15<00:06, 137.10it/s]Assigning train:  71%|███████   | 2106/2975 [00:15<00:06, 142.25it/s]Assigning train:  71%|███████▏  | 2123/2975 [00:15<00:05, 147.39it/s]Assigning train:  72%|███████▏  | 2139/2975 [00:15<00:05, 150.65it/s]Assigning train:  72%|███████▏  | 2155/2975 [00:15<00:05, 153.31it/s]Assigning train:  73%|███████▎  | 2171/2975 [00:15<00:05, 154.87it/s]Assigning train:  74%|███████▎  | 2188/2975 [00:15<00:05, 156.56it/s]Assigning train:  74%|███████▍  | 2204/2975 [00:16<00:04, 157.45it/s]Assigning train:  75%|███████▍  | 2221/2975 [00:16<00:04, 158.19it/s]Assigning train:  75%|███████▌  | 2237/2975 [00:16<00:04, 158.02it/s]Assigning train:  76%|███████▌  | 2254/2975 [00:16<00:04, 159.18it/s]Assigning train:  76%|███████▋  | 2270/2975 [00:16<00:04, 158.61it/s]Assigning train:  77%|███████▋  | 2286/2975 [00:16<00:04, 157.04it/s]Assigning train:  77%|███████▋  | 2302/2975 [00:16<00:04, 156.95it/s]Assigning train:  78%|███████▊  | 2319/2975 [00:16<00:04, 158.16it/s]Assigning train:  78%|███████▊  | 2335/2975 [00:16<00:04, 155.31it/s]Assigning train:  79%|███████▉  | 2351/2975 [00:17<00:04, 154.80it/s]Assigning train:  80%|███████▉  | 2367/2975 [00:17<00:03, 155.05it/s]Assigning train:  80%|████████  | 2383/2975 [00:17<00:03, 155.85it/s]Assigning train:  81%|████████  | 2400/2975 [00:17<00:03, 158.32it/s]Assigning train:  81%|████████  | 2417/2975 [00:17<00:03, 160.35it/s]Assigning train:  82%|████████▏ | 2434/2975 [00:17<00:03, 162.05it/s]Assigning train:  82%|████████▏ | 2451/2975 [00:17<00:03, 162.42it/s]Assigning train:  83%|████████▎ | 2468/2975 [00:17<00:03, 162.80it/s]Assigning train:  84%|████████▎ | 2485/2975 [00:17<00:03, 160.81it/s]Assigning train:  84%|████████▍ | 2502/2975 [00:17<00:02, 162.18it/s]Assigning train:  85%|████████▍ | 2519/2975 [00:18<00:02, 162.58it/s]Assigning train:  85%|████████▌ | 2536/2975 [00:18<00:02, 162.95it/s]Assigning train:  86%|████████▌ | 2553/2975 [00:18<00:02, 161.92it/s]Assigning train:  86%|████████▋ | 2570/2975 [00:18<00:02, 161.00it/s]Assigning train:  87%|████████▋ | 2587/2975 [00:18<00:02, 160.00it/s]Assigning train:  88%|████████▊ | 2604/2975 [00:18<00:02, 160.03it/s]Assigning train:  88%|████████▊ | 2621/2975 [00:18<00:02, 160.49it/s]Assigning train:  89%|████████▊ | 2638/2975 [00:18<00:02, 161.23it/s]Assigning train:  89%|████████▉ | 2655/2975 [00:18<00:01, 161.32it/s]Assigning train:  90%|████████▉ | 2672/2975 [00:19<00:01, 160.68it/s]Assigning train:  90%|█████████ | 2689/2975 [00:19<00:01, 162.37it/s]Assigning train:  91%|█████████ | 2706/2975 [00:19<00:01, 162.19it/s]Assigning train:  92%|█████████▏| 2723/2975 [00:19<00:01, 162.70it/s]Assigning train:  92%|█████████▏| 2740/2975 [00:19<00:01, 163.97it/s]Assigning train:  93%|█████████▎| 2757/2975 [00:19<00:01, 164.38it/s]Assigning train:  93%|█████████▎| 2774/2975 [00:19<00:01, 163.71it/s]Assigning train:  94%|█████████▍| 2791/2975 [00:19<00:01, 162.67it/s]Assigning train:  94%|█████████▍| 2808/2975 [00:19<00:01, 155.34it/s]Assigning train:  95%|█████████▍| 2824/2975 [00:19<00:00, 155.77it/s]Assigning train:  95%|█████████▌| 2840/2975 [00:20<00:00, 156.96it/s]Assigning train:  96%|█████████▌| 2856/2975 [00:20<00:00, 157.15it/s]Assigning train:  97%|█████████▋| 2872/2975 [00:20<00:00, 156.99it/s]Assigning train:  97%|█████████▋| 2889/2975 [00:20<00:00, 158.68it/s]Assigning train:  98%|█████████▊| 2906/2975 [00:20<00:00, 159.40it/s]Assigning train:  98%|█████████▊| 2923/2975 [00:20<00:00, 160.46it/s]Assigning train:  99%|█████████▉| 2940/2975 [00:20<00:00, 160.51it/s]Assigning train:  99%|█████████▉| 2957/2975 [00:20<00:00, 160.20it/s]Assigning train: 100%|█████████▉| 2974/2975 [00:20<00:00, 158.09it/s]Assigning train: 100%|██████████| 2975/2975 [00:20<00:00, 142.24it/s]
+2026-04-14 17:19:15,549 [INFO] Done train
+2026-04-14 17:19:15,557 [INFO] Assigning val: 500 images
+Assigning val:   0%|          | 0/500 [00:00<?, ?it/s]Assigning val:   3%|▎         | 14/500 [00:00<00:03, 139.15it/s]Assigning val:   6%|▌         | 28/500 [00:00<00:03, 136.94it/s]Assigning val:   9%|▊         | 43/500 [00:00<00:03, 138.95it/s]Assigning val:  11%|█▏        | 57/500 [00:00<00:03, 138.61it/s]Assigning val:  14%|█▍        | 71/500 [00:00<00:03, 137.04it/s]Assigning val:  17%|█▋        | 85/500 [00:00<00:03, 135.75it/s]Assigning val:  20%|█▉        | 99/500 [00:00<00:02, 135.37it/s]Assigning val:  23%|██▎       | 113/500 [00:00<00:02, 135.59it/s]Assigning val:  25%|██▌       | 127/500 [00:00<00:02, 136.11it/s]Assigning val:  28%|██▊       | 142/500 [00:01<00:02, 137.33it/s]Assigning val:  31%|███       | 156/500 [00:01<00:02, 136.97it/s]Assigning val:  34%|███▍      | 170/500 [00:01<00:03, 101.73it/s]Assigning val:  37%|███▋      | 187/500 [00:01<00:02, 117.64it/s]Assigning val:  41%|████      | 204/500 [00:01<00:02, 130.65it/s]Assigning val:  44%|████▍     | 222/500 [00:01<00:01, 141.75it/s]Assigning val:  48%|████▊     | 240/500 [00:01<00:01, 150.69it/s]Assigning val:  51%|█████     | 256/500 [00:01<00:01, 148.75it/s]Assigning val:  54%|█████▍    | 272/500 [00:02<00:01, 144.35it/s]Assigning val:  57%|█████▋    | 287/500 [00:02<00:01, 141.22it/s]Assigning val:  60%|██████    | 302/500 [00:02<00:01, 139.31it/s]Assigning val:  63%|██████▎   | 317/500 [00:02<00:01, 137.03it/s]Assigning val:  66%|██████▌   | 331/500 [00:02<00:01, 137.14it/s]Assigning val:  69%|██████▉   | 345/500 [00:02<00:01, 135.70it/s]Assigning val:  72%|███████▏  | 359/500 [00:02<00:01, 135.32it/s]Assigning val:  75%|███████▍  | 373/500 [00:02<00:00, 134.78it/s]Assigning val:  77%|███████▋  | 387/500 [00:02<00:00, 135.15it/s]Assigning val:  80%|████████  | 401/500 [00:02<00:00, 133.62it/s]Assigning val:  83%|████████▎ | 415/500 [00:03<00:00, 133.20it/s]Assigning val:  86%|████████▌ | 429/500 [00:03<00:00, 133.12it/s]Assigning val:  89%|████████▊ | 443/500 [00:03<00:00, 134.26it/s]Assigning val:  91%|█████████▏| 457/500 [00:03<00:00, 133.77it/s]Assigning val:  94%|█████████▍| 471/500 [00:03<00:00, 134.93it/s]Assigning val:  97%|█████████▋| 485/500 [00:03<00:00, 135.59it/s]Assigning val: 100%|█████████▉| 499/500 [00:03<00:00, 135.61it/s]Assigning val: 100%|██████████| 500/500 [00:03<00:00, 135.19it/s]
+2026-04-14 17:19:19,255 [INFO] Done val
+2026-04-14 17:19:19,255 [INFO] All done -> /Users/qbit-glitch/Desktop/datasets/cityscapes/pseudo_semantic_dw_k80_l03
+
+Cascade Pseudo-Label Evaluation
+  Dataset: Cityscapes val
+  Eval resolution: 512x1024
+  Stuff/Things split: Standard (11 stuff, 8 things)
+Found 500 GT label files in /Users/qbit-glitch/Desktop/datasets/cityscapes/gtFine/val
+Discovered 500 evaluation pairs
+  Semantic pseudo-labels: 500/500
+  Instance pseudo-labels: 0/500
+
+  Computing Hungarian matching (80 clusters -> 19 classes)...
+Hungarian cost:   0%|          | 0/500 [00:00<?, ?it/s]Hungarian cost:   1%|          | 4/500 [00:00<00:13, 36.34it/s]Hungarian cost:   2%|▏         | 8/500 [00:00<00:13, 37.07it/s]Hungarian cost:   2%|▏         | 12/500 [00:00<00:13, 37.51it/s]Hungarian cost:   3%|▎         | 16/500 [00:00<00:12, 38.04it/s]Hungarian cost:   4%|▍         | 20/500 [00:00<00:12, 37.52it/s]Hungarian cost:   5%|▍         | 24/500 [00:00<00:12, 37.17it/s]Hungarian cost:   6%|▌         | 28/500 [00:00<00:12, 37.13it/s]Hungarian cost:   6%|▋         | 32/500 [00:00<00:12, 36.82it/s]Hungarian cost:   7%|▋         | 36/500 [00:00<00:12, 36.66it/s]Hungarian cost:   8%|▊         | 40/500 [00:01<00:12, 36.30it/s]Hungarian cost:   9%|▉         | 44/500 [00:01<00:12, 36.53it/s]Hungarian cost:  10%|▉         | 48/500 [00:01<00:12, 37.25it/s]Hungarian cost:  10%|█         | 52/500 [00:01<00:11, 37.76it/s]Hungarian cost:  11%|█         | 56/500 [00:01<00:11, 37.45it/s]Hungarian cost:  12%|█▏        | 60/500 [00:01<00:12, 36.64it/s]Hungarian cost:  13%|█▎        | 64/500 [00:01<00:11, 37.45it/s]Hungarian cost:  14%|█▎        | 68/500 [00:01<00:11, 37.13it/s]Hungarian cost:  15%|█▍        | 73/500 [00:01<00:11, 38.68it/s]Hungarian cost:  15%|█▌        | 77/500 [00:02<00:10, 38.64it/s]Hungarian cost:  16%|█▌        | 81/500 [00:02<00:10, 38.45it/s]Hungarian cost:  17%|█▋        | 85/500 [00:02<00:10, 38.76it/s]Hungarian cost:  18%|█▊        | 90/500 [00:02<00:10, 39.19it/s]Hungarian cost:  19%|█▉        | 94/500 [00:02<00:10, 38.87it/s]Hungarian cost:  20%|█▉        | 99/500 [00:02<00:10, 39.62it/s]Hungarian cost:  21%|██        | 103/500 [00:02<00:10, 39.04it/s]Hungarian cost:  21%|██▏       | 107/500 [00:02<00:10, 38.89it/s]Hungarian cost:  22%|██▏       | 111/500 [00:02<00:09, 39.05it/s]Hungarian cost:  23%|██▎       | 115/500 [00:03<00:09, 39.15it/s]Hungarian cost:  24%|██▍       | 119/500 [00:03<00:09, 39.03it/s]Hungarian cost:  25%|██▍       | 123/500 [00:03<00:09, 38.23it/s]Hungarian cost:  25%|██▌       | 127/500 [00:03<00:09, 38.71it/s]Hungarian cost:  26%|██▋       | 132/500 [00:03<00:09, 39.14it/s]Hungarian cost:  27%|██▋       | 137/500 [00:03<00:09, 39.77it/s]Hungarian cost:  28%|██▊       | 141/500 [00:03<00:09, 39.11it/s]Hungarian cost:  29%|██▉       | 145/500 [00:03<00:09, 39.25it/s]Hungarian cost:  30%|██▉       | 149/500 [00:03<00:09, 38.97it/s]Hungarian cost:  31%|███       | 154/500 [00:04<00:08, 39.67it/s]Hungarian cost:  32%|███▏      | 158/500 [00:04<00:08, 39.56it/s]Hungarian cost:  32%|███▏      | 162/500 [00:04<00:08, 39.48it/s]Hungarian cost:  33%|███▎      | 167/500 [00:04<00:08, 39.65it/s]Hungarian cost:  34%|███▍      | 172/500 [00:04<00:08, 39.86it/s]Hungarian cost:  35%|███▌      | 176/500 [00:04<00:08, 39.75it/s]Hungarian cost:  36%|███▌      | 181/500 [00:04<00:07, 40.50it/s]Hungarian cost:  37%|███▋      | 186/500 [00:04<00:07, 41.56it/s]Hungarian cost:  38%|███▊      | 191/500 [00:04<00:07, 42.06it/s]Hungarian cost:  39%|███▉      | 196/500 [00:05<00:07, 41.73it/s]Hungarian cost:  40%|████      | 201/500 [00:05<00:07, 41.64it/s]Hungarian cost:  41%|████      | 206/500 [00:05<00:07, 41.33it/s]Hungarian cost:  42%|████▏     | 211/500 [00:05<00:07, 40.66it/s]Hungarian cost:  43%|████▎     | 216/500 [00:05<00:06, 40.76it/s]Hungarian cost:  44%|████▍     | 221/500 [00:05<00:06, 40.44it/s]Hungarian cost:  45%|████▌     | 226/500 [00:05<00:06, 40.33it/s]Hungarian cost:  46%|████▌     | 231/500 [00:05<00:06, 40.14it/s]Hungarian cost:  47%|████▋     | 236/500 [00:06<00:06, 40.40it/s]Hungarian cost:  48%|████▊     | 241/500 [00:06<00:06, 40.35it/s]Hungarian cost:  49%|████▉     | 246/500 [00:06<00:06, 40.22it/s]Hungarian cost:  50%|█████     | 251/500 [00:06<00:06, 39.95it/s]Hungarian cost:  51%|█████     | 255/500 [00:06<00:06, 39.77it/s]Hungarian cost:  52%|█████▏    | 259/500 [00:06<00:06, 39.69it/s]Hungarian cost:  53%|█████▎    | 263/500 [00:06<00:06, 38.98it/s]Hungarian cost:  53%|█████▎    | 267/500 [00:06<00:05, 39.21it/s]Hungarian cost:  54%|█████▍    | 271/500 [00:06<00:05, 39.34it/s]Hungarian cost:  55%|█████▌    | 275/500 [00:07<00:05, 39.37it/s]Hungarian cost:  56%|█████▌    | 279/500 [00:07<00:05, 39.27it/s]Hungarian cost:  57%|█████▋    | 283/500 [00:07<00:05, 39.07it/s]Hungarian cost:  58%|█████▊    | 289/500 [00:07<00:04, 43.58it/s]Hungarian cost:  59%|█████▉    | 294/500 [00:07<00:04, 43.27it/s]Hungarian cost:  60%|█████▉    | 299/500 [00:07<00:04, 44.27it/s]Hungarian cost:  61%|██████    | 305/500 [00:07<00:04, 46.37it/s]Hungarian cost:  62%|██████▏   | 310/500 [00:07<00:04, 46.22it/s]Hungarian cost:  63%|██████▎   | 316/500 [00:07<00:03, 48.88it/s]Hungarian cost:  64%|██████▍   | 322/500 [00:08<00:03, 51.63it/s]Hungarian cost:  66%|██████▌   | 328/500 [00:08<00:03, 48.50it/s]Hungarian cost:  67%|██████▋   | 333/500 [00:08<00:03, 45.81it/s]Hungarian cost:  68%|██████▊   | 338/500 [00:08<00:03, 43.67it/s]Hungarian cost:  69%|██████▊   | 343/500 [00:08<00:03, 42.47it/s]Hungarian cost:  70%|██████▉   | 348/500 [00:08<00:03, 41.59it/s]Hungarian cost:  71%|███████   | 353/500 [00:08<00:03, 40.38it/s]Hungarian cost:  72%|███████▏  | 358/500 [00:08<00:03, 40.15it/s]Hungarian cost:  73%|███████▎  | 363/500 [00:09<00:03, 39.84it/s]Hungarian cost:  74%|███████▎  | 368/500 [00:09<00:03, 40.06it/s]Hungarian cost:  75%|███████▍  | 373/500 [00:09<00:03, 39.83it/s]Hungarian cost:  75%|███████▌  | 377/500 [00:09<00:03, 39.83it/s]Hungarian cost:  76%|███████▌  | 381/500 [00:09<00:02, 39.85it/s]Hungarian cost:  77%|███████▋  | 386/500 [00:09<00:02, 40.14it/s]Hungarian cost:  78%|███████▊  | 391/500 [00:09<00:02, 39.83it/s]Hungarian cost:  79%|███████▉  | 395/500 [00:09<00:02, 39.59it/s]Hungarian cost:  80%|███████▉  | 399/500 [00:09<00:02, 39.58it/s]Hungarian cost:  81%|████████  | 404/500 [00:10<00:02, 40.51it/s]Hungarian cost:  82%|████████▏ | 409/500 [00:10<00:02, 40.43it/s]Hungarian cost:  83%|████████▎ | 414/500 [00:10<00:02, 39.76it/s]Hungarian cost:  84%|████████▎ | 418/500 [00:10<00:02, 39.62it/s]Hungarian cost:  84%|████████▍ | 422/500 [00:10<00:01, 39.66it/s]Hungarian cost:  85%|████████▌ | 426/500 [00:10<00:01, 39.34it/s]Hungarian cost:  86%|████████▌ | 431/500 [00:10<00:01, 39.67it/s]Hungarian cost:  87%|████████▋ | 436/500 [00:10<00:01, 40.10it/s]Hungarian cost:  88%|████████▊ | 441/500 [00:10<00:01, 40.03it/s]Hungarian cost:  89%|████████▉ | 446/500 [00:11<00:01, 40.25it/s]Hungarian cost:  90%|█████████ | 451/500 [00:11<00:01, 40.14it/s]Hungarian cost:  91%|█████████ | 456/500 [00:11<00:01, 39.97it/s]Hungarian cost:  92%|█████████▏| 461/500 [00:11<00:00, 40.60it/s]Hungarian cost:  93%|█████████▎| 466/500 [00:11<00:00, 40.58it/s]Hungarian cost:  94%|█████████▍| 471/500 [00:11<00:00, 41.44it/s]Hungarian cost:  95%|█████████▌| 476/500 [00:11<00:00, 42.64it/s]Hungarian cost:  96%|█████████▌| 481/500 [00:11<00:00, 41.60it/s]Hungarian cost:  97%|█████████▋| 486/500 [00:12<00:00, 40.49it/s]Hungarian cost:  98%|█████████▊| 491/500 [00:12<00:00, 40.32it/s]Hungarian cost:  99%|█████████▉| 496/500 [00:12<00:00, 40.25it/s]Hungarian cost: 100%|██████████| 500/500 [00:12<00:00, 40.19it/s]
+  Matched 19/80 clusters to 19 GT classes
+
+============================================================
+SEMANTIC EVALUATION (500 images)
+  (applying Hungarian cluster → trainID mapping)
+============================================================
+Semantic eval:   0%|          | 0/500 [00:00<?, ?it/s]Semantic eval:   2%|▏         | 8/500 [00:00<00:07, 70.22it/s]Semantic eval:   3%|▎         | 16/500 [00:00<00:06, 69.92it/s]Semantic eval:   5%|▍         | 24/500 [00:00<00:06, 70.04it/s]Semantic eval:   6%|▋         | 32/500 [00:00<00:06, 68.67it/s]Semantic eval:   8%|▊         | 39/500 [00:00<00:06, 67.36it/s]Semantic eval:   9%|▉         | 46/500 [00:00<00:06, 67.49it/s]Semantic eval:  11%|█         | 53/500 [00:00<00:06, 67.78it/s]Semantic eval:  12%|█▏        | 60/500 [00:00<00:06, 67.54it/s]Semantic eval:  13%|█▎        | 67/500 [00:00<00:06, 67.08it/s]Semantic eval:  15%|█▍        | 74/500 [00:01<00:06, 67.08it/s]Semantic eval:  16%|█▌        | 81/500 [00:01<00:06, 67.44it/s]Semantic eval:  18%|█▊        | 88/500 [00:01<00:06, 66.46it/s]Semantic eval:  19%|█▉        | 95/500 [00:01<00:06, 67.31it/s]Semantic eval:  20%|██        | 102/500 [00:01<00:05, 67.35it/s]Semantic eval:  22%|██▏       | 109/500 [00:01<00:05, 67.76it/s]Semantic eval:  23%|██▎       | 116/500 [00:01<00:05, 68.27it/s]Semantic eval:  25%|██▍       | 123/500 [00:01<00:05, 68.45it/s]Semantic eval:  26%|██▌       | 130/500 [00:01<00:05, 68.73it/s]Semantic eval:  28%|██▊       | 138/500 [00:02<00:05, 70.34it/s]Semantic eval:  29%|██▉       | 146/500 [00:02<00:05, 69.07it/s]Semantic eval:  31%|███       | 154/500 [00:02<00:04, 69.52it/s]Semantic eval:  32%|███▏      | 161/500 [00:02<00:04, 68.82it/s]Semantic eval:  34%|███▎      | 168/500 [00:02<00:04, 69.13it/s]Semantic eval:  35%|███▌      | 175/500 [00:02<00:04, 68.65it/s]Semantic eval:  36%|███▋      | 182/500 [00:02<00:04, 68.95it/s]Semantic eval:  38%|███▊      | 190/500 [00:02<00:04, 69.51it/s]Semantic eval:  40%|███▉      | 198/500 [00:02<00:04, 70.28it/s]Semantic eval:  41%|████      | 206/500 [00:02<00:04, 71.43it/s]Semantic eval:  43%|████▎     | 214/500 [00:03<00:04, 71.27it/s]Semantic eval:  44%|████▍     | 222/500 [00:03<00:03, 70.39it/s]Semantic eval:  46%|████▌     | 230/500 [00:03<00:03, 70.78it/s]Semantic eval:  48%|████▊     | 238/500 [00:03<00:03, 69.75it/s]Semantic eval:  49%|████▉     | 246/500 [00:03<00:03, 69.60it/s]Semantic eval:  51%|█████     | 253/500 [00:03<00:03, 69.45it/s]Semantic eval:  52%|█████▏    | 260/500 [00:03<00:03, 68.94it/s]Semantic eval:  53%|█████▎    | 267/500 [00:03<00:03, 68.72it/s]Semantic eval:  55%|█████▌    | 275/500 [00:03<00:03, 69.86it/s]Semantic eval:  57%|█████▋    | 283/500 [00:04<00:03, 70.48it/s]Semantic eval:  58%|█████▊    | 292/500 [00:04<00:02, 75.09it/s]Semantic eval:  60%|██████    | 301/500 [00:04<00:02, 77.78it/s]Semantic eval:  62%|██████▏   | 310/500 [00:04<00:02, 80.36it/s]Semantic eval:  64%|██████▍   | 320/500 [00:04<00:02, 84.15it/s]Semantic eval:  66%|██████▌   | 329/500 [00:04<00:02, 82.67it/s]Semantic eval:  68%|██████▊   | 338/500 [00:04<00:02, 78.89it/s]Semantic eval:  69%|██████▉   | 346/500 [00:04<00:02, 76.27it/s]Semantic eval:  71%|███████   | 354/500 [00:04<00:01, 73.68it/s]Semantic eval:  72%|███████▏  | 362/500 [00:05<00:01, 73.06it/s]Semantic eval:  74%|███████▍  | 370/500 [00:05<00:01, 72.73it/s]Semantic eval:  76%|███████▌  | 378/500 [00:05<00:01, 72.09it/s]Semantic eval:  77%|███████▋  | 386/500 [00:05<00:01, 72.64it/s]Semantic eval:  79%|███████▉  | 394/500 [00:05<00:01, 73.37it/s]Semantic eval:  80%|████████  | 402/500 [00:05<00:01, 73.93it/s]Semantic eval:  82%|████████▏ | 410/500 [00:05<00:01, 73.41it/s]Semantic eval:  84%|████████▎ | 418/500 [00:05<00:01, 72.11it/s]Semantic eval:  85%|████████▌ | 426/500 [00:05<00:01, 72.60it/s]Semantic eval:  87%|████████▋ | 434/500 [00:06<00:00, 73.02it/s]Semantic eval:  88%|████████▊ | 442/500 [00:06<00:00, 71.36it/s]Semantic eval:  90%|█████████ | 450/500 [00:06<00:00, 71.43it/s]Semantic eval:  92%|█████████▏| 458/500 [00:06<00:00, 70.00it/s]Semantic eval:  93%|█████████▎| 466/500 [00:06<00:00, 70.73it/s]Semantic eval:  95%|█████████▍| 474/500 [00:06<00:00, 72.39it/s]Semantic eval:  96%|█████████▋| 482/500 [00:06<00:00, 73.41it/s]Semantic eval:  98%|█████████▊| 490/500 [00:06<00:00, 72.47it/s]Semantic eval: 100%|█████████▉| 498/500 [00:06<00:00, 71.45it/s]Semantic eval: 100%|██████████| 500/500 [00:07<00:00, 71.23it/s]
+
+  Per-class IoU:
+    [S] road           :  57.1% ██████████████████████
+    [S] sidewalk       :  15.6% ██████
+    [S] building       :  23.8% █████████
+    [S] wall           :   3.7% █
+    [S] fence          :   4.6% █
+    [S] pole           :   3.2% █
+    [S] traffic light  :   0.5% 
+    [S] traffic sign   :   3.3% █
+    [S] vegetation     :  36.8% ██████████████
+    [S] terrain        :   2.9% █
+    [S] sky            :  82.3% ████████████████████████████████
+    [T] person         :   4.4% █
+    [T] rider          :   0.9% 
+    [T] car            :  24.3% █████████
+    [T] truck          :   2.5% █
+    [T] bus            :   1.3% 
+    [T] train          :   1.9% 
+    [T] motorcycle     :   0.6% 
+    [T] bicycle        :   2.6% █
+
+  mIoU:           14.35%
+  Pixel Accuracy: 32.61%
+
+  [SKIP] No instance pseudo-labels found for val
+
+============================================================
+PANOPTIC EVALUATION (pred: 11 stuff/8 things, GT: 11 stuff/8 things)
+  Thing instance mode: connected_components
+  Using Hungarian cluster mapping
+============================================================
+Panoptic eval:   0%|          | 0/500 [00:00<?, ?it/s]Panoptic eval:   0%|          | 2/500 [00:00<00:26, 18.52it/s]Panoptic eval:   1%|          | 4/500 [00:00<00:26, 18.50it/s]Panoptic eval:   1%|          | 6/500 [00:00<00:28, 17.62it/s]Panoptic eval:   2%|▏         | 8/500 [00:00<00:30, 16.20it/s]Panoptic eval:   2%|▏         | 10/500 [00:00<00:28, 16.95it/s]Panoptic eval:   2%|▏         | 12/500 [00:00<00:27, 17.74it/s]Panoptic eval:   3%|▎         | 14/500 [00:00<00:27, 17.79it/s]Panoptic eval:   3%|▎         | 17/500 [00:00<00:26, 18.55it/s]Panoptic eval:   4%|▍         | 19/500 [00:01<00:25, 18.82it/s]Panoptic eval:   4%|▍         | 22/500 [00:01<00:23, 20.34it/s]Panoptic eval:   5%|▌         | 25/500 [00:01<00:23, 20.41it/s]Panoptic eval:   6%|▌         | 28/500 [00:01<00:24, 19.13it/s]Panoptic eval:   6%|▌         | 30/500 [00:01<00:25, 18.16it/s]Panoptic eval:   6%|▋         | 32/500 [00:01<00:25, 18.40it/s]Panoptic eval:   7%|▋         | 35/500 [00:01<00:24, 19.20it/s]Panoptic eval:   7%|▋         | 37/500 [00:01<00:24, 18.77it/s]Panoptic eval:   8%|▊         | 39/500 [00:02<00:25, 18.38it/s]Panoptic eval:   8%|▊         | 41/500 [00:02<00:25, 18.07it/s]Panoptic eval:   9%|▊         | 43/500 [00:02<00:26, 17.28it/s]Panoptic eval:   9%|▉         | 45/500 [00:02<00:28, 16.23it/s]Panoptic eval:   9%|▉         | 47/500 [00:02<00:27, 16.32it/s]Panoptic eval:  10%|▉         | 49/500 [00:02<00:27, 16.45it/s]Panoptic eval:  10%|█         | 51/500 [00:02<00:26, 16.96it/s]Panoptic eval:  11%|█         | 54/500 [00:03<00:26, 17.12it/s]Panoptic eval:  11%|█         | 56/500 [00:03<00:25, 17.40it/s]Panoptic eval:  12%|█▏        | 58/500 [00:03<00:24, 17.89it/s]Panoptic eval:  12%|█▏        | 61/500 [00:03<00:23, 18.45it/s]Panoptic eval:  13%|█▎        | 63/500 [00:03<00:27, 16.11it/s]Panoptic eval:  13%|█▎        | 66/500 [00:03<00:24, 17.59it/s]Panoptic eval:  14%|█▍        | 69/500 [00:03<00:23, 18.03it/s]Panoptic eval:  14%|█▍        | 71/500 [00:03<00:23, 18.06it/s]Panoptic eval:  15%|█▍        | 73/500 [00:04<00:23, 18.22it/s]Panoptic eval:  15%|█▌        | 75/500 [00:04<00:23, 17.89it/s]Panoptic eval:  15%|█▌        | 77/500 [00:04<00:26, 16.17it/s]Panoptic eval:  16%|█▌        | 79/500 [00:04<00:28, 14.68it/s]Panoptic eval:  16%|█▌        | 81/500 [00:04<00:30, 13.83it/s]Panoptic eval:  17%|█▋        | 83/500 [00:04<00:30, 13.48it/s]Panoptic eval:  17%|█▋        | 85/500 [00:04<00:32, 12.97it/s]Panoptic eval:  17%|█▋        | 87/500 [00:05<00:35, 11.63it/s]Panoptic eval:  18%|█▊        | 89/500 [00:05<00:35, 11.55it/s]Panoptic eval:  18%|█▊        | 91/500 [00:05<00:35, 11.44it/s]Panoptic eval:  19%|█▊        | 93/500 [00:05<00:31, 12.72it/s]Panoptic eval:  19%|█▉        | 95/500 [00:05<00:30, 13.28it/s]Panoptic eval:  19%|█▉        | 97/500 [00:05<00:28, 14.07it/s]Panoptic eval:  20%|█▉        | 99/500 [00:06<00:29, 13.69it/s]Panoptic eval:  20%|██        | 101/500 [00:06<00:30, 13.30it/s]Panoptic eval:  21%|██        | 103/500 [00:06<00:28, 13.90it/s]Panoptic eval:  21%|██        | 106/500 [00:06<00:24, 16.29it/s]Panoptic eval:  22%|██▏       | 109/500 [00:06<00:22, 17.33it/s]Panoptic eval:  22%|██▏       | 111/500 [00:06<00:22, 17.20it/s]Panoptic eval:  23%|██▎       | 114/500 [00:06<00:21, 18.20it/s]Panoptic eval:  23%|██▎       | 116/500 [00:07<00:21, 18.15it/s]Panoptic eval:  24%|██▎       | 118/500 [00:07<00:20, 18.24it/s]Panoptic eval:  24%|██▍       | 120/500 [00:07<00:20, 18.51it/s]Panoptic eval:  24%|██▍       | 122/500 [00:07<00:22, 17.15it/s]Panoptic eval:  25%|██▍       | 124/500 [00:07<00:21, 17.14it/s]Panoptic eval:  25%|██▌       | 126/500 [00:07<00:21, 17.16it/s]Panoptic eval:  26%|██▌       | 128/500 [00:07<00:23, 16.09it/s]Panoptic eval:  26%|██▌       | 130/500 [00:07<00:22, 16.44it/s]Panoptic eval:  26%|██▋       | 132/500 [00:08<00:26, 13.71it/s]Panoptic eval:  27%|██▋       | 134/500 [00:08<00:26, 13.81it/s]Panoptic eval:  27%|██▋       | 136/500 [00:08<00:27, 13.11it/s]Panoptic eval:  28%|██▊       | 138/500 [00:08<00:25, 14.28it/s]Panoptic eval:  28%|██▊       | 140/500 [00:08<00:23, 15.04it/s]Panoptic eval:  28%|██▊       | 142/500 [00:08<00:24, 14.36it/s]Panoptic eval:  29%|██▉       | 144/500 [00:08<00:25, 14.02it/s]Panoptic eval:  29%|██▉       | 146/500 [00:09<00:23, 14.76it/s]Panoptic eval:  30%|██▉       | 148/500 [00:09<00:22, 15.93it/s]Panoptic eval:  30%|███       | 151/500 [00:09<00:19, 18.11it/s]Panoptic eval:  31%|███       | 154/500 [00:09<00:17, 19.35it/s]Panoptic eval:  31%|███       | 156/500 [00:09<00:18, 18.92it/s]Panoptic eval:  32%|███▏      | 158/500 [00:09<00:17, 19.13it/s]Panoptic eval:  32%|███▏      | 160/500 [00:09<00:18, 18.80it/s]Panoptic eval:  32%|███▏      | 162/500 [00:09<00:19, 17.50it/s]Panoptic eval:  33%|███▎      | 164/500 [00:10<00:21, 15.98it/s]Panoptic eval:  33%|███▎      | 166/500 [00:10<00:20, 16.08it/s]Panoptic eval:  34%|███▎      | 168/500 [00:10<00:20, 15.85it/s]Panoptic eval:  34%|███▍      | 170/500 [00:10<00:20, 16.05it/s]Panoptic eval:  35%|███▍      | 173/500 [00:10<00:19, 16.67it/s]Panoptic eval:  35%|███▌      | 175/500 [00:10<00:19, 16.30it/s]Panoptic eval:  35%|███▌      | 177/500 [00:10<00:21, 15.10it/s]Panoptic eval:  36%|███▌      | 180/500 [00:11<00:19, 16.77it/s]Panoptic eval:  36%|███▋      | 182/500 [00:11<00:19, 16.35it/s]Panoptic eval:  37%|███▋      | 184/500 [00:11<00:20, 15.43it/s]Panoptic eval:  37%|███▋      | 186/500 [00:11<00:19, 16.40it/s]Panoptic eval:  38%|███▊      | 188/500 [00:11<00:23, 13.38it/s]Panoptic eval:  38%|███▊      | 190/500 [00:11<00:24, 12.49it/s]Panoptic eval:  38%|███▊      | 192/500 [00:11<00:23, 13.20it/s]Panoptic eval:  39%|███▉      | 194/500 [00:12<00:24, 12.66it/s]Panoptic eval:  39%|███▉      | 196/500 [00:12<00:28, 10.81it/s]Panoptic eval:  40%|███▉      | 198/500 [00:12<00:25, 11.84it/s]Panoptic eval:  40%|████      | 200/500 [00:12<00:25, 11.70it/s]Panoptic eval:  40%|████      | 202/500 [00:12<00:23, 12.52it/s]Panoptic eval:  41%|████      | 204/500 [00:12<00:22, 13.04it/s]Panoptic eval:  41%|████      | 206/500 [00:13<00:22, 13.36it/s]Panoptic eval:  42%|████▏     | 208/500 [00:13<00:21, 13.60it/s]Panoptic eval:  42%|████▏     | 210/500 [00:13<00:21, 13.59it/s]Panoptic eval:  42%|████▏     | 212/500 [00:13<00:20, 14.36it/s]Panoptic eval:  43%|████▎     | 215/500 [00:13<00:17, 16.07it/s]Panoptic eval:  44%|████▎     | 218/500 [00:13<00:16, 17.23it/s]Panoptic eval:  44%|████▍     | 220/500 [00:13<00:17, 15.67it/s]Panoptic eval:  44%|████▍     | 222/500 [00:14<00:17, 15.47it/s]Panoptic eval:  45%|████▍     | 224/500 [00:14<00:18, 15.02it/s]Panoptic eval:  45%|████▌     | 226/500 [00:14<00:17, 16.08it/s]Panoptic eval:  46%|████▌     | 228/500 [00:14<00:16, 16.00it/s]Panoptic eval:  46%|████▌     | 231/500 [00:14<00:17, 15.44it/s]Panoptic eval:  47%|████▋     | 233/500 [00:14<00:17, 15.35it/s]Panoptic eval:  47%|████▋     | 235/500 [00:14<00:18, 14.72it/s]Panoptic eval:  47%|████▋     | 237/500 [00:15<00:17, 15.41it/s]Panoptic eval:  48%|████▊     | 240/500 [00:15<00:15, 17.11it/s]Panoptic eval:  48%|████▊     | 242/500 [00:15<00:15, 16.16it/s]Panoptic eval:  49%|████▉     | 244/500 [00:15<00:15, 16.25it/s]Panoptic eval:  49%|████▉     | 246/500 [00:15<00:15, 16.72it/s]Panoptic eval:  50%|████▉     | 248/500 [00:15<00:14, 17.36it/s]Panoptic eval:  50%|█████     | 250/500 [00:15<00:16, 14.85it/s]Panoptic eval:  50%|█████     | 252/500 [00:16<00:17, 14.51it/s]Panoptic eval:  51%|█████     | 254/500 [00:16<00:16, 14.57it/s]Panoptic eval:  51%|█████     | 256/500 [00:16<00:16, 14.36it/s]Panoptic eval:  52%|█████▏    | 258/500 [00:16<00:16, 14.99it/s]Panoptic eval:  52%|█████▏    | 260/500 [00:16<00:15, 15.02it/s]Panoptic eval:  52%|█████▏    | 262/500 [00:16<00:14, 15.91it/s]Panoptic eval:  53%|█████▎    | 264/500 [00:16<00:15, 15.56it/s]Panoptic eval:  53%|█████▎    | 266/500 [00:16<00:14, 16.54it/s]Panoptic eval:  54%|█████▍    | 269/500 [00:17<00:12, 18.57it/s]Panoptic eval:  54%|█████▍    | 272/500 [00:17<00:11, 19.41it/s]Panoptic eval:  55%|█████▍    | 274/500 [00:17<00:11, 18.83it/s]Panoptic eval:  55%|█████▌    | 277/500 [00:17<00:11, 19.63it/s]Panoptic eval:  56%|█████▌    | 280/500 [00:17<00:10, 20.35it/s]Panoptic eval:  57%|█████▋    | 283/500 [00:17<00:10, 21.04it/s]Panoptic eval:  57%|█████▋    | 286/500 [00:17<00:09, 22.57it/s]Panoptic eval:  58%|█████▊    | 290/500 [00:17<00:08, 24.84it/s]Panoptic eval:  59%|█████▊    | 293/500 [00:18<00:09, 22.49it/s]Panoptic eval:  59%|█████▉    | 296/500 [00:18<00:08, 23.44it/s]Panoptic eval:  60%|█████▉    | 299/500 [00:18<00:08, 24.65it/s]Panoptic eval:  60%|██████    | 302/500 [00:18<00:07, 25.71it/s]Panoptic eval:  61%|██████    | 305/500 [00:18<00:07, 26.26it/s]Panoptic eval:  62%|██████▏   | 308/500 [00:18<00:07, 26.15it/s]Panoptic eval:  62%|██████▏   | 311/500 [00:18<00:07, 24.63it/s]Panoptic eval:  63%|██████▎   | 315/500 [00:18<00:06, 26.70it/s]Panoptic eval:  64%|██████▍   | 319/500 [00:19<00:06, 28.07it/s]Panoptic eval:  64%|██████▍   | 322/500 [00:19<00:06, 27.85it/s]Panoptic eval:  65%|██████▌   | 325/500 [00:19<00:06, 25.58it/s]Panoptic eval:  66%|██████▌   | 328/500 [00:19<00:07, 23.48it/s]Panoptic eval:  66%|██████▌   | 331/500 [00:19<00:07, 21.88it/s]Panoptic eval:  67%|██████▋   | 334/500 [00:19<00:08, 20.59it/s]Panoptic eval:  67%|██████▋   | 337/500 [00:19<00:09, 18.06it/s]Panoptic eval:  68%|██████▊   | 339/500 [00:20<00:09, 17.16it/s]Panoptic eval:  68%|██████▊   | 341/500 [00:20<00:10, 15.41it/s]Panoptic eval:  69%|██████▊   | 343/500 [00:20<00:10, 14.51it/s]Panoptic eval:  69%|██████▉   | 345/500 [00:20<00:10, 14.46it/s]Panoptic eval:  70%|██████▉   | 348/500 [00:20<00:09, 15.71it/s]Panoptic eval:  70%|███████   | 350/500 [00:20<00:09, 15.52it/s]Panoptic eval:  70%|███████   | 352/500 [00:21<00:09, 15.97it/s]Panoptic eval:  71%|███████   | 354/500 [00:21<00:09, 15.34it/s]Panoptic eval:  71%|███████   | 356/500 [00:21<00:09, 15.37it/s]Panoptic eval:  72%|███████▏  | 358/500 [00:21<00:08, 16.32it/s]Panoptic eval:  72%|███████▏  | 360/500 [00:21<00:08, 16.29it/s]Panoptic eval:  72%|███████▏  | 362/500 [00:21<00:08, 17.04it/s]Panoptic eval:  73%|███████▎  | 364/500 [00:21<00:07, 17.74it/s]Panoptic eval:  73%|███████▎  | 366/500 [00:21<00:07, 16.84it/s]Panoptic eval:  74%|███████▎  | 368/500 [00:21<00:08, 15.90it/s]Panoptic eval:  74%|███████▍  | 370/500 [00:22<00:08, 15.98it/s]Panoptic eval:  74%|███████▍  | 372/500 [00:22<00:08, 15.67it/s]Panoptic eval:  75%|███████▍  | 374/500 [00:22<00:08, 15.06it/s]Panoptic eval:  75%|███████▌  | 376/500 [00:22<00:08, 14.19it/s]Panoptic eval:  76%|███████▌  | 378/500 [00:22<00:07, 15.34it/s]Panoptic eval:  76%|███████▌  | 380/500 [00:22<00:08, 14.28it/s]Panoptic eval:  76%|███████▋  | 382/500 [00:22<00:07, 15.05it/s]Panoptic eval:  77%|███████▋  | 384/500 [00:23<00:07, 15.64it/s]Panoptic eval:  77%|███████▋  | 386/500 [00:23<00:06, 16.56it/s]Panoptic eval:  78%|███████▊  | 388/500 [00:23<00:06, 16.16it/s]Panoptic eval:  78%|███████▊  | 390/500 [00:23<00:07, 15.00it/s]Panoptic eval:  78%|███████▊  | 392/500 [00:23<00:06, 15.53it/s]Panoptic eval:  79%|███████▉  | 394/500 [00:23<00:06, 16.56it/s]Panoptic eval:  79%|███████▉  | 396/500 [00:23<00:06, 16.01it/s]Panoptic eval:  80%|███████▉  | 398/500 [00:23<00:06, 15.84it/s]Panoptic eval:  80%|████████  | 400/500 [00:24<00:06, 15.76it/s]Panoptic eval:  80%|████████  | 402/500 [00:24<00:06, 16.28it/s]Panoptic eval:  81%|████████  | 405/500 [00:24<00:05, 17.13it/s]Panoptic eval:  81%|████████▏ | 407/500 [00:24<00:05, 16.46it/s]Panoptic eval:  82%|████████▏ | 409/500 [00:24<00:05, 17.29it/s]Panoptic eval:  82%|████████▏ | 411/500 [00:24<00:05, 17.29it/s]Panoptic eval:  83%|████████▎ | 413/500 [00:24<00:05, 16.38it/s]Panoptic eval:  83%|████████▎ | 415/500 [00:24<00:05, 16.75it/s]Panoptic eval:  83%|████████▎ | 417/500 [00:25<00:05, 16.23it/s]Panoptic eval:  84%|████████▍ | 419/500 [00:25<00:05, 15.11it/s]Panoptic eval:  84%|████████▍ | 421/500 [00:25<00:05, 13.99it/s]Panoptic eval:  85%|████████▍ | 423/500 [00:25<00:05, 15.28it/s]Panoptic eval:  85%|████████▌ | 425/500 [00:25<00:04, 15.28it/s]Panoptic eval:  86%|████████▌ | 428/500 [00:25<00:04, 16.77it/s]Panoptic eval:  86%|████████▌ | 430/500 [00:25<00:04, 16.92it/s]Panoptic eval:  86%|████████▋ | 432/500 [00:26<00:04, 16.72it/s]Panoptic eval:  87%|████████▋ | 434/500 [00:26<00:03, 17.09it/s]Panoptic eval:  87%|████████▋ | 436/500 [00:26<00:03, 17.59it/s]Panoptic eval:  88%|████████▊ | 438/500 [00:26<00:03, 17.09it/s]Panoptic eval:  88%|████████▊ | 440/500 [00:26<00:03, 17.64it/s]Panoptic eval:  88%|████████▊ | 442/500 [00:26<00:03, 17.91it/s]Panoptic eval:  89%|████████▉ | 445/500 [00:26<00:02, 18.80it/s]Panoptic eval:  89%|████████▉ | 447/500 [00:26<00:02, 19.01it/s]Panoptic eval:  90%|█████████ | 450/500 [00:26<00:02, 19.33it/s]Panoptic eval:  90%|█████████ | 452/500 [00:27<00:02, 18.77it/s]Panoptic eval:  91%|█████████ | 455/500 [00:27<00:02, 19.26it/s]Panoptic eval:  91%|█████████▏| 457/500 [00:27<00:02, 18.53it/s]Panoptic eval:  92%|█████████▏| 459/500 [00:27<00:02, 18.87it/s]Panoptic eval:  92%|█████████▏| 462/500 [00:27<00:01, 19.90it/s]Panoptic eval:  93%|█████████▎| 465/500 [00:27<00:01, 19.77it/s]Panoptic eval:  93%|█████████▎| 467/500 [00:27<00:02, 15.36it/s]Panoptic eval:  94%|█████████▍| 469/500 [00:28<00:02, 13.34it/s]Panoptic eval:  94%|█████████▍| 471/500 [00:28<00:02, 12.79it/s]Panoptic eval:  95%|█████████▍| 473/500 [00:28<00:02, 13.23it/s]Panoptic eval:  95%|█████████▌| 475/500 [00:28<00:01, 12.66it/s]Panoptic eval:  95%|█████████▌| 477/500 [00:28<00:01, 13.91it/s]Panoptic eval:  96%|█████████▌| 479/500 [00:28<00:01, 14.84it/s]Panoptic eval:  96%|█████████▌| 481/500 [00:28<00:01, 15.20it/s]Panoptic eval:  97%|█████████▋| 483/500 [00:29<00:01, 15.57it/s]Panoptic eval:  97%|█████████▋| 485/500 [00:29<00:00, 16.57it/s]Panoptic eval:  97%|█████████▋| 487/500 [00:29<00:00, 16.15it/s]Panoptic eval:  98%|█████████▊| 490/500 [00:29<00:00, 18.68it/s]Panoptic eval:  98%|█████████▊| 492/500 [00:29<00:00, 18.72it/s]Panoptic eval:  99%|█████████▉| 494/500 [00:29<00:00, 15.86it/s]Panoptic eval:  99%|█████████▉| 496/500 [00:29<00:00, 16.32it/s]Panoptic eval: 100%|█████████▉| 499/500 [00:30<00:00, 16.71it/s]Panoptic eval: 100%|██████████| 500/500 [00:30<00:00, 16.62it/s]
+
+  Per-class PQ (sorted):
+    [S] sky            : PQ= 10.9  SQ= 65.2  RQ= 16.8  (TP=67 FP=295 FN=370)
+    [T] car            : PQ=  6.2  SQ= 64.8  RQ=  9.5  (TP=284 FP=1065 FN=4351)
+    [S] vegetation     : PQ=  1.8  SQ= 65.0  RQ=  2.8  (TP=12 FP=366 FN=474)
+    [S] building       : PQ=  1.7  SQ= 59.2  RQ=  2.9  (TP=14 FP=460 FN=477)
+    [T] bus            : PQ=  0.4  SQ= 65.5  RQ=  0.6  (TP=7 FP=2254 FN=91)
+    [T] person         : PQ=  0.3  SQ= 56.3  RQ=  0.6  (TP=15 FP=1596 FN=3361)
+    [S] traffic sign   : PQ=  0.2  SQ= 54.8  RQ=  0.5  (TP=2 FP=414 FN=467)
+    [T] motorcycle     : PQ=  0.2  SQ= 54.7  RQ=  0.4  (TP=2 FP=961 FN=147)
+    [S] fence          : PQ=  0.1  SQ= 52.3  RQ=  0.3  (TP=1 FP=496 FN=188)
+    [T] train          : PQ=  0.1  SQ= 67.2  RQ=  0.1  (TP=1 FP=1725 FN=22)
+    [T] truck          : PQ=  0.1  SQ= 63.8  RQ=  0.1  (TP=1 FP=1863 FN=92)
+    [S] road           : PQ=  0.0  SQ=  0.0  RQ=  0.0  (TP=0 FP=493 FN=483)
+    [S] sidewalk       : PQ=  0.0  SQ=  0.0  RQ=  0.0  (TP=0 FP=489 FN=464)
+    [S] wall           : PQ=  0.0  SQ=  0.0  RQ=  0.0  (TP=0 FP=494 FN=201)
+    [S] pole           : PQ=  0.0  SQ=  0.0  RQ=  0.0  (TP=0 FP=467 FN=489)
+    [S] traffic light  : PQ=  0.0  SQ=  0.0  RQ=  0.0  (TP=0 FP=488 FN=260)
+    [S] terrain        : PQ=  0.0  SQ=  0.0  RQ=  0.0  (TP=0 FP=491 FN=231)
+    [T] rider          : PQ=  0.0  SQ=  0.0  RQ=  0.0  (TP=0 FP=1410 FN=541)
+    [T] bicycle        : PQ=  0.0  SQ=  0.0  RQ=  0.0  (TP=0 FP=1728 FN=1163)
+
+  ┌────────────────────────────────────────────┐
+  │  PQ (all):      1.2  (19 classes)          │
+  │  PQ (stuff):    1.4  (11 classes)          │
+  │  PQ (things):   0.9  ( 8 classes)          │
+  │  SQ:           64.2                        │
+  │  RQ:            2.5                        │
+  └────────────────────────────────────────────┘
+  Images evaluated: 500
+
+============================================================
+SUMMARY — Cascade Pseudo-Label Quality (val)
+============================================================
+  Semantic mIoU:     14.3%
+  Pixel Accuracy:    32.6%
+  Panoptic PQ:       1.2%
+  PQ Stuff:          1.4%
+  PQ Things:         0.9%
+  SQ:                64.2%
+  RQ:                2.5%
+
+  ┌─────────────────────────────────────────────────┐
+  │  Comparison with CUPS (CVPR 2025 SOTA, val)     │
+  │  Metric    CUPS     Ours (val  )    Δ           │
+  │  PQ        27.8       1.2       -26.6        │
+  │  PQ^St     35.1       1.4       -33.8        │
+  │  PQ^Th     17.7       0.9       -16.8        │
+  │  SQ        57.4      64.2        +6.8        │
+  │  RQ        35.2       2.5       -32.7        │
+  └─────────────────────────────────────────────────┘
+
+  Total time: 50s
+  Saved to: results/depth_enhanced/pl_l03_eval.json

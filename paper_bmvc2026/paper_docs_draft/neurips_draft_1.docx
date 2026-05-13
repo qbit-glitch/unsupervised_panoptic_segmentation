@@ -1,0 +1,15 @@
+Abstract
+          
+Unsupervised panoptic segmentation must recover both pixel-level semantics and individual object identities without human masks, and the strongest 
+scene-centric recipe to date, CUPS, supplies the missing structure from stereo depth and scene flow at pseudo-label time — a commitment that excludes   
+the monocular footage in which most images actually arrive. We ask whether a single frame, read carefully, carries the same structure, and find that it 
+does, provided no individual cue is trusted alone. We reframe pseudo-label construction as a problem of cross-modal agreement: frozen semantic codes    
+propose categories, monocular depth proposes physical separations, and a guarded filter accepts a label only when both cues concur. Two compact 
+mechanisms instantiate this principle inside an otherwise standard pipeline. DCFA is a 40K-parameter zero-initialized residual that bends a frozen
+90-dimensional CAUSE-TR code toward plausible geometry through a 16-dimensional sinusoidal depth embedding; SIMCF-ABC enforces semantic uniformity
+inside each instance proposal, merges adjacent depth fragments only when class identity and DINOv3 cosine similarity agree (τ=0.85), and rejects pixels
+whose depth violates per-class statistics. On Cityscapes, DCFA lifts semantic clustering mIoU from 52.69 to 55.29, and the full pipeline raises
+pseudo-label panoptic quality from 24.54 to 25.85, with the gain concentrated on the things split (PQ_th 12.31 → 14.70). Trained with the published CUPS
+ bootstrapping and self-training recipe on a frozen DINOv3 ViT-B/16 Cascade Mask R-CNN, the resulting detector reaches 35.83 PQ on the Cityscapes
+validation set, against 27.80 PQ for the published CUPS configuration (ResNet-50, stereo+motion) and 32.76 PQ for the same recipe trained on monocular
+pseudo-labels without our cross-modal filter; the +3.07 PQ contribution-isolated gap names what monocular agreement adds under identical training.

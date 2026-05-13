@@ -1,0 +1,38 @@
+CutS3D Training Pipeline
+  Phase: train
+  Config: configs/cityscapes_5pct.yaml
+  JAX devices: 4
+
+================================================================================
+  Phase 2: CAD Training on Pseudo-Masks
+================================================================================
+Devices: 4 x tpu
+INFO:absl:Cityscapes train: loaded 586 samples
+INFO:absl:Cityscapes val: loaded 267 samples
+INFO:absl:Subset: using 26 samples (10%)
+Train: 586, Val: 26
+  Using cached DINO weights: /home/qbit-glitch/.cache/dino/dino_vits8_pretrain.pth
+INFO:absl:Converted DINO ViT-S/8 weights from /home/qbit-glitch/.cache/dino/dino_vits8_pretrain.pth
+  Interpolating pos_embed: 784 → 512 patches
+  Pretrained DINO weights loaded successfully
+CAD parameters: 6,758,492
+
+Training: 30 epochs, 73 steps/epoch
+Batch size: 8, Patches: 512
+================================================================================
+ Epoch |   L_total | L_sc_mask |    L_drop |   Time
+--------------------------------------------------------------------------------
+jax.errors.SimplifiedTraceback: For simplicity, JAX has removed its internal frames from the traceback of the following exception. Set JAX_TRACEBACK_FILTERING=off to include these.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/qbit-glitch/mbps_panoptic_segmentation/scripts/train_cuts3d.py", line 785, in <module>
+    main()
+  File "/home/qbit-glitch/mbps_panoptic_segmentation/scripts/train_cuts3d.py", line 772, in main
+    train_cad(config, args)
+  File "/home/qbit-glitch/mbps_panoptic_segmentation/scripts/train_cuts3d.py", line 586, in train_cad
+    cad_params, opt_state, loss_val, losses = train_step(
+  File "/home/qbit-glitch/mbps_panoptic_segmentation/scripts/train_cuts3d.py", line 517, in train_step
+    grads = jax.lax.pmean(grads, axis_name="batch")
+NameError: unbound axis name: batch

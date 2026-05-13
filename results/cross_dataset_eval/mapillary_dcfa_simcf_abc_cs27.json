@@ -1,0 +1,10 @@
+{
+  "dataset": "mapillary_vistas_v2",
+  "num_images": 2000,
+  "PQ": 27.788,
+  "PQ_things": 25.558,
+  "PQ_stuff": 29.1,
+  "SQ": 59.644,
+  "RQ": 35.431,
+  "mIoU": 43.28
+}
