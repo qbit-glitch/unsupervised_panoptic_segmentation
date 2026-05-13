@@ -211,6 +211,19 @@ class FastRCNNOutputLayers(nn.Module):
         use_sigmoid_ce: bool = False,
         get_fed_loss_cls_weights: Optional[Callable] = None,
         fed_loss_num_classes: int = 50,
+        use_eqlv2: bool = False,
+        eqlv2_gamma: float = 12.0,
+        eqlv2_mu: float = 0.8,
+        eqlv2_alpha: float = 4.0,
+        use_seesaw_loss: bool = False,
+        seesaw_p: float = 0.8,
+        seesaw_q: float = 2.0,
+        rare_classes: Tuple[int, ...] = (),
+        rare_loss_weight: float = 1.0,
+        ohem_enabled: bool = False,
+        ohem_fraction: float = 0.25,
+        ohem_min_kept: int = 16,
+        ohem_rare_min_kept: int = 2,
     ):
         """
         NOTE: this interface is experimental.
@@ -269,6 +282,30 @@ class FastRCNNOutputLayers(nn.Module):
         self.use_fed_loss = use_fed_loss
         self.use_sigmoid_ce = use_sigmoid_ce
         self.fed_loss_num_classes = fed_loss_num_classes
+        self.use_eqlv2 = use_eqlv2
+        self.use_seesaw_loss = use_seesaw_loss
+        if self.use_eqlv2 and self.use_seesaw_loss:
+            raise ValueError("Stage-4 EQLv2 and Seesaw are mutually exclusive.")
+        self.rare_classes = tuple(int(c) for c in rare_classes)
+        self.rare_loss_weight = float(rare_loss_weight)
+        self.ohem_enabled = bool(ohem_enabled)
+        self.ohem_fraction = float(ohem_fraction)
+        self.ohem_min_kept = int(ohem_min_kept)
+        self.ohem_rare_min_kept = int(ohem_rare_min_kept)
+
+        if self.use_eqlv2:
+            from cups.losses.long_tail import EQLv2Loss
+
+            self.eqlv2_loss = EQLv2Loss(
+                num_classes=num_classes,
+                gamma=eqlv2_gamma,
+                mu=eqlv2_mu,
+                alpha=eqlv2_alpha,
+            )
+        if self.use_seesaw_loss:
+            from cups.losses.long_tail import SeesawSoftmaxLoss
+
+            self.seesaw_loss = SeesawSoftmaxLoss(num_classes=num_classes, p=seesaw_p, q=seesaw_q)
 
         if self.use_fed_loss:
             assert self.use_sigmoid_ce, "Please use sigmoid cross entropy loss with federated loss"
@@ -296,6 +333,19 @@ class FastRCNNOutputLayers(nn.Module):
             "use_sigmoid_ce"            : cfg.MODEL.ROI_BOX_HEAD.USE_SIGMOID_CE,
             "get_fed_loss_cls_weights"  : lambda: get_fed_loss_cls_weights(dataset_names=cfg.DATASETS.TRAIN, freq_weight_power=cfg.MODEL.ROI_BOX_HEAD.FED_LOSS_FREQ_WEIGHT_POWER),  # noqa
             "fed_loss_num_classes"      : cfg.MODEL.ROI_BOX_HEAD.FED_LOSS_NUM_CLASSES,
+            "use_eqlv2"                 : getattr(cfg.MODEL.ROI_BOX_HEAD, "USE_EQLV2", False),
+            "eqlv2_gamma"               : getattr(cfg.MODEL.ROI_BOX_HEAD, "EQLV2_GAMMA", 12.0),
+            "eqlv2_mu"                  : getattr(cfg.MODEL.ROI_BOX_HEAD, "EQLV2_MU", 0.8),
+            "eqlv2_alpha"               : getattr(cfg.MODEL.ROI_BOX_HEAD, "EQLV2_ALPHA", 4.0),
+            "use_seesaw_loss"           : getattr(cfg.MODEL.ROI_BOX_HEAD, "USE_SEESAW_LOSS", False),
+            "seesaw_p"                  : getattr(cfg.MODEL.ROI_BOX_HEAD, "SEESAW_P", 0.8),
+            "seesaw_q"                  : getattr(cfg.MODEL.ROI_BOX_HEAD, "SEESAW_Q", 2.0),
+            "rare_classes"              : tuple(getattr(cfg.MODEL.ROI_BOX_HEAD, "RARE_CLASSES", ())),
+            "rare_loss_weight"          : getattr(cfg.MODEL.ROI_BOX_HEAD, "RARE_LOSS_WEIGHT", 1.0),
+            "ohem_enabled"              : getattr(cfg.MODEL.ROI_BOX_HEAD, "OHEM_ENABLED", False),
+            "ohem_fraction"             : getattr(cfg.MODEL.ROI_BOX_HEAD, "OHEM_FRACTION", 0.25),
+            "ohem_min_kept"             : getattr(cfg.MODEL.ROI_BOX_HEAD, "OHEM_MIN_KEPT", 16),
+            "ohem_rare_min_kept"        : getattr(cfg.MODEL.ROI_BOX_HEAD, "OHEM_RARE_MIN_KEPT", 2),
             # fmt: on
         }
 
@@ -351,13 +401,19 @@ class FastRCNNOutputLayers(nn.Module):
         else:
             proposal_boxes = gt_boxes = torch.empty((0, 4), device=proposal_deltas.device)
 
-        if self.use_sigmoid_ce:
-            loss_cls = self.sigmoid_cross_entropy_loss(scores, gt_classes)
+        if self.use_eqlv2:
+            loss_cls_vec = self.eqlv2_loss(scores, gt_classes, weights=weights, reduction="none")
+        elif self.use_seesaw_loss:
+            loss_cls_vec = self.seesaw_loss(scores, gt_classes, weights=weights, reduction="none")
+        elif self.use_sigmoid_ce:
+            loss_cls_vec = self.sigmoid_cross_entropy_loss(scores, gt_classes, reduction="none")
+            if weights is not None:
+                loss_cls_vec = loss_cls_vec * weights.to(loss_cls_vec.device)
         else:
-            if weights != None:
-                loss_cls = (weights * cross_entropy(scores, gt_classes, reduction="none")).mean()
-            else:
-                loss_cls = cross_entropy(scores, gt_classes, reduction="mean")
+            loss_cls_vec = cross_entropy(scores, gt_classes, reduction="none")
+            if weights is not None:
+                loss_cls_vec = loss_cls_vec * weights.to(loss_cls_vec.device)
+        loss_cls = self._reduce_classification_loss(loss_cls_vec, gt_classes)
 
         losses = {
             "loss_cls": loss_cls,
@@ -397,7 +453,39 @@ class FastRCNNOutputLayers(nn.Module):
 
     # Implementation from https://github.com/xingyizhou/CenterNet2/blob/master/projects/CenterNet2/centernet/modeling/roi_heads/custom_fast_rcnn.py#L113  # noqa
     # with slight modifications
-    def sigmoid_cross_entropy_loss(self, pred_class_logits, gt_classes):
+    def _reduce_classification_loss(self, loss_vec: torch.Tensor, gt_classes: torch.Tensor) -> torch.Tensor:
+        """Apply Stage-4 rare weighting/OHEM, then reduce a per-RoI loss."""
+        if loss_vec.numel() == 0:
+            return loss_vec.sum() * 0.0
+        valid = gt_classes >= 0
+        loss_vec = loss_vec[valid]
+        gt_classes = gt_classes[valid]
+        if loss_vec.numel() == 0:
+            return loss_vec.sum() * 0.0
+
+        if self.rare_classes and self.rare_loss_weight != 1.0:
+            rare_ids = torch.tensor(self.rare_classes, device=gt_classes.device, dtype=gt_classes.dtype)
+            rare_mask = torch.isin(gt_classes, rare_ids)
+            loss_vec = torch.where(rare_mask, loss_vec * self.rare_loss_weight, loss_vec)
+
+        if not self.ohem_enabled:
+            return loss_vec.mean()
+
+        n = loss_vec.numel()
+        k = max(self.ohem_min_kept, int(round(n * self.ohem_fraction)))
+        k = min(k, n)
+        keep = torch.zeros(n, dtype=torch.bool, device=loss_vec.device)
+        keep[torch.topk(loss_vec.detach(), k=k).indices] = True
+        if self.rare_classes and self.ohem_rare_min_kept > 0:
+            rare_ids = torch.tensor(self.rare_classes, device=gt_classes.device, dtype=gt_classes.dtype)
+            rare_idx = torch.nonzero(torch.isin(gt_classes, rare_ids), as_tuple=False).flatten()
+            if rare_idx.numel() > 0:
+                rk = min(self.ohem_rare_min_kept, rare_idx.numel())
+                rare_losses = loss_vec[rare_idx].detach()
+                keep[rare_idx[torch.topk(rare_losses, k=rk).indices]] = True
+        return loss_vec[keep].mean()
+
+    def sigmoid_cross_entropy_loss(self, pred_class_logits, gt_classes, reduction="mean"):
         """
         Args:
             pred_class_logits: shape (N, K+1), scores for each of the N box. Each row contains the
@@ -405,7 +493,7 @@ class FastRCNNOutputLayers(nn.Module):
             gt_classes: a long tensor of shape R that contains the gt class label of each proposal.
         """
         if pred_class_logits.numel() == 0:
-            return pred_class_logits.new_zeros([1])[0]
+            return pred_class_logits.new_zeros((0,)) if reduction == "none" else pred_class_logits.new_zeros([1])[0]
 
         N = pred_class_logits.shape[0]
         K = pred_class_logits.shape[1] - 1
@@ -430,8 +518,10 @@ class FastRCNNOutputLayers(nn.Module):
         else:
             weight = 1
 
-        loss = torch.sum(cls_loss * weight) / N
-        return loss
+        loss = torch.sum(cls_loss * weight, dim=1)
+        if reduction == "none":
+            return loss
+        return loss.sum() / N
 
     def box_reg_loss(self, proposal_boxes, gt_boxes, pred_deltas, gt_classes):
         """

@@ -193,6 +193,11 @@ class SelfSupervisedModel(UnsupervisedModel):
             # Apply classical mask refinement (if enabled)
             if self.mask_refiner is not None:
                 pseudo_labels = self.mask_refiner.refine_pseudo_labels(pseudo_labels)
+            # Attach SAM supervision before geometric augmentation so masks stay
+            # in the same coordinate frame as the student inputs.
+            if self._fo_enabled:
+                self._attach_sam_supervision(pseudo_labels, batch_image_names)
+                self._attach_sam_teacher_logits(pseudo_labels)
             # Perform copy-paste augmentation
             if self.copy_paste_augmentation is not None:
                 pseudo_labels = self.copy_paste_augmentation(pseudo_labels, pseudo_labels)
@@ -246,18 +251,12 @@ class SelfSupervisedModel(UnsupervisedModel):
                     mode="bilinear",
                     align_corners=False,
                 )
-                # Upscale teacher logits if available (for mc_panda / stuff_kd modes)
-                teacher_full_logits: Optional[Tensor] = None
-                low_teacher = self._fo_teacher_logits_cache.get("logits")
-                if low_teacher is not None:
-                    with torch.no_grad():
-                        teacher_full_logits = F.interpolate(
-                            low_teacher.float(),
-                            scale_factor=common_stride,
-                            mode="bilinear",
-                            align_corners=False,
-                        ).detach()
-                sam_masks, sam_ious, sam_cls = self._load_sam_masks(batch_image_names, full_logits.device)
+                sam_masks, sam_ious, sam_cls = self._collect_augmented_sam_supervision(
+                    pseudo_labels, full_logits.device,
+                )
+                teacher_full_logits = self._collect_augmented_sam_teacher_logits(
+                    pseudo_labels, full_logits.device,
+                )
                 fo_loss = self._fo_loss(
                     full_logits, sam_masks, sam_ious, sam_cls, self._fo_min_iou,
                     teacher_logits=teacher_full_logits,
@@ -531,6 +530,117 @@ class SelfSupervisedModel(UnsupervisedModel):
             print(values)
 
         self._val_loss_accum = {}
+
+    @torch.no_grad()
+    def _attach_sam_supervision(
+        self,
+        pseudo_labels: List[Dict[str, Any]],
+        image_names: List[str],
+    ) -> None:
+        """Attach SAM masks to samples before geometric augmentation."""
+
+        if not pseudo_labels:
+            return
+
+        device = pseudo_labels[0]["image"].device
+        masks_list, ious_list, cls_list = self._load_sam_masks(image_names, device)
+        for sample, masks, ious, cls_labels in zip(pseudo_labels, masks_list, ious_list, cls_list):
+            image = sample["image"]
+            h, w = image.shape[-2:]
+            sample_device = image.device
+            if masks is None or masks.shape[0] == 0:
+                sample["sam_masks"] = torch.zeros(0, h, w, dtype=torch.bool, device=sample_device)
+                sample["sam_ious"] = torch.zeros(0, dtype=torch.float32, device=sample_device)
+                sample["sam_cls"] = torch.zeros(0, dtype=torch.long, device=sample_device)
+                continue
+
+            masks = masks.to(device=sample_device, dtype=torch.bool)
+            if masks.shape[-2:] != (h, w):
+                masks = F.interpolate(
+                    masks.float().unsqueeze(1),
+                    size=(h, w),
+                    mode="nearest",
+                ).squeeze(1).bool()
+            sample["sam_masks"] = masks
+            sample["sam_ious"] = (
+                ious.to(device=sample_device, dtype=torch.float32)
+                if ious is not None else torch.ones(masks.shape[0], dtype=torch.float32, device=sample_device)
+            )
+            sample["sam_cls"] = (
+                cls_labels.to(device=sample_device, dtype=torch.long)
+                if cls_labels is not None else torch.full((masks.shape[0],), -1, dtype=torch.long, device=sample_device)
+            )
+
+    @torch.no_grad()
+    def _attach_sam_teacher_logits(self, pseudo_labels: List[Dict[str, Any]]) -> None:
+        """Attach teacher logits before augmentation for aligned teacher gating."""
+
+        low_teacher = self._fo_teacher_logits_cache.get("logits")
+        if low_teacher is None or low_teacher.shape[0] != len(pseudo_labels):
+            return
+
+        for index, sample in enumerate(pseudo_labels):
+            h, w = sample["image"].shape[-2:]
+            sample["sam_teacher_logits"] = F.interpolate(
+                low_teacher[index:index + 1].float(),
+                size=(h, w),
+                mode="bilinear",
+                align_corners=False,
+            )[0].detach().to(sample["image"].device)
+
+    def _collect_augmented_sam_supervision(
+        self,
+        pseudo_labels: List[Dict[str, Any]],
+        device: torch.device,
+    ) -> Tuple[
+        List[Optional[torch.Tensor]],
+        List[Optional[torch.Tensor]],
+        List[Optional[torch.Tensor]],
+    ]:
+        """Collect already-augmented SAM tensors for the fine-object loss."""
+
+        masks_list: List[Optional[torch.Tensor]] = []
+        ious_list: List[Optional[torch.Tensor]] = []
+        cls_list: List[Optional[torch.Tensor]] = []
+        for sample in pseudo_labels:
+            masks = sample.get("sam_masks")
+            if not isinstance(masks, Tensor) or masks.shape[0] == 0:
+                masks_list.append(None); ious_list.append(None); cls_list.append(None)
+                continue
+            masks_list.append(masks.to(device=device, dtype=torch.bool))
+            ious = sample.get("sam_ious")
+            cls_labels = sample.get("sam_cls")
+            ious_list.append(
+                ious.to(device=device, dtype=torch.float32)
+                if isinstance(ious, Tensor) and ious.shape[0] == masks.shape[0] else None
+            )
+            cls_list.append(
+                cls_labels.to(device=device, dtype=torch.long)
+                if isinstance(cls_labels, Tensor) and cls_labels.shape[0] == masks.shape[0] else None
+            )
+        return masks_list, ious_list, cls_list
+
+    def _collect_augmented_sam_teacher_logits(
+        self,
+        pseudo_labels: List[Dict[str, Any]],
+        device: torch.device,
+    ) -> Optional[Tensor]:
+        """Stack teacher logits that were transformed with the augmented samples."""
+
+        logits_list: List[Tensor] = []
+        shape: Optional[torch.Size] = None
+        for sample in pseudo_labels:
+            logits = sample.get("sam_teacher_logits")
+            if not isinstance(logits, Tensor):
+                return None
+            if shape is None:
+                shape = logits.shape
+            elif logits.shape != shape:
+                return None
+            logits_list.append(logits.to(device=device, dtype=torch.float32))
+        if not logits_list:
+            return None
+        return torch.stack(logits_list, dim=0)
 
     def _load_sam_masks(
         self,

@@ -29,6 +29,14 @@ from mbps_pytorch.models.adapters.dinov2_adapter import (
     set_dinov2_spatial_dims,
 )
 
+from mbps_pytorch.models.adapters.adaptformer import (
+    AdaptFormerAdapter,
+    AdaptFormerMlpWrapper,
+    inject_adaptformer_into_dinov2,
+    freeze_non_adaptformer_params,
+    has_adaptformer_keys,
+)
+
 from mbps_pytorch.models.adapters.cause_adapter import (
     inject_lora_into_cause_tr,
 )
@@ -58,6 +66,11 @@ __all__ = [
     "wrap_with_slr",
     "inject_lora_into_dinov2",
     "set_dinov2_spatial_dims",
+    "AdaptFormerAdapter",
+    "AdaptFormerMlpWrapper",
+    "inject_adaptformer_into_dinov2",
+    "freeze_non_adaptformer_params",
+    "has_adaptformer_keys",
     "inject_lora_into_cause_tr",
     "inject_lora_into_depth_model",
     "set_depth_model_spatial_dims",

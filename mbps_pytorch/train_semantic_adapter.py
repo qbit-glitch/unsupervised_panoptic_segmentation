@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Self-supervised training of LoRA/DoRA adapters on DINOv2 + CAUSE-TR.
+"""Self-supervised training of lightweight adapters on DINOv2 + CAUSE-TR.
 
 Usage:
     python mbps_pytorch/train_semantic_adapter.py \\
@@ -49,8 +49,10 @@ from modules.segment_module import Cluster, transform
 
 from mbps_pytorch.models.adapters import (
     inject_lora_into_dinov2,
+    inject_adaptformer_into_dinov2,
     inject_lora_into_cause_tr,
     freeze_non_adapter_params,
+    freeze_non_adaptformer_params,
     count_adapter_params,
     set_dinov2_spatial_dims,
 )
@@ -269,6 +271,7 @@ def train_semantic_adapter(
     use_amp=False,
     confidence_filter=False,
     confidence_p=0.5,
+    limit_batches=0,
 ):
     if is_main_process():
         logger.info("=== Semantic Adapter Training ===")
@@ -287,9 +290,12 @@ def train_semantic_adapter(
     other_params += [p for n, p in segment.named_parameters() if p.requires_grad and not any(s in n for s in (".lora_A", ".lora_B", ".lora_magnitude", ".dwconv", ".conv_gate"))]
     other_params += [p for n, p in cluster.named_parameters() if p.requires_grad and not any(s in n for s in (".lora_A", ".lora_B", ".lora_magnitude", ".dwconv", ".conv_gate"))]
     # Deduplicate
+    adapter_param_ids = {id(p) for p in adapter_params}
     seen_ids = set()
     deduped_other = []
     for p in other_params:
+        if id(p) in adapter_param_ids:
+            continue
         if id(p) not in seen_ids:
             seen_ids.add(id(p))
             deduped_other.append(p)
@@ -318,6 +324,8 @@ def train_semantic_adapter(
         prog = tqdm(train_loader, desc=f"Epoch {epoch + 1}/{epochs}")
         optimizer.zero_grad()
         for step, batch in enumerate(prog):
+            if limit_batches > 0 and step >= limit_batches:
+                break
             img = batch["img"].to(device)
             depth = batch.get("depth")
             if depth is not None:
@@ -445,11 +453,19 @@ def main():
     parser.add_argument("--num_workers", type=int, default=4)
     parser.add_argument("--epochs", type=int, default=50)
     parser.add_argument("--lr", type=float, default=1e-4)
+    parser.add_argument("--adapter_family", type=str, default="lora",
+                        choices=["lora", "adaptformer"],
+                        help="Adapter family. 'lora' keeps legacy LoRA/DoRA/Conv-DoRA behavior.")
     parser.add_argument("--variant", type=str, default="dora", choices=["lora", "dora", "conv_dora"])
     parser.add_argument("--rank", type=int, default=4)
     parser.add_argument("--alpha", type=float, default=4.0)
     parser.add_argument("--dropout", type=float, default=0.05)
     parser.add_argument("--late_block_start", type=int, default=6)
+    parser.add_argument("--adaptformer_bottleneck_dim", type=int, default=64)
+    parser.add_argument("--adaptformer_scale", type=float, default=1e-3)
+    parser.add_argument("--adaptformer_dropout", type=float, default=0.05)
+    parser.add_argument("--adaptformer_fixed_scale", action="store_true",
+                        help="Use fixed AdaptFormer residual scale instead of a learnable scalar.")
     parser.add_argument("--adapt_cause", action="store_true")
     parser.add_argument("--losses", type=str, default="distillation,depth_cluster")
     parser.add_argument("--loss_weights", type=str, default="")
@@ -471,6 +487,8 @@ def main():
                         help="Fraction of samples to keep in confidence filtering")
     parser.add_argument("--use_prediction_consistency", action="store_true",
                         help="Add prediction consistency loss (Uni-UVPT style)")
+    parser.add_argument("--limit_batches", type=int, default=0,
+                        help="Limit batches per epoch for smoke tests (0 = full epoch)")
 
     # Pre-parse to get config path
     pre_parser = argparse.ArgumentParser(add_help=False)
@@ -553,22 +571,33 @@ def main():
         p.requires_grad = False
     teacher_backbone = teacher_backbone.to(device)
 
-    # Inject adapters into student backbone
-    inject_lora_into_dinov2(
-        backbone, variant=args.variant, rank=args.rank, alpha=args.alpha,
-        dropout=args.dropout, late_block_start=args.late_block_start,
-    )
-    freeze_non_adapter_params(backbone)
+    # Inject adapters into student backbone.
+    if args.adapter_family == "adaptformer":
+        inject_adaptformer_into_dinov2(
+            backbone,
+            bottleneck_dim=args.adaptformer_bottleneck_dim,
+            dropout=args.adaptformer_dropout,
+            init_scale=args.adaptformer_scale,
+            late_block_start=args.late_block_start,
+            learnable_scale=not args.adaptformer_fixed_scale,
+        )
+        freeze_non_adaptformer_params(backbone)
+    else:
+        inject_lora_into_dinov2(
+            backbone, variant=args.variant, rank=args.rank, alpha=args.alpha,
+            dropout=args.dropout, late_block_start=args.late_block_start,
+        )
+        freeze_non_adapter_params(backbone)
 
-    # Break symmetry: lora_B starts at zero → distillation loss = 0 → no gradients.
-    # Random perturbation ensures non-zero loss from step 1.  std=0.01 is small
-    # enough that distillation can pull the adapter back, large enough to escape
-    # the zero-gradient flat region at init.
-    for name, param in backbone.named_parameters():
-        if "lora_B" in name:
-            param.data.normal_(std=0.01)
-            if is_main_process():
-                logger.info("Perturbed %s (std=0.01)", name)
+        # Break symmetry: lora_B starts at zero → distillation loss = 0 → no gradients.
+        # Random perturbation ensures non-zero loss from step 1.  std=0.01 is small
+        # enough that distillation can pull the adapter back, large enough to escape
+        # the zero-gradient flat region at init.
+        for name, param in backbone.named_parameters():
+            if "lora_B" in name:
+                param.data.normal_(std=0.01)
+                if is_main_process():
+                    logger.info("Perturbed %s (std=0.01)", name)
 
     backbone = backbone.to(device)
     if ddp_enabled:
@@ -615,7 +644,9 @@ def main():
     teacher_segment.head.codebook = cb
     teacher_segment.head_ema.codebook = cb
 
-    if args.adapt_cause:
+    if args.adapt_cause and args.adapter_family == "adaptformer":
+        logger.warning("AdaptFormer is only injected into DINOv2; --adapt_cause is ignored.")
+    elif args.adapt_cause:
         inject_lora_into_cause_tr(
             segment, variant=args.variant, rank=args.rank, alpha=args.alpha,
             dropout=args.dropout, adapt_head=True, adapt_projection=False, adapt_ema=True,
@@ -695,12 +726,17 @@ def main():
         loss_weights = json.loads(args.loss_weights.replace("'", "\""))
 
     adapter_config = {
+        "family": args.adapter_family,
         "variant": args.variant,
         "rank": args.rank,
         "alpha": args.alpha,
         "dropout": args.dropout,
         "late_block_start": args.late_block_start,
-        "adapt_cause": args.adapt_cause,
+        "adapt_cause": args.adapt_cause if args.adapter_family != "adaptformer" else False,
+        "adaptformer_bottleneck_dim": args.adaptformer_bottleneck_dim,
+        "adaptformer_scale": args.adaptformer_scale,
+        "adaptformer_dropout": args.adaptformer_dropout,
+        "adaptformer_learnable_scale": not args.adaptformer_fixed_scale,
     }
 
     train_semantic_adapter(
@@ -714,6 +750,7 @@ def main():
         use_amp=args.use_amp,
         confidence_filter=args.confidence_filter,
         confidence_p=args.confidence_p,
+        limit_batches=args.limit_batches,
     )
 
     if ddp_enabled:

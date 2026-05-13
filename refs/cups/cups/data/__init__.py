@@ -31,9 +31,11 @@ from .kitti import (
 from .mots import MOTS, MOTS_STUFF_CLASSES, MOTS_THING_CLASSES
 from .muses import MUSESPanopticValidation
 from .pseudo_label_dataset import PseudoLabelDataset
+from .repeat_factor_sampler import RepeatFactorTrainingSampler
 from .utils import StepDataset
 from .waymo import (
     WAYMO_7_MISSING_CS_CLASSES,
     WAYMO_19_MISSING_CS_CLASSES,
+    WAYMO_27_MISSING_CS_CLASSES,
     WaymoPanopticValidation,
 )

@@ -24,7 +24,7 @@ Output JSON format
 {
     "num_stuff_channels": 65,
     "num_thing_classes": 15,
-    "thing_channel": 65,            # index of unified thing class in semantic head
+    "thing_channel": 0,             # channel 0 = unified thing class in all CUPS k=80 heads
     "stuff_channel_to_cityscapes": {
         "0": "road",
         "4": "sidewalk",
@@ -188,10 +188,12 @@ def compute_hungarian_mapping(
     # +1 for the unified thing channel
 
     # Map cluster_id → semantic head channel
+    # Channel 0 = unified thing (pseudo_label_dataset: things_classes → 0).
+    # Stuff clusters map to channels 1..n_stuff (1-indexed, not 0-indexed).
     cluster_to_channel: Dict[int, int] = {}
     for ch, cid in enumerate(sorted(stuff_clusters)):
-        cluster_to_channel[cid] = ch
-    thing_channel = n_stuff  # last channel
+        cluster_to_channel[cid] = ch + 1  # +1: channel 0 is reserved for thing
+    thing_channel = 0  # channel 0 = unified thing in all CUPS k=80 heads
 
     # Find matching pseudo-label and GT files
     sem_files = sorted(pseudo_dir.glob("**/*_semantic.png"))[:num_images]
@@ -246,13 +248,14 @@ def compute_hungarian_mapping(
 
     print(f"  Confusion matrix computed. Running Hungarian matching...")
 
-    # Hungarian matching on stuff channels only (rows 0..n_stuff-1)
-    stuff_confusion = confusion[:n_stuff, :]
+    # Hungarian matching on stuff channels only (rows 1..n_stuff; row 0 = thing)
+    stuff_confusion = confusion[1:, :]   # rows 1..n_stuff = stuff
     row_ind, col_ind = linear_sum_assignment(-stuff_confusion)
-    stuff_channel_to_cups27 = {int(r): int(c) for r, c in zip(row_ind, col_ind)}
+    # row_ind is 0-indexed into stuff_confusion; add 1 to get actual semantic head channel
+    stuff_channel_to_cups27 = {int(r) + 1: int(c) for r, c in zip(row_ind, col_ind)}
     print("  Stuff channel → Cityscapes class:")
     for ch, cups_idx in sorted(stuff_channel_to_cups27.items()):
-        count = stuff_confusion[ch, cups_idx]
+        count = stuff_confusion[ch - 1, cups_idx]   # -1 to index into stuff_confusion
         name = CUPS27_NAMES[cups_idx]
         print(f"    channel {ch:3d} → {name:20s} ({count:,} pixels)")
 
@@ -267,16 +270,9 @@ def build_sam3_stuff_channel_map(
     sam3_stuff_map: Dict[int, int] = {}
     for sam3_idx, cups27_idx in SAM3_TO_CUPS27_IDX.items():
         # Only stuff classes (traffic sign=4, traffic light=5, guard rail=9, pole=13)
-        from refs.cups.cups.losses.fine_object import _SAM3_IS_THING  # noqa: F401
-        try:
-            from cups.losses.fine_object import _SAM3_IS_THING
-            if _SAM3_IS_THING[sam3_idx]:
-                continue
-        except ImportError:
-            # If running outside the repo, use hardcoded list
-            stuff_sam3_indices = {4, 5, 9, 13}
-            if sam3_idx not in stuff_sam3_indices:
-                continue
+        stuff_sam3_indices = {4, 5, 9, 13}
+        if sam3_idx not in stuff_sam3_indices:
+            continue
 
         if cups27_idx in cups27_to_channel:
             ch = cups27_to_channel[cups27_idx]
@@ -316,8 +312,8 @@ def main() -> None:
         return
 
     n_stuff = len(stuff_clusters)
-    thing_channel = n_stuff
-    print(f"\nSemantic head: {n_stuff + 1} channels ({n_stuff} stuff + 1 thing at channel {thing_channel})")
+    thing_channel = 0  # channel 0 = thing; channels 1..n_stuff = stuff
+    print(f"\nSemantic head: {n_stuff + 1} channels (channel 0 = thing, channels 1..{n_stuff} = stuff)")
 
     # Step 2: Compute Hungarian matching
     print(f"\nComputing Hungarian mapping from {args.num_images} validation images...")
@@ -366,7 +362,7 @@ def main() -> None:
     print(f"\n✓ Saved to {args.output}")
     print("\n=== Add to Stage-4 config (SELF_TRAINING.FINE_OBJECT) ===")
     print("  STUFF_CHANNEL_MAP:")
-    for k, v in sorted(sam3_stuff_map.items(), key=lambda x: int(x)):
+    for k, v in sorted(sam3_stuff_map.items(), key=lambda x: int(x[0])):
         name = CUPS27_NAMES[SAM3_TO_CUPS27_IDX[int(k)]]
         print(f"    {k}: {v}    # {name}")
 

@@ -52,6 +52,20 @@ def _base_stem(cups_stem: str) -> str:
     return cups_stem.replace("_leftImg8bit", "")
 
 
+def _resolve_depth_path(depth_dir: Path, split: str, city: str, cups_stem: str) -> Path | None:
+    """Resolve depth maps saved with base stems or Cityscapes leftImg8bit stems."""
+    base = _base_stem(cups_stem)
+    candidates = [
+        depth_dir / split / city / f"{base}.npy",
+        depth_dir / split / city / f"{base}_leftImg8bit.npy",
+        depth_dir / split / city / f"{cups_stem}.npy",
+    ]
+    for path in candidates:
+        if path.exists():
+            return path
+    return None
+
+
 def list_cups_images(input_dir: Path) -> list:
     """List all CUPS image stems from semantic PNGs."""
     stems = []
@@ -243,16 +257,13 @@ def compute_depth_stats(stems: list, input_dir: Path, depth_dir: Path,
 
     for cups_stem in tqdm(stems, desc="Depth stats"):
         city = _extract_city(cups_stem)
-        base = _base_stem(cups_stem)
 
         sem = np.array(Image.open(input_dir / f"{cups_stem}_semantic.png"))
         mapped = cluster_to_class[sem].astype(np.int64)
         sem_h, sem_w = sem.shape
 
-        depth_path = depth_dir / "train" / city / f"{base}.npy"
-        if not depth_path.exists():
-            depth_path = depth_dir / "train" / city / f"{cups_stem}.npy"
-        if not depth_path.exists():
+        depth_path = _resolve_depth_path(depth_dir, "train", city, cups_stem)
+        if depth_path is None:
             continue
 
         depth = np.load(str(depth_path)).astype(np.float64)
@@ -405,7 +416,6 @@ def main():
 
     for cups_stem in tqdm(stems, desc="SIMCF"):
         city = _extract_city(cups_stem)
-        base = _base_stem(cups_stem)
 
         semantic = np.array(Image.open(input_dir / f"{cups_stem}_semantic.png"))
         instance = np.array(Image.open(input_dir / f"{cups_stem}_instance.png"))
@@ -433,10 +443,8 @@ def main():
 
         # Step C
         if "C" in steps:
-            depth_path = depth_dir / "train" / city / f"{base}.npy"
-            if not depth_path.exists():
-                depth_path = depth_dir / "train" / city / f"{cups_stem}.npy"
-            if depth_path.exists():
+            depth_path = _resolve_depth_path(depth_dir, "train", city, cups_stem)
+            if depth_path is not None:
                 depth = np.load(str(depth_path)).astype(np.float64)
                 sem_h, sem_w = semantic.shape
                 if depth.shape != (sem_h, sem_w):

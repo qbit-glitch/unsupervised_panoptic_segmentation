@@ -12,6 +12,7 @@ from detectron2.config import get_cfg
 from detectron2.structures import BitMasks, Boxes, Instances
 from torch import Tensor
 
+from cups.stage4_utils import Stage4ClassIds, apply_model_long_tail_detectron_cfg, apply_stage4_detectron_cfg
 from cups.data.utils import get_bounding_boxes, instances_to_masks
 from cups.model.modeling import PanopticFPNWithTTA
 from cups.model.modeling.meta_arch import build_model
@@ -93,6 +94,10 @@ def panoptic_cascade_mask_r_cnn(
     default_size: Tuple[int, int] = (512, 1024),
     use_drop_loss: bool = True,
     drop_loss_iou_threshold: float = 0.2,
+    stage4_cfg=None,
+    stage4_ids: Stage4ClassIds | None = None,
+    roi_box_head_cfg=None,
+    sem_seg_head_cfg=None,
 ) -> nn.Module:
     """Builds a Panoptic Cascade Mask R-CNN Detectron2 model with drop loss and DINO ResNet-50.
 
@@ -138,6 +143,8 @@ def panoptic_cascade_mask_r_cnn(
     cfg.TEST.INSTANCE_SCORE_THRESH = tta_detection_threshold
     cfg.MODEL.ROI_HEADS.USE_DROPLOSS = use_drop_loss
     cfg.MODEL.ROI_HEADS.DROPLOSS_IOU_THRESH = drop_loss_iou_threshold
+    apply_stage4_detectron_cfg(cfg, stage4_cfg, stage4_ids)
+    apply_model_long_tail_detectron_cfg(cfg, roi_box_head_cfg, sem_seg_head_cfg)
     if use_tta:
         cfg.TEST.AUG.MIN_SIZES = tuple(int(default_size[0] * scale) for scale in tta_scales)
     cfg.freeze()

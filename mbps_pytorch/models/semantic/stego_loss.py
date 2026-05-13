@@ -167,3 +167,55 @@ def depth_guided_correlation_loss(
         total_loss = total_loss + torch.mean(loss)
 
     return total_loss / b
+
+
+def cluster_assignment_loss(
+    adjusted_codes: torch.Tensor,
+    centroids: torch.Tensor,
+    reference_codes: Optional[torch.Tensor] = None,
+    temperature: float = 0.07,
+) -> torch.Tensor:
+    """Cross-entropy toward nearest frozen-code centroid assignments.
+
+    Args:
+        adjusted_codes: Adapter output of shape (B, N, D).
+        centroids: Cluster centroids of shape (K, D).
+        reference_codes: Optional frozen codes used to choose pseudo-targets.
+        temperature: Softmax temperature for centroid logits.
+    """
+    reference = adjusted_codes if reference_codes is None else reference_codes
+    centroids = centroids.to(device=adjusted_codes.device, dtype=adjusted_codes.dtype)
+    centroids = F.normalize(centroids, dim=-1)
+
+    with torch.no_grad():
+        ref_norm = F.normalize(reference, dim=-1)
+        targets = (ref_norm @ centroids.T).argmax(dim=-1)
+
+    adjusted_norm = F.normalize(adjusted_codes, dim=-1)
+    logits = (adjusted_norm @ centroids.T) / temperature
+    return F.cross_entropy(
+        logits.reshape(-1, logits.shape[-1]),
+        targets.reshape(-1),
+    )
+
+
+def contrastive_cluster_loss(
+    adjusted_codes: torch.Tensor,
+    centroids: torch.Tensor,
+    temperature: float = 0.1,
+    num_pairs: int = 512,
+) -> torch.Tensor:
+    """InfoNCE-style centroid confidence loss for sampled adapter codes."""
+    b, n, d = adjusted_codes.shape
+    flat = adjusted_codes.reshape(b * n, d)
+    if flat.shape[0] > num_pairs:
+        idx = torch.randperm(flat.shape[0], device=flat.device)[:num_pairs]
+        flat = flat[idx]
+
+    centroids = centroids.to(device=flat.device, dtype=flat.dtype)
+    centroids = F.normalize(centroids, dim=-1)
+    flat_norm = F.normalize(flat, dim=-1)
+    logits = (flat_norm @ centroids.T) / temperature
+    with torch.no_grad():
+        targets = logits.argmax(dim=-1)
+    return F.cross_entropy(logits, targets)

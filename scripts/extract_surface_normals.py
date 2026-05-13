@@ -90,6 +90,11 @@ def extract_normals(
             cityscapes_root, depth_subdir, split, city, f"{stem}.npy",
         )
         if not os.path.isfile(depth_npy_path):
+            depth_npy_path = os.path.join(
+                cityscapes_root, depth_subdir, split, city,
+                f"{stem}_leftImg8bit.npy",
+            )
+        if not os.path.isfile(depth_npy_path):
             logger.warning("Depth not found: %s", depth_npy_path)
             continue
 

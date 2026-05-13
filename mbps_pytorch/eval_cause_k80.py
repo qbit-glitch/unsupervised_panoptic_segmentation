@@ -50,8 +50,10 @@ from models.dinov2vit import dinov2_vit_base_14  # must import before MBPS_DIR i
 
 from mbps_pytorch.models.adapters import (
     inject_lora_into_dinov2,
+    inject_adaptformer_into_dinov2,
     inject_lora_into_cause_tr,
     freeze_non_adapter_params,
+    freeze_non_adaptformer_params,
     count_adapter_params,
     set_dinov2_spatial_dims,
 )
@@ -321,7 +323,7 @@ def load_dinov2(
         segment.head.codebook    = cb
         segment.head_ema.codebook = cb
 
-    # ── Inject DoRA adapters if requested ────────────────────────────────────
+    # ── Inject semantic adapters if requested ────────────────────────────────
     use_adapter = adapter_checkpoint is not None
     if use_adapter:
         print(f"Loading adapter checkpoint: {adapter_checkpoint}")
@@ -329,6 +331,7 @@ def load_dinov2(
 
         # Resolve adapter config: checkpoint metadata > CLI defaults
         ckpt_config = ckpt.get("adapter_config", {}) if isinstance(ckpt, dict) else {}
+        cfg_family = ckpt_config.get("family", "lora")
         cfg_variant = ckpt_config.get("variant", variant)
         cfg_rank = ckpt_config.get("rank", rank)
         cfg_alpha = ckpt_config.get("alpha", alpha)
@@ -336,42 +339,63 @@ def load_dinov2(
         cfg_late_block_start = ckpt_config.get("late_block_start", late_block_start)
         cfg_adapt_cause = ckpt_config.get("adapt_cause", adapt_cause)
 
-        ckpt_has_lora = _has_lora_keys(ckpt.get("backbone", {}))
-        if ckpt_has_lora and not ckpt_config:
-            raise RuntimeError(
-                "Checkpoint contains LoRA weights but no adapter_config metadata. "
-                "Pass --variant/--rank/--alpha/--late_block_start matching training."
+        if cfg_family == "adaptformer":
+            inject_adaptformer_into_dinov2(
+                net,
+                bottleneck_dim=ckpt_config.get("adaptformer_bottleneck_dim", 64),
+                dropout=ckpt_config.get("adaptformer_dropout", cfg_dropout),
+                init_scale=ckpt_config.get("adaptformer_scale", 1e-3),
+                late_block_start=cfg_late_block_start,
+                learnable_scale=ckpt_config.get("adaptformer_learnable_scale", True),
             )
+            result_net = net.load_state_dict(ckpt["backbone"], strict=False)
+            dropped = [k for k in result_net.unexpected_keys if ".adaptformer." in k]
+            if dropped:
+                raise RuntimeError(
+                    f"AdaptFormer parameters were dropped. First few: {dropped[:5]}"
+                )
+            segment.load_state_dict(ckpt["segment"], strict=False)
+            freeze_non_adaptformer_params(net)
+            freeze_non_adapter_params(segment)
+            net._adapter_label = "AdaptFormer"
+        else:
+            ckpt_has_lora = _has_lora_keys(ckpt.get("backbone", {}))
+            if ckpt_has_lora and not ckpt_config:
+                raise RuntimeError(
+                    "Checkpoint contains LoRA weights but no adapter_config metadata. "
+                    "Pass --variant/--rank/--alpha/--late_block_start matching training."
+                )
 
-        # Inject into backbone
-        inject_lora_into_dinov2(
-            net,
-            variant=cfg_variant,
-            rank=cfg_rank,
-            alpha=cfg_alpha,
-            dropout=cfg_dropout,
-            late_block_start=cfg_late_block_start,
-        )
-        freeze_non_adapter_params(net)
-
-        # Inject into CAUSE-TR head if configured
-        if cfg_adapt_cause:
-            inject_lora_into_cause_tr(
-                segment,
+            # Inject into backbone
+            inject_lora_into_dinov2(
+                net,
                 variant=cfg_variant,
                 rank=cfg_rank,
                 alpha=cfg_alpha,
                 dropout=cfg_dropout,
-                adapt_head=True,
-                adapt_projection=False,
-                adapt_ema=True,
+                late_block_start=cfg_late_block_start,
             )
-        freeze_non_adapter_params(segment)
+            freeze_non_adapter_params(net)
 
-        # Load trained adapter weights
-        _load_state_checked(net, ckpt["backbone"], "backbone", require_lora=True)
-        _load_state_checked(segment, ckpt["segment"], "segment",
-                            require_lora=cfg_adapt_cause)
+            # Inject into CAUSE-TR head if configured
+            if cfg_adapt_cause:
+                inject_lora_into_cause_tr(
+                    segment,
+                    variant=cfg_variant,
+                    rank=cfg_rank,
+                    alpha=cfg_alpha,
+                    dropout=cfg_dropout,
+                    adapt_head=True,
+                    adapt_projection=False,
+                    adapt_ema=True,
+                )
+            freeze_non_adapter_params(segment)
+
+            # Load trained adapter weights
+            _load_state_checked(net, ckpt["backbone"], "backbone", require_lora=True)
+            _load_state_checked(segment, ckpt["segment"], "segment",
+                                require_lora=cfg_adapt_cause)
+            net._adapter_label = cfg_variant.upper()
 
         # Re-pin codebook (checkpoint may carry stale copy)
         if mod_path.exists():
@@ -718,7 +742,7 @@ def get_val_files(cs_root: str):
 # ─── Main ────────────────────────────────────────────────────────────────────
 
 def parse_args():
-    p = argparse.ArgumentParser(description="CAUSE K=80 eval: DINOv2 vs DINOv3 (+ DoRA adapters)")
+    p = argparse.ArgumentParser(description="CAUSE K=80 eval: DINOv2 vs DINOv3 (+ semantic adapters)")
     p.add_argument("--backbone", choices=["dinov2", "dinov3"], required=True)
     p.add_argument(
         "--checkpoint_dir",
@@ -739,7 +763,7 @@ def parse_args():
                    help="Path to adapter checkpoint (.pt) from train_semantic_adapter.py")
     p.add_argument("--variant", type=str, default="dora",
                    choices=["lora", "dora", "conv_dora"],
-                   help="Adapter variant (fallback if not in checkpoint metadata)")
+                   help="LoRA/DoRA adapter variant (fallback if not in checkpoint metadata)")
     p.add_argument("--rank", type=int, default=4,
                    help="LoRA rank (fallback if not in checkpoint metadata)")
     p.add_argument("--alpha", type=float, default=4.0,
@@ -772,7 +796,8 @@ def main():
             late_block_start=args.late_block_start,
             adapt_cause=args.adapt_cause,
         )
-        backbone_name = "DINOv2 ViT-B/14 + DoRA" if use_adapter else "DINOv2 ViT-B/14"
+        adapter_label = getattr(net, "_adapter_label", "adapter")
+        backbone_name = f"DINOv2 ViT-B/14 + {adapter_label}" if use_adapter else "DINOv2 ViT-B/14"
     else:
         if args.adapter_checkpoint is not None:
             raise NotImplementedError("DoRA adapter evaluation is only supported for DINOv2 backbone.")

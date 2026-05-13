@@ -13,6 +13,7 @@ Usage:
 """
 
 import argparse
+import json
 import logging
 import time
 from pathlib import Path
@@ -293,6 +294,8 @@ def main():
                         help="Force Hungarian matching (auto-detected if >19 unique values)")
     parser.add_argument("--baseline_dir", type=str, default=None,
                         help="Fallback directory for instance labels (e.g. baseline pseudo-labels)")
+    parser.add_argument("--output", type=str, default=None,
+                        help="Optional path to write a JSON metrics summary")
     args = parser.parse_args()
 
     pseudo_dir = Path(args.pseudo_dir).expanduser()
@@ -415,6 +418,7 @@ def main():
                 f"{'TP':>5s} | {'FP':>5s} | {'FN':>5s}")
     logger.info("-" * 80)
 
+    per_class = {}
     for cls in range(NUM_CLASSES):
         tp = pq_accum[cls]["tp"]
         fp = pq_accum[cls]["fp"]
@@ -434,6 +438,17 @@ def main():
             pq_stuff.append(pq)
         else:
             pq_things.append(pq)
+
+        per_class[_CLASS_NAMES[cls]] = {
+            "IoU": round(float(per_iou[cls] * 100), 2),
+            "PQ": round(float(pq * 100), 2),
+            "SQ": round(float(sq * 100), 2),
+            "RQ": round(float(rq * 100), 2),
+            "TP": int(tp),
+            "FP": int(fp),
+            "FN": int(fn),
+            "type": "stuff" if cls in _STUFF_IDS else "thing",
+        }
 
         logger.info(f"{_CLASS_NAMES[cls]:>15s} | {per_iou[cls]*100:5.1f}% | "
                      f"{pq*100:5.1f}% | {sq*100:5.1f}% | {rq*100:5.1f}% | "
@@ -455,6 +470,35 @@ def main():
     logger.info(f"  mIoU     = {miou*100:.2f}%")
     logger.info(f"  Ignore   = {ignore_pct:.1f}% of pixels")
     logger.info(f"  Time     = {elapsed:.1f}s ({len(pairs)} images)")
+
+    if args.output:
+        output = Path(args.output).expanduser()
+        output.parent.mkdir(parents=True, exist_ok=True)
+        results = {
+            "summary": {
+                "PQ": round(float(mean_pq), 2),
+                "PQ_stuff": round(float(mean_pq_stuff), 2),
+                "PQ_things": round(float(mean_pq_things), 2),
+                "SQ": round(float(mean_sq), 2),
+                "RQ": round(float(mean_rq), 2),
+                "mIoU": round(float(miou * 100), 2),
+                "ignore_pct": round(float(ignore_pct), 2),
+                "num_images": len(pairs),
+                "elapsed_sec": round(float(elapsed), 2),
+            },
+            "per_class": per_class,
+            "config": {
+                "pseudo_dir": str(pseudo_dir),
+                "cityscapes_root": str(cs_root),
+                "centroids_path": args.centroids_path,
+                "split": args.split,
+                "num_clusters": args.num_clusters,
+                "baseline_dir": args.baseline_dir,
+            },
+        }
+        with output.open("w") as f:
+            json.dump(results, f, indent=2)
+        logger.info("Results saved to %s", output)
 
     # Machine-readable summary
     print(f"\nSUMMARY;PQ={mean_pq:.2f};PQ_st={mean_pq_stuff:.2f};"

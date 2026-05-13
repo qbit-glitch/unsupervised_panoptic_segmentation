@@ -12,8 +12,10 @@ Supports multiple adapter architectures via --adapter_type:
     film        B1: FiLM conditioning
     cross_attn  A1: Cross-attention with DINOv2 768D
     deep        B2: 4-layer bottleneck MLP
+    adaptformer AdaptFormer-style bottleneck residual in the DCFA slot
     window_attn B3: Local 3x3 window attention
     x           DCFA-X: FiLM + cross-attention + fusion
+    x2          DCFA-X2: Geometry-aware local DINO recovery
 
 Usage:
     # V3 baseline:
@@ -79,8 +81,10 @@ def set_seed(seed: int = 42) -> None:
     os.environ["PYTHONHASHSEED"] = str(seed)
 
 
-def get_device() -> torch.device:
+def get_device(device_arg: str = "auto") -> torch.device:
     """Auto-detect best available device."""
+    if device_arg != "auto":
+        return torch.device(device_arg)
     if torch.backends.mps.is_available():
         return torch.device("mps")
     if torch.cuda.is_available():
@@ -105,6 +109,7 @@ class PreextractedCodesDataset(Dataset):
         load_dino768: bool = False,
         load_normals: bool = False,
         load_gradients: bool = False,
+        limit_images: int = 0,
     ) -> None:
         self.load_dino768 = load_dino768
         self.load_normals = load_normals
@@ -134,6 +139,8 @@ class PreextractedCodesDataset(Dataset):
                             continue
                         entry["normals"] = normals_path
                     self.files.append(entry)
+        if limit_images > 0:
+            self.files = self.files[:limit_images]
 
     def __len__(self) -> int:
         return len(self.files)
@@ -188,6 +195,7 @@ def run_epoch(
     centroids: Optional[torch.Tensor] = None,
     cross_image_mining: bool = False,
     loss_type: str = "depth_corr",
+    limit_batches: int = 0,
 ) -> Dict[str, float]:
     """Run one training or validation epoch.
 
@@ -208,6 +216,8 @@ def run_epoch(
 
     with ctx:
         for step, batch in enumerate(loader):
+            if limit_batches > 0 and step >= limit_batches:
+                break
             codes = batch["codes"].to(device)      # (B, N, 90)
             depth_raw = batch["depth"].to(device)   # (B, N)
 
@@ -223,18 +233,20 @@ def run_epoch(
                 adapter_kwargs["dino768"] = batch["dino768"].to(device)
             if "normals" in batch:
                 adapter_kwargs["normals"] = batch["normals"].to(device)
+            if "gradients" in batch:
+                adapter_kwargs["gradients"] = batch["gradients"].to(device)
             if "spatial_shape" in batch:
                 ss = batch["spatial_shape"][0]  # same for all in batch
                 adapter_kwargs["spatial_shape"] = (ss[0].item(), ss[1].item())
 
             # Concatenate normals/gradients to depth_input for adapters that
             # expect them via input concat (v3, film, deep, window_attn).
-            # DCFA-X handles normals internally via adapter_kwargs.
+            # DCFA-X/X2 handle geometry internally via adapter_kwargs.
             is_x = hasattr(adapter, "geo_dim")  # DepthAdapterX has geo_dim attr
             geo_extras = []
             if "normals" in batch and not is_x:
                 geo_extras.append(batch["normals"].to(device))
-            if "gradients" in batch:
+            if "gradients" in batch and not is_x:
                 geo_extras.append(batch["gradients"].to(device))
             if geo_extras and depth_input.dim() == 3:
                 depth_input = torch.cat([depth_input] + geo_extras, dim=-1)
@@ -339,20 +351,53 @@ def main() -> None:
     parser.add_argument("--epochs", type=int, default=20)
     parser.add_argument("--batch_size", type=int, default=8)
     parser.add_argument("--lr", type=float, default=1e-3)
+    parser.add_argument("--min_lr", type=float, default=1e-5,
+                        help="Cosine schedule floor; avoids near-zero final adapter epochs.")
+    parser.add_argument("--device", type=str, default="auto",
+                        help="Device to use: auto, mps, cuda, cpu.")
     parser.add_argument("--lambda_preserve", type=float, default=10.0)
     parser.add_argument("--hidden_dim", type=int, default=128)
     parser.add_argument("--num_layers", type=int, default=2)
+    parser.add_argument("--bottleneck_dim", type=int, default=64,
+                        help="Bottleneck dimension for deep/adaptformer adapters.")
     parser.add_argument("--depth_dim", type=int, default=1,
                         help="1 for raw depth, 16 for sinusoidal encoding")
     parser.add_argument("--seed", type=int, default=42)
     # DCFA v2 arguments
     parser.add_argument(
         "--adapter_type", type=str, default="v3",
-        choices=["v3", "film", "cross_attn", "deep", "window_attn", "x"],
+        choices=[
+            "v3", "film", "cross_attn", "deep", "adaptformer",
+            "window_attn", "x", "x2",
+        ],
         help="Adapter architecture variant.",
     )
+    parser.add_argument("--adapter_dropout", type=float, default=0.05,
+                        help="Dropout used by adaptformer adapter.")
+    parser.add_argument("--adapter_scale", type=float, default=1e-3,
+                        help="Initial residual scale for adaptformer adapter.")
+    parser.add_argument("--adapter_fixed_scale", action="store_true",
+                        help="Use fixed residual scale for adaptformer adapter.")
+    parser.add_argument(
+        "--adaptformer_input_mode", type=str, default="concat",
+        choices=["concat", "project_add"],
+        help=(
+            "AdaptFormer depth interaction. 'concat' uses [code; depth] like DCFA; "
+            "'project_add' preserves the older depth_proj(depth)+code variant."
+        ),
+    )
+    parser.add_argument("--d_attn", type=int, default=64,
+                        help="Attention dimension for cross_attn/x/x2 adapters.")
+    parser.add_argument("--num_heads", type=int, default=4,
+                        help="Number of local attention heads for x2.")
+    parser.add_argument("--window_size", type=int, default=3,
+                        help="Local window size for window_attn/x2.")
+    parser.add_argument("--fusion_hidden", type=int, default=256,
+                        help="Fusion hidden dimension for x/x2.")
+    parser.add_argument("--residual_scale", type=float, default=1.0,
+                        help="Residual multiplier for x2 output.")
     parser.add_argument("--use_dino768", action="store_true",
-                        help="Load DINOv2 768D features (required for cross_attn, x).")
+                        help="Load DINOv2 768D features (required for cross_attn, x, x2).")
     parser.add_argument("--use_normals", action="store_true",
                         help="Load surface normals from depth.")
     parser.add_argument("--use_gradients", action="store_true",
@@ -368,20 +413,30 @@ def main() -> None:
         choices=["depth_corr", "cluster_aware"],
         help="Primary loss: depth_corr (default) or cluster_aware (CE toward centroids).",
     )
+    parser.add_argument("--limit_train_images", type=int, default=0,
+                        help="Limit training images for smoke tests (0 = all).")
+    parser.add_argument("--limit_val_images", type=int, default=0,
+                        help="Limit validation images for smoke tests (0 = all).")
+    parser.add_argument("--limit_batches", type=int, default=0,
+                        help="Limit batches per epoch for smoke tests (0 = full epoch).")
     args = parser.parse_args()
 
+    if args.adapter_type in ("cross_attn", "x", "x2") and not args.use_dino768:
+        parser.error(f"--adapter_type {args.adapter_type} requires --use_dino768")
+
     set_seed(args.seed)
-    device = get_device()
+    device = get_device(args.device)
     os.makedirs(args.output_dir, exist_ok=True)
     logger.info("Device: %s", device)
     use_sinusoidal = args.depth_dim == 16
     logger.info(
-        "adapter=%s lp=%.1f lr=%.1e epochs=%d hidden=%d layers=%d depth_dim=%d "
-        "dino768=%s normals=%s gradients=%s lambda_cluster=%.2f",
-        args.adapter_type, args.lambda_preserve, args.lr, args.epochs,
-        args.hidden_dim, args.num_layers, args.depth_dim,
-        args.use_dino768, args.use_normals, args.use_gradients,
-        args.lambda_cluster,
+        "adapter=%s lp=%.1f lr=%.1e min_lr=%.1e epochs=%d hidden_dim=%d "
+        "bottleneck_dim=%d layers=%d depth_dim=%d dino768=%s normals=%s "
+        "gradients=%s lambda_cluster=%.2f",
+        args.adapter_type, args.lambda_preserve, args.lr, args.min_lr,
+        args.epochs, args.hidden_dim, args.bottleneck_dim, args.num_layers,
+        args.depth_dim, args.use_dino768, args.use_normals,
+        args.use_gradients, args.lambda_cluster,
     )
 
     codes_dir = os.path.join(args.cityscapes_root, args.codes_subdir)
@@ -392,17 +447,19 @@ def main() -> None:
         load_dino768=args.use_dino768,
         load_normals=args.use_normals,
         load_gradients=args.use_gradients,
+        limit_images=args.limit_train_images,
     )
     val_dataset = PreextractedCodesDataset(
         codes_dir, "val",
         load_dino768=args.use_dino768,
         load_normals=args.use_normals,
         load_gradients=args.use_gradients,
+        limit_images=args.limit_val_images,
     )
     logger.info("Train: %d images, Val: %d images",
                 len(train_dataset), len(val_dataset))
 
-    nw = 0 if device.type == "mps" else 4
+    nw = 4 if device.type == "cuda" else 0
     pin = device.type == "cuda"
     train_loader = DataLoader(
         train_dataset, batch_size=args.batch_size, shuffle=True,
@@ -425,7 +482,9 @@ def main() -> None:
     # concatenated to depth_input, so depth_dim must include them.
     # For film: geo_dim passed separately (film's constructor adds it internally).
     # For x: normals passed via kwargs (handled internally).
-    concat_geo = args.adapter_type in ("v3", "deep", "window_attn", "cross_attn")
+    concat_geo = args.adapter_type in (
+        "v3", "deep", "adaptformer", "window_attn", "cross_attn",
+    )
     effective_depth_dim = args.depth_dim + (geo_dim if concat_geo else 0)
 
     adapter_kwargs: Dict = {"code_dim": 90, "depth_dim": effective_depth_dim}
@@ -437,14 +496,39 @@ def main() -> None:
             hidden_dim=args.hidden_dim, num_layers=args.num_layers, geo_dim=geo_dim,
         )
     elif args.adapter_type == "cross_attn":
-        adapter_kwargs.update(dino_dim=768, d_attn=64, hidden_dim=256)
+        adapter_kwargs.update(dino_dim=768, d_attn=args.d_attn, hidden_dim=args.hidden_dim)
     elif args.adapter_type == "deep":
-        adapter_kwargs.update(hidden_dim=args.hidden_dim, bottleneck_dim=64)
+        adapter_kwargs.update(
+            hidden_dim=args.hidden_dim, bottleneck_dim=args.bottleneck_dim,
+        )
+    elif args.adapter_type == "adaptformer":
+        adapter_kwargs.update(
+            bottleneck_dim=args.bottleneck_dim,
+            num_layers=args.num_layers,
+            dropout=args.adapter_dropout,
+            init_scale=args.adapter_scale,
+            learnable_scale=not args.adapter_fixed_scale,
+            input_mode=args.adaptformer_input_mode,
+        )
     elif args.adapter_type == "window_attn":
-        adapter_kwargs.update(hidden_dim=args.hidden_dim, num_layers=args.num_layers)
+        adapter_kwargs.update(
+            hidden_dim=args.hidden_dim, num_layers=args.num_layers,
+            window_size=args.window_size,
+        )
     elif args.adapter_type == "x":
         adapter_kwargs["depth_dim"] = args.depth_dim  # x handles geo internally
-        adapter_kwargs.update(geo_dim=geo_dim, dino_dim=768, d_attn=64, fusion_hidden=256)
+        adapter_kwargs.update(
+            geo_dim=geo_dim, dino_dim=768, d_attn=args.d_attn,
+            fusion_hidden=args.fusion_hidden,
+        )
+    elif args.adapter_type == "x2":
+        adapter_kwargs["depth_dim"] = args.depth_dim  # x2 handles geo internally
+        adapter_kwargs.update(
+            geo_dim=geo_dim, dino_dim=768, hidden_dim=args.hidden_dim,
+            d_attn=args.d_attn, num_heads=args.num_heads,
+            window_size=args.window_size, fusion_hidden=args.fusion_hidden,
+            residual_scale=args.residual_scale,
+        )
 
     adapter = create_adapter(args.adapter_type, **adapter_kwargs).to(device)
     n_params = sum(p.numel() for p in adapter.parameters())
@@ -470,29 +554,32 @@ def main() -> None:
         parser.error("--loss_type cluster_aware requires --centroids_path")
 
     optimizer = torch.optim.AdamW(adapter.parameters(), lr=args.lr, weight_decay=1e-4)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, T_max=max(1, args.epochs), eta_min=args.min_lr
+    )
 
     best_val_loss = float("inf")
     best_ckpt = os.path.join(args.output_dir, "best.pt")
     t0 = time.time()
 
     for epoch in range(args.epochs):
+        lr_epoch = optimizer.param_groups[0]["lr"]
         train_metrics = run_epoch(
             adapter, train_loader, device, args.lambda_preserve,
             use_sinusoidal=use_sinusoidal, optimizer=optimizer, epoch=epoch,
             lambda_cluster=args.lambda_cluster, centroids=centroids,
             cross_image_mining=args.cross_image_mining,
             loss_type=args.loss_type,
+            limit_batches=args.limit_batches,
         )
         val_metrics = run_epoch(
             adapter, val_loader, device, args.lambda_preserve,
             use_sinusoidal=use_sinusoidal,
             lambda_cluster=args.lambda_cluster, centroids=centroids,
             loss_type=args.loss_type,
+            limit_batches=args.limit_batches,
         )
-        scheduler.step()
 
-        lr_now = scheduler.get_last_lr()[0]
         logger.info(
             "Epoch %d/%d | train: loss=%.4f depth=%.4f pres=%.6f clust=%.4f "
             "drift=%.4f | val: loss=%.4f depth=%.4f pres=%.6f clust=%.4f "
@@ -504,8 +591,9 @@ def main() -> None:
             val_metrics["loss"], val_metrics["depth"],
             val_metrics["preserve"], val_metrics["cluster"],
             val_metrics["drift"],
-            lr_now, time.time() - t0,
+            lr_epoch, time.time() - t0,
         )
+        scheduler.step()
 
         if val_metrics["loss"] < best_val_loss:
             best_val_loss = val_metrics["loss"]
@@ -515,6 +603,7 @@ def main() -> None:
                 "adapter_kwargs": adapter_kwargs,
                 "epoch": epoch,
                 "val_loss": best_val_loss,
+                "train_args": vars(args),
             }, best_ckpt)
             logger.info("  -> New best val_loss=%.4f, saved to %s", best_val_loss, best_ckpt)
 
@@ -526,6 +615,7 @@ def main() -> None:
         "adapter_kwargs": adapter_kwargs,
         "epoch": args.epochs - 1,
         "val_loss": val_metrics["loss"],
+        "train_args": vars(args),
     }, final_ckpt)
     logger.info("Training complete. Best val_loss=%.4f", best_val_loss)
     logger.info("Checkpoints: best=%s, final=%s", best_ckpt, final_ckpt)

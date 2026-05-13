@@ -584,3 +584,35 @@ These gains are conservative estimates assuming pseudo-labels contain *some* sig
 4. Martinović et al., "MC-PanDA: Empowering Domain Adaptive Panoptics with Fine-Grained Uncertainty Quantification," ECCV 2024.
 5. Wang et al., "Boundary Contrastive Learning for Label-Efficient Medical Image Segmentation," BMVC 2024.
 6. Tan et al., "FRACAL: Fractal Calibration for Long-tailed Object Detection," CVPR 2025.
+
+
+
+
+nohup bash scripts/e1_stage1_pseudolabel_gen_a6000.sh > /home/cvpr_ug_5/umesh/e1_stage1.out 2>&1 & echo "PID=$!"
+
+git fetch origin && git checkout implement-dora-adapters && git pull  --ff-only origin implement-dora-adapters
+
+
+export CITYSCAPES_USER='2024pcp5302@mnit.ac.in' && export CITYSCAPES_PASS='Umesh@QSB25' && export CITYSCAPES_ROOT=/Data1/cityscapes  
+
+
+nohup bash scripts/e1/download_cityscapes_all.sh > /Data1/e1_cityscapes_download.log 2>&1 & 
+echo $! > /Data1/e1_cityscapes_download.pid
+tail -f /Data1/e1_cityscapes_download.log
+
+
+for ROOT in /home/cvpr_ug_5/umesh/datasets/cityscapes /Data1/cityscapes; do                                                                               
+    echo "=== $ROOT ==="                                                                                                                                    
+    [ -d "$ROOT" ] || { echo "  (does not exist)"; continue; }
+    for side in leftImg8bit_sequence rightImg8bit_sequence; do                                                                                              
+      [ -d "$ROOT/$side" ] || { echo "  $side: MISSING"; continue; }                                                                                        
+        for split in train val test; do                                                                                                                       
+            d="$ROOT/$side/$split"                                                                                                                              
+            [ -d "$d" ] || { echo "  $side/$split: MISSING"; continue; }
+            n=$(find "$d" -name "*_${side%_sequence}.png" | wc -l)                                                                                              
+            cities=$(ls "$d" | wc -l)                                                                                                                           
+            ratio=$(awk -v n="$n" -v c="$cities" 'BEGIN{ if(c) printf "%.1f", n/c; else print "NA" }')                                                          
+            echo "  $side/$split: $n frames across $cities cities (avg $ratio/city)"                                                                            
+        done                                               
+    done                                                                                                                                                    
+done

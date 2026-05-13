@@ -30,6 +30,7 @@ from cups.visualization import (
     save_panoptic_segmentation_overlay,
     save_semantic_segmentation,
 )
+from cups.stage4_utils import resolve_stage4_class_ids
 
 logging.basicConfig(format="%(message)s")
 log = logging.getLogger(__name__)
@@ -114,13 +115,41 @@ class UnsupervisedModel(LightningModule):
         self.assignments: Tensor | None = None
         # Set parameters for copy-paste augmentation
         self.prediction_temp: Dict | None = None
-        # Get color template
-        if config.DATA.DATASET == "cityscapes" and config.DATA.NUM_CLASSES == 27:
-            self.color_template: str = "cityscapes"
-        elif config.DATA.DATASET == "mots":
+        self._apply_stage4_freeze_policy()
+        # Get color template. Cross-dataset validations map labels into the
+        # selected Cityscapes taxonomy, so key this by NUM_CLASSES rather than
+        # only by the source dataset.
+        if config.DATA.DATASET == "mots":
             self.color_template = "mots"
+        elif config.DATA.NUM_CLASSES == 27:
+            self.color_template: str = "cityscapes"
+        elif config.DATA.NUM_CLASSES == 7:
+            self.color_template = "cityscapes_7"
         else:
             self.color_template = "cityscapes_19"
+
+    def _apply_stage4_freeze_policy(self) -> None:
+        stage4_cfg = getattr(self.config, "STAGE4", None)
+        if stage4_cfg is None or not getattr(stage4_cfg, "ENABLED", False):
+            return
+        if not getattr(stage4_cfg, "FREEZE_BACKBONE", True):
+            return
+        trainable_tokens = (
+            "sem_seg_head",
+            "roi_heads.box_head",
+            "roi_heads.box_predictor",
+            "roi_heads.mask_head",
+            "lora",
+            "dora",
+            "adapter",
+        )
+        if not getattr(stage4_cfg, "FREEZE_RPN", True):
+            trainable_tokens = trainable_tokens + ("proposal_generator",)
+        for name, parameter in self.model.named_parameters():
+            parameter.requires_grad_(any(token in name.lower() for token in trainable_tokens))
+        trainable = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+        total = sum(p.numel() for p in self.model.parameters())
+        log.info("Stage-4 freeze policy active: %.2fM / %.2fM parameters trainable", trainable / 1e6, total / 1e6)
 
     def forward(self, input: List[Dict[str, Tensor]]) -> List[Dict[str, Any]]:
         """Just wraps the forward pass of the Cascade Panoptic Mask R-CNN.
@@ -367,7 +396,8 @@ class UnsupervisedModel(LightningModule):
                     f"val/rq_{self.hparams.class_names[index]}_val", rq_c[index], rank_zero_only=True, sync_dist=False
                 )
         # Log final prediction (only for training and if we not already plot the samples)
-        if not self.plot_validation_samples and self.logger is not None:
+        is_global_zero = getattr(self.trainer, "is_global_zero", True)
+        if is_global_zero and not self.plot_validation_samples and self.logger is not None:
             self.logger.log_image(
                 key="validation_prediction",
                 images=[
@@ -387,8 +417,9 @@ class UnsupervisedModel(LightningModule):
         rq_s = rq_s.item()
         acc = acc.item()
         miou = miou.item()
-        print("\nPQ, SQ, RQ, PQ_things, SQ_things, RQ_things, PQ_stuffs, SQ_stuffs, RQ_stuffs, Acc, mIoU")
-        print("; ".join(map(str, [pq, sq, rq, pq_t, sq_t, rq_t, pq_s, sq_s, rq_s, acc, miou])))
+        if is_global_zero:
+            print("\nPQ, SQ, RQ, PQ_things, SQ_things, RQ_things, PQ_stuffs, SQ_stuffs, RQ_stuffs, Acc, mIoU")
+            print("; ".join(map(str, [pq, sq, rq, pq_t, sq_t, rq_t, pq_s, sq_s, rq_s, acc, miou])))
         # Reset metric
         self.panoptic_quality.reset()
 
@@ -542,11 +573,16 @@ def build_model_pseudo(
         # Get number of classes based on model weights
         num_clusters_stuffs: int = int(checkpoint["sem_seg_head.predictor.bias"].shape[0] - 1)
         num_clusters_things: int = int(checkpoint["roi_heads.mask_head.predictor.bias"].shape[0])
+        # Strip training-only seesaw buffers — shape depends on num_classes at training time
+        # and will mismatch when inference uses a different class count.
+        checkpoint = {k: v for k, v in checkpoint.items() if "seesaw_loss" not in k}
         # Log info about checkpoint
         log.info(f"Checkpoint loaded from {config.MODEL.CHECKPOINT}.")
     else:
         num_clusters_things = len(thing_pseudo_classes)  # type: ignore
         num_clusters_stuffs = len(stuff_pseudo_classes)  # type: ignore
+    stage4_cfg = getattr(config, "STAGE4", None)
+    stage4_ids = resolve_stage4_class_ids(config, thing_pseudo_classes, stuff_pseudo_classes)
     # Init model — route based on backbone type
     backbone_type = getattr(config.MODEL, "BACKBONE_TYPE", "resnet50")
     if backbone_type == "dinov2_vitb":
@@ -563,6 +599,10 @@ def build_model_pseudo(
             drop_loss_iou_threshold=config.TRAINING.DROP_LOSS_IOU_THRESHOLD,
             use_drop_loss=config.TRAINING.DROP_LOSS,
             freeze_backbone=getattr(config.MODEL, "DINOV2_FREEZE", True),
+            stage4_cfg=stage4_cfg,
+            stage4_ids=stage4_ids,
+            roi_box_head_cfg=getattr(config.MODEL, "ROI_BOX_HEAD", None),
+            sem_seg_head_cfg=getattr(config.MODEL, "SEM_SEG_HEAD", None),
         )
     elif backbone_type == "dinov3_vitb":
         from cups.model.model_vitb import panoptic_cascade_mask_r_cnn_dinov3
@@ -599,6 +639,10 @@ def build_model_pseudo(
                 else "CustomSemSegFPNHead"
             ),
             depth_channels=getattr(config.MODEL.SEM_SEG_HEAD, "DEPTH_CHANNELS", 15),
+            stage4_cfg=stage4_cfg,
+            stage4_ids=stage4_ids,
+            roi_box_head_cfg=getattr(config.MODEL, "ROI_BOX_HEAD", None),
+            sem_seg_head_cfg=getattr(config.MODEL, "SEM_SEG_HEAD", None),
         )
     elif backbone_type == "dinov3_vitl":
         from cups.model.model_vitb import panoptic_cascade_mask_r_cnn_dinov3_vitl
@@ -626,6 +670,10 @@ def build_model_pseudo(
             use_drop_loss=config.TRAINING.DROP_LOSS,
             freeze_backbone=getattr(config.MODEL, "DINOV2_FREEZE", True),
             lora_config=lora_cfg_l,
+            stage4_cfg=stage4_cfg,
+            stage4_ids=stage4_ids,
+            roi_box_head_cfg=getattr(config.MODEL, "ROI_BOX_HEAD", None),
+            sem_seg_head_cfg=getattr(config.MODEL, "SEM_SEG_HEAD", None),
         )
     else:
         model: nn.Module = panoptic_cascade_mask_r_cnn(
@@ -640,13 +688,19 @@ def build_model_pseudo(
             default_size=config.DATA.CROP_RESOLUTION,
             drop_loss_iou_threshold=config.TRAINING.DROP_LOSS_IOU_THRESHOLD,
             use_drop_loss=config.TRAINING.DROP_LOSS,
+            stage4_cfg=stage4_cfg,
+            stage4_ids=stage4_ids,
+            roi_box_head_cfg=getattr(config.MODEL, "ROI_BOX_HEAD", None),
+            sem_seg_head_cfg=getattr(config.MODEL, "SEM_SEG_HEAD", None),
         )
     # Apply checkpoint
     if config.MODEL.CHECKPOINT is not None:
         if use_tta:
-            model.model.load_state_dict(checkpoint)  # type: ignore
+            r = model.model.load_state_dict(checkpoint, strict=False)  # type: ignore
         else:
-            model.load_state_dict(checkpoint)
+            r = model.load_state_dict(checkpoint, strict=False)
+        if r.unexpected_keys:
+            log.info(f"Ignoring {len(r.unexpected_keys)} unexpected checkpoint keys (e.g. seesaw buffers)")
     # Init trainer
     model: UnsupervisedModel = UnsupervisedModel(
         model=model,

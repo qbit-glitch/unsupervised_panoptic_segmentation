@@ -29,7 +29,141 @@ __all__: Tuple[str, ...] = (
     "CopyPasteAugmentation",
     "PhotometricAugmentations",
     "ResolutionJitter",
+    "_paste_one",
 )
+
+_CORE_SAMPLE_KEYS = {"image", "sem_seg", "instances"}
+_SAM_MASK_KEY = "sam_masks"
+_SAM_IOU_KEY = "sam_ious"
+_SAM_CLASS_KEY = "sam_cls"
+_SAM_TEACHER_LOGITS_KEY = "sam_teacher_logits"
+
+
+def _filter_sam_aux_fields(sample: Dict[str, Tensor | Instances], valid_masks: Tensor) -> None:
+    """Keep SAM metadata in sync with a mask-validity filter."""
+
+    for key in (_SAM_IOU_KEY, _SAM_CLASS_KEY):
+        values = sample.get(key)
+        if isinstance(values, Tensor) and values.shape[0] == valid_masks.shape[0]:
+            sample[key] = values[valid_masks.to(values.device)]
+
+
+def _crop_sam_aux_fields(
+    sample: Dict[str, Tensor | Instances],
+    crop_module: kornia.augmentation.RandomCrop,
+) -> None:
+    """Apply the current random crop parameters to attached SAM supervision."""
+
+    image_shape = sample["image"].shape[1:]  # type: ignore[index]
+    masks = sample.get(_SAM_MASK_KEY)
+    if isinstance(masks, Tensor):
+        if masks.shape[0] == 0:
+            sample[_SAM_MASK_KEY] = masks.new_zeros((0, *image_shape), dtype=torch.bool)
+        else:
+            masks = crop_module(masks[None].float(), params=crop_module._params)[0] > 0.5  # type: ignore[arg-type]
+            valid_masks = masks.sum(dim=(1, 2)) > 4
+            sample[_SAM_MASK_KEY] = masks[valid_masks]
+            _filter_sam_aux_fields(sample, valid_masks)
+
+    teacher_logits = sample.get(_SAM_TEACHER_LOGITS_KEY)
+    if isinstance(teacher_logits, Tensor):
+        sample[_SAM_TEACHER_LOGITS_KEY] = crop_module(
+            teacher_logits[None].float(),
+            params=crop_module._params,  # type: ignore[arg-type]
+        )[0]
+
+
+def _resize_sam_aux_fields(
+    sample: Dict[str, Tensor | Instances],
+    scale: float | None,
+    resolution: Tuple[int, int] | None,
+) -> None:
+    """Resize attached SAM supervision with the same geometry as labels."""
+
+    image_shape = sample["image"].shape[1:]  # type: ignore[index]
+    masks = sample.get(_SAM_MASK_KEY)
+    if isinstance(masks, Tensor):
+        if masks.shape[0] == 0:
+            sample[_SAM_MASK_KEY] = masks.new_zeros((0, *image_shape), dtype=torch.bool)
+        else:
+            masks = F.interpolate(
+                masks[None].float(),
+                scale_factor=scale,
+                size=resolution,
+                mode="nearest",
+            )[0].bool()
+            valid_masks = masks.sum(dim=(1, 2)) > 4
+            sample[_SAM_MASK_KEY] = masks[valid_masks]
+            _filter_sam_aux_fields(sample, valid_masks)
+
+    teacher_logits = sample.get(_SAM_TEACHER_LOGITS_KEY)
+    if isinstance(teacher_logits, Tensor):
+        sample[_SAM_TEACHER_LOGITS_KEY] = F.interpolate(
+            teacher_logits[None].float(),
+            scale_factor=scale,
+            size=resolution,
+            mode="bilinear",
+            align_corners=False,
+        )[0]
+
+
+def _paste_one(
+    image_original: Tensor,
+    semantic_segmentation_original: Tensor,
+    instance_masks_original: Tensor,
+    bounding_boxes_original: Tensor,
+    classes_original: Tensor,
+    image_crop: Tensor,
+    instance_mask: Tensor,
+    class_id: Tensor,
+    copy_scale_border: float = 0.0,
+    top: int | None = None,
+    left: int | None = None,
+) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
+    """Paste one object crop into a Detectron2-format target sample."""
+
+    original_shape = image_original.shape[1:]
+    image_crop = image_crop.to(device=image_original.device, dtype=image_original.dtype)
+    instance_mask = instance_mask.to(device=image_original.device).bool()
+    image_crop = image_crop[..., : original_shape[0], : original_shape[1]]
+    instance_mask = instance_mask[: original_shape[0], : original_shape[1]]
+    if image_crop.numel() == 0 or not instance_mask.any():
+        return image_original, semantic_segmentation_original, instance_masks_original, bounding_boxes_original, classes_original
+
+    instance_mask_copy = instance_mask.clone().float()
+    instance_mask_copy[instance_mask_copy == 0] = copy_scale_border
+    crop_shape = instance_mask.shape
+    h_pad = original_shape[0] - crop_shape[0]
+    w_pad = original_shape[1] - crop_shape[1]
+    if h_pad < 0 or w_pad < 0:
+        return image_original, semantic_segmentation_original, instance_masks_original, bounding_boxes_original, classes_original
+    if left is None:
+        left = int(uniform(0, w_pad)) if w_pad > 0 else 0
+    if top is None:
+        top = int(uniform(0, h_pad)) if h_pad > 0 else 0
+    left = max(0, min(int(left), w_pad))
+    top = max(0, min(int(top), h_pad))
+    w_1_pad = left
+    w_2_pad = w_pad - w_1_pad
+    h_1_pad = top
+    h_2_pad = h_pad - h_1_pad
+    instance_padded: Tensor = F.pad(instance_mask.float(), pad=(w_1_pad, w_2_pad, h_1_pad, h_2_pad), value=0).bool()
+    instance_copy_padded: Tensor = F.pad(
+        instance_mask_copy.float(), pad=(w_1_pad, w_2_pad, h_1_pad, h_2_pad), value=0
+    )
+    image_padded: Tensor = F.pad(image_crop, pad=(w_1_pad, w_2_pad, h_1_pad, h_2_pad), value=0)
+    bounding_box = get_bounding_boxes(instance_padded)
+    if bounding_box.shape[0] == 0:
+        return image_original, semantic_segmentation_original, instance_masks_original, bounding_boxes_original, classes_original
+
+    class_id = class_id.to(device=classes_original.device, dtype=classes_original.dtype).view(1)
+    classes_original = torch.cat((classes_original, class_id), dim=0)
+    bounding_boxes_original = torch.cat((bounding_boxes_original, bounding_box.to(bounding_boxes_original.device)), dim=0)
+    image_original = instance_copy_padded * image_padded + (1.0 - instance_copy_padded) * image_original
+    instance_masks_original[instance_padded[None].repeat(instance_masks_original.shape[0], 1, 1)] = False
+    instance_masks_original = torch.cat((instance_masks_original, instance_padded[None]), dim=0)
+    semantic_segmentation_original[instance_padded] = 0
+    return image_original, semantic_segmentation_original, instance_masks_original, bounding_boxes_original, classes_original
 
 
 class CopyPasteAugmentation(nn.Module):
@@ -133,41 +267,39 @@ class CopyPasteAugmentation(nn.Module):
                 if self.use_random_horizontal_flipping and torch.rand(1).item() > 0.5:
                     instance_mask = instance_mask.flip(dims=(-1,))
                     image_crop = image_crop.flip(dims=(-1,))
-                # In case the object proposal is too large we need to crop it
-                original_shape = image_original.shape[1:]
-                image_crop = image_crop[..., : original_shape[0], : original_shape[1]]
-                instance_mask = instance_mask[: original_shape[0], : original_shape[1]]
-                # Make copy instance mask
-                instance_mask_copy = instance_mask.clone().float()
-                instance_mask_copy[instance_mask_copy == 0] = self.copy_scale_border
-                # Add class to original classes
-                classes_original = torch.cat((classes_original, classes[random_index].view(1)), dim=0)
-                # Randomly pad instance mask and image
-                crop_shape = instance_mask.shape
-                h_pad = original_shape[0] - crop_shape[0]
-                w_pad = original_shape[1] - crop_shape[1]
-                w_1_pad = int(uniform(0, w_pad))
-                w_2_pad = w_pad - w_1_pad
-                h_1_pad = int(uniform(0, h_pad))
-                h_2_pad = h_pad - h_1_pad
-                instance_padded: Tensor = F.pad(
-                    instance_mask.float(), pad=(w_1_pad, w_2_pad, h_1_pad, h_2_pad), value=0
-                ).bool()
-                instance_copy_padded: Tensor = F.pad(
-                    instance_mask_copy.float(), pad=(w_1_pad, w_2_pad, h_1_pad, h_2_pad), value=0
+                n_before_paste = instance_masks_original.shape[0]
+                (
+                    image_original,
+                    semantic_segmentation_original,
+                    instance_masks_original,
+                    bounding_boxes_original,
+                    classes_original,
+                ) = _paste_one(
+                    image_original=image_original,
+                    semantic_segmentation_original=semantic_segmentation_original,
+                    instance_masks_original=instance_masks_original,
+                    bounding_boxes_original=bounding_boxes_original,
+                    classes_original=classes_original,
+                    image_crop=image_crop,
+                    instance_mask=instance_mask,
+                    class_id=classes[random_index],
+                    copy_scale_border=self.copy_scale_border,
                 )
-                image_padded: Tensor = F.pad(image_crop, pad=(w_1_pad, w_2_pad, h_1_pad, h_2_pad), value=0)
-                # Get bounding box of padded instance
-                bounding_box = get_bounding_boxes(instance_padded)
-                # Add to original bounding boxes
-                bounding_boxes_original = torch.cat((bounding_boxes_original, bounding_box), dim=0)
-                # Add object to original image
-                image_original = instance_copy_padded * image_padded + (1.0 - instance_copy_padded) * image_original
-                # Set existing masks to zero in the area of the pasted mask
-                instance_masks_original[instance_padded[None].repeat(instance_masks_original.shape[0], 1, 1)] = False
-                instance_masks_original = torch.cat((instance_masks_original, instance_padded[None]), dim=0)
-                # Set semantic segmentation to thing class in the area of the object
-                semantic_segmentation_original[instance_padded] = 0
+                # If a paste actually landed (a row was appended), subtract the
+                # pasted region from any attached SAM masks so they no longer
+                # bound pixels overwritten by the new content. sam_teacher_logits
+                # is intentionally not erased here (bug #4 deferred).
+                if instance_masks_original.shape[0] > n_before_paste:
+                    instance_padded = instance_masks_original[-1]
+                    sam_masks_attached = sample.get(_SAM_MASK_KEY)
+                    if isinstance(sam_masks_attached, Tensor) and sam_masks_attached.shape[0] > 0:
+                        sam_dev = sam_masks_attached.to(
+                            device=instance_padded.device, dtype=torch.bool,
+                        )
+                        sam_dev = sam_dev & (~instance_padded[None])
+                        valid_sam = sam_dev.sum(dim=(1, 2)) > 4
+                        sample[_SAM_MASK_KEY] = sam_dev[valid_sam]
+                        _filter_sam_aux_fields(sample, valid_sam)
             # We need to catch the case the pasted masks fully occlude another mask
             valid_objects = instance_masks_original.any(dim=-1).any(dim=-1)
             # If we have less bounding boxes than masks we just return the original target batch
@@ -177,7 +309,11 @@ class CopyPasteAugmentation(nn.Module):
             bounding_boxes_original = bounding_boxes_original[valid_objects]
             classes_original = classes_original[valid_objects]
             # Make output
-            output.append(
+            sample_output = {
+                key: value for key, value in sample.items()
+                if key not in _CORE_SAMPLE_KEYS
+            }
+            sample_output.update(
                 {
                     "image": image_original,
                     "sem_seg": semantic_segmentation_original,
@@ -189,6 +325,7 @@ class CopyPasteAugmentation(nn.Module):
                     ),
                 }
             )
+            output.append(sample_output)
         return output
 
 
@@ -271,6 +408,7 @@ class RandomCrop(nn.Module):
                 gt_boxes=Boxes(bounding_boxes_gt.long()),
                 gt_classes=classes_gt.long(),
             )
+            _crop_sam_aux_fields(batch_augmented[index_batch], crop_module)
         return batch_augmented
 
 
@@ -369,6 +507,7 @@ class ResolutionJitter(nn.Module):
                 gt_boxes=Boxes(bounding_boxes_gt.long()),
                 gt_classes=classes_gt.long(),
             )
+            _resize_sam_aux_fields(batch_augmented[index_batch], scale, resolution)
         return batch_augmented
 
 

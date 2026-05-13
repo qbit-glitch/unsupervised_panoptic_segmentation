@@ -77,7 +77,7 @@ Modes
 from __future__ import annotations
 
 import warnings
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -197,6 +197,12 @@ class FineObjectSemanticLoss(nn.Module):
         # Exp 3 (thing_focal_stuff_kd): KD distillation on non-SAM pixels
         stuff_kd_lambda: float = 0.1,
         stuff_channel_start: int = 1,
+        # Path B: when True, focal modes (thing_focal_only,
+        # thing_focal_stuff_entropy, thing_focal_stuff_kd) also apply the
+        # MC-PanDA-style agreement gate when teacher_logits are provided.
+        # This prevents focal CE from fighting CUPS pseudo-labels at pixels
+        # where the teacher already predicts thing correctly. Default True.
+        gate_focal_with_teacher: bool = True,
         # Legacy args — kept for backward compat
         sam3_to_cups: Optional[List[int]] = None,
     ) -> None:
@@ -209,9 +215,10 @@ class FineObjectSemanticLoss(nn.Module):
         self.focal_gamma = focal_gamma
         self.use_iou_weighting = use_iou_weighting
         self.min_hard_iou = min_hard_iou
-        # Exp 1
+        # Exp 1 / Path B
         self.common_thing_channel_indices: List[int] = common_thing_channel_indices or []
         self.teacher_logit_weight = teacher_logit_weight
+        self.gate_focal_with_teacher = gate_focal_with_teacher
         # Exp 2
         self.class_frequencies: Optional[List[float]] = class_frequencies
         self.gamma_scale_factor = gamma_scale_factor
@@ -231,6 +238,7 @@ class FineObjectSemanticLoss(nn.Module):
         sam_class_labels_list: Optional[List[Optional[Tensor]]] = None,
         min_iou_score: float = 0.10,
         teacher_logits: Optional[Tensor] = None,
+        pseudo_semantic_list: Optional[List[Optional[Tensor]]] = None,
     ) -> Tensor:
         """Compute the fine-object semantic loss for one batch.
 
@@ -301,16 +309,35 @@ class FineObjectSemanticLoss(nn.Module):
                     cls_labels = raw_labels[keep]
 
             # Mean logit vector per mask — (M, C)
-            mean_logits = _batch_masked_mean(logits_b, masks)
+            mean_logits, valid_means = _batch_masked_mean(logits_b, masks)
             if mean_logits.shape[0] == 0:
                 continue
 
-            # Prepare per-image teacher logits for teacher-gated modes
+            # Sync parallel tensors with the empty-mask filter so cls_labels
+            # and iou_weights stay paired with the surviving logit rows.
+            if cls_labels is not None:
+                cls_labels = cls_labels[valid_means.to(cls_labels.device)]
+            if iou_weights is not None:
+                iou_weights = iou_weights[valid_means.to(iou_weights.device)]
+
+            # Prepare per-image teacher logits for teacher-gated modes.
+            # Path B extends gating beyond thing_mc_panda: focal modes also
+            # consume the gate when teacher_logits is provided AND
+            # gate_focal_with_teacher is True (default).
             teacher_b: Optional[Tensor] = None
             mean_teacher_logits: Optional[Tensor] = None
-            if teacher_logits is not None and self.mode in (
-                "thing_mc_panda", "thing_focal_stuff_kd"
-            ):
+            _focal_modes_using_gate = (
+                "thing_focal_only", "thing_focal_stuff_entropy", "thing_focal_stuff_kd"
+            )
+            _wants_teacher = (
+                self.mode == "thing_mc_panda"
+                or self.mode == "thing_focal_stuff_kd"  # for stuff KD branch
+                or (
+                    self.mode in _focal_modes_using_gate
+                    and self.gate_focal_with_teacher
+                )
+            )
+            if teacher_logits is not None and _wants_teacher:
                 teacher_b = teacher_logits[b]
                 if teacher_b.shape[1:] != (h, w):
                     teacher_b = F.interpolate(
@@ -319,7 +346,12 @@ class FineObjectSemanticLoss(nn.Module):
                         mode="bilinear",
                         align_corners=False,
                     ).squeeze(0)
-                mean_teacher_logits = _batch_masked_mean(teacher_b, masks)
+                mean_teacher_logits, valid_teacher = _batch_masked_mean(teacher_b, masks)
+                # Input masks are identical for student and teacher → valid
+                # tensors must agree. Defensive guard for future divergence.
+                assert torch.equal(valid_teacher, valid_means), (
+                    "Teacher and student valid masks must agree (same input masks)."
+                )
 
             loss = self._compute_loss(
                 mean_logits, cls_labels, thing_idx, iou_weights, logits.device,
@@ -400,11 +432,12 @@ class FineObjectSemanticLoss(nn.Module):
                 (thing_sel.sum(),), thing_idx, dtype=torch.long, device=device,
             )
 
+            teacher_thing = (
+                mean_teacher_logits[thing_sel]
+                if mean_teacher_logits is not None else None
+            )
+
             if self.mode == "thing_mc_panda":
-                teacher_thing = (
-                    mean_teacher_logits[thing_sel]
-                    if mean_teacher_logits is not None else None
-                )
                 if teacher_thing is not None:
                     loss_t = self._mc_panda_thing_loss(
                         thing_logits, teacher_thing, thing_idx, thing_w, device
@@ -418,7 +451,18 @@ class FineObjectSemanticLoss(nn.Module):
             elif self.mode in (
                 "thing_focal_stuff_entropy", "thing_focal_only", "thing_focal_stuff_kd"
             ):
-                loss_t = _focal_ce(thing_logits, targets, self.focal_gamma, thing_w)
+                # Path B: when teacher logits are available, apply the same
+                # MC-PanDA-style agreement gate so focal CE only fires on
+                # masks where the teacher disagrees (teacher P(thing) is low).
+                # This stops focal CE from fighting the teacher on regions
+                # where it already predicts thing — focusing gradient on
+                # rare/missed thing classes the teacher gets wrong.
+                if teacher_thing is not None and self.gate_focal_with_teacher:
+                    gate = self._compute_teacher_gate(teacher_thing, thing_idx, device)
+                    combined_w = gate if thing_w is None else (gate * thing_w)
+                    loss_t = _focal_ce(thing_logits, targets, self.focal_gamma, combined_w)
+                else:
+                    loss_t = _focal_ce(thing_logits, targets, self.focal_gamma, thing_w)
             else:  # thing_entropy_stuff_entropy
                 loss_t = _weighted_ce(thing_logits, targets, thing_w)
             parts.append(loss_t)
@@ -505,6 +549,32 @@ class FineObjectSemanticLoss(nn.Module):
 
     # ── New literature-grounded methods (Exp 1-3) ─────────────────────────────
 
+    def _compute_teacher_gate(
+        self,
+        teacher_thing_logits: Tensor,  # (M_thing, C) teacher mean logits per mask
+        thing_idx: int,
+        device: torch.device,
+    ) -> Tensor:
+        """MC-PanDA-style per-mask agreement gate.
+
+        Returns ``w_m = (1 - P_teacher(thing_channel)) * teacher_logit_weight``
+        clamped to [0, 1]. Masks where the teacher already confidently
+        predicts thing get a near-zero gate (don't fight teacher); masks
+        where the teacher disagrees get full gradient (rescue this region).
+        """
+        teacher_probs = teacher_thing_logits.softmax(dim=-1)  # (M, C)
+
+        if self.common_thing_channel_indices:
+            common_idx = torch.tensor(
+                self.common_thing_channel_indices, dtype=torch.long, device=device
+            )
+            common_conf = teacher_probs[:, common_idx].max(dim=-1).values  # (M,)
+        else:
+            # Default: gate by teacher's confidence in the unified thing channel
+            common_conf = teacher_probs[:, thing_idx]
+
+        return (1.0 - common_conf * self.teacher_logit_weight).clamp(0.0, 1.0)
+
     def _mc_panda_thing_loss(
         self,
         thing_logits: Tensor,            # (M_thing, C) student mean logits
@@ -518,18 +588,7 @@ class FineObjectSemanticLoss(nn.Module):
         Masks where teacher already confidently predicts the thing channel
         contribute near-zero gradient.  Rare/uncertain masks get full gradient.
         """
-        teacher_probs = teacher_thing_logits.softmax(dim=-1)  # (M, C)
-
-        if self.common_thing_channel_indices:
-            common_idx = torch.tensor(
-                self.common_thing_channel_indices, dtype=torch.long, device=device
-            )
-            common_conf = teacher_probs[:, common_idx].max(dim=-1).values  # (M,)
-        else:
-            # Default: gate by teacher's confidence in the unified thing channel
-            common_conf = teacher_probs[:, thing_idx]
-
-        mc_gate = (1.0 - common_conf * self.teacher_logit_weight).clamp(0.0, 1.0)
+        mc_gate = self._compute_teacher_gate(teacher_thing_logits, thing_idx, device)
         combined_w = mc_gate if iou_weights is None else (mc_gate * iou_weights)
 
         targets = torch.full(
@@ -674,7 +733,7 @@ def _focal_ce(
 
 # ── Spatial helper ────────────────────────────────────────────────────────────
 
-def _batch_masked_mean(logits: Tensor, masks: Tensor) -> Tensor:
+def _batch_masked_mean(logits: Tensor, masks: Tensor) -> Tuple[Tensor, Tensor]:
     """Mean logit vector inside each mask without looping.
 
     Args:
@@ -682,11 +741,18 @@ def _batch_masked_mean(logits: Tensor, masks: Tensor) -> Tensor:
         masks:  ``(M, H, W)`` bool
 
     Returns:
-        ``(M', C)`` mean logit vectors where M' <= M (empty masks dropped).
+        Tuple of:
+          mean_logits: ``(M', C)`` where M' <= M (empty masks dropped).
+          valid:       ``(M,)`` bool mask indicating which input rows survived,
+                       so callers can apply the same filter to parallel tensors
+                       (cls_labels, iou_weights).
     """
     M = masks.shape[0]
     if M == 0:
-        return logits.new_zeros(0, logits.shape[0])
+        return (
+            logits.new_zeros(0, logits.shape[0]),
+            torch.zeros(0, dtype=torch.bool, device=masks.device),
+        )
 
     flat_masks = masks.reshape(M, -1).float()           # (M, HW)
     flat_logits = logits.reshape(logits.shape[0], -1)   # (C, HW)
@@ -696,4 +762,4 @@ def _batch_masked_mean(logits: Tensor, masks: Tensor) -> Tensor:
     mean_logits = summed / pixel_counts.unsqueeze(1)
 
     valid = flat_masks.sum(dim=1) > 0
-    return mean_logits[valid]
+    return mean_logits[valid], valid

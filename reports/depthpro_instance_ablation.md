@@ -98,7 +98,42 @@
 
 The sigma=0.0 finding adds +0.75 PQ_things over the Phase 1 default.
 
----
+## Full training threshold sensitivity
+
+Direct validation quality identifies very low tau as a strong setting when each pseudo mask is scored against validation labels. The full training setting has a different purpose because these labels supervise a downstream instance learner across the complete Cityscapes train split. We therefore evaluate coverage, proxy confidence, feature affinity noise, geometric boundary noise, merge noise, missed boundary evidence, and boundary support together.
+
+The table compresses the full sweep into one reviewer readable sensitivity analysis. Lower tau creates many masks and preserves boundary support, but it also raises affinity noise and boundary noise. Larger area minimum removes noisy fragments, but it also removes training instances and begins to create sparse supervision.
+
+    tau    area minimum    masks image    proxy score    affinity noise    merge noise    boundary noise    missed boundary    boundary support    reading
+    0.01   100             46.06          0.964          67.65             1.61           113.85            35.49              0.134               over fragmented
+    0.01   500             29.38          0.974          65.10             1.83           111.74            37.34              0.103               over fragmented
+    0.01   1000            21.87          0.978          62.52             2.02           109.73            39.01              0.086               high split noise
+    0.01   1500            17.75          0.980          60.29             2.17           107.66            40.13              0.076               still noisy
+    0.02   100             39.02          0.961          62.39             1.70           110.57            38.05              0.146               over fragmented
+    0.02   500             26.47          0.973          61.04             1.88           109.34            39.20              0.111               over fragmented
+    0.02   1000            20.56          0.977          59.58             2.03           108.17            40.34              0.092               high split noise
+    0.02   1500            17.21          0.979          58.30             2.17           106.91            41.16              0.080               acceptable but noisy
+    0.05   500             22.32          0.972          56.85             2.02           107.28            41.98              0.104               dense labels
+    0.05   1000            18.29          0.976          56.34             2.15           106.69            42.57              0.086               good candidate
+    0.05   1500            15.85          0.978          55.77             2.26           105.93            42.97              0.076               good candidate
+    0.05   2000            14.13          0.979          55.14             2.36           105.04            43.26              0.070               sparse labels
+    0.10   500             20.00          0.974          55.69             2.24           106.52            43.81              0.083               good candidate
+    0.10   1000            16.93          0.977          55.45             2.33           106.11            44.07              0.070               good candidate
+    0.10   1500            14.93          0.979          55.08             2.42           105.57            44.27              0.063               sparse labels
+    0.20   500             18.69          0.977          55.79             2.57           106.23            44.95              0.059               good candidate
+    0.20   1000            16.18          0.979          55.57             2.62           105.91            45.03              0.053               selected balance
+    0.20   1500            14.45          0.980          55.20             2.66           105.43            45.08              0.051               sparse labels
+    0.20   2000            13.14          0.980          54.72             2.69           104.77            45.10              0.049               sparse labels
+    0.30   500             18.33          0.979          55.97             2.78           106.20            45.29              0.050               higher merge risk
+    0.30   1000            15.99          0.980          55.73             2.80           105.89            45.32              0.047               lower support
+    0.30   1500            14.33          0.980          55.35             2.81           105.44            45.33              0.046               sparse labels
+    0.40   500             18.20          0.979          56.07             2.87           106.19            45.42              0.046               higher merge risk
+    0.40   1000            15.92          0.980          55.81             2.88           105.89            45.43              0.044               lower support
+    0.40   1500            14.28          0.980          55.42             2.89           105.44            45.42              0.044               sparse labels
+
+This pattern supports tau 0.20 with area minimum 1000 as the operating point for training labels. It sits on the low noise plateau with proxy score 0.979 and affinity noise 55.57, while it still retains 16.18 masks per image. Moving to area minimum 1500 or 2000 gives only small noise reductions, but it removes useful supervision and weakens boundary support. Moving to lower tau gives denser labels, but the extra masks arrive with higher feature disagreement and larger boundary noise.
+
+This choice also explains why the full Stage 2 training setting can differ from the direct validation setting above. The validation setting asks which raw pseudo labels score best by themselves. The training setting asks which labels provide enough reliable examples for a downstream instance learner. The selected setting answers the second question.
 
 ## Depth Model Comparison (Final)
 
@@ -152,15 +187,9 @@ Sharper boundaries produce more precise depth edges that align with true object 
 
 ---
 
-## Recommended Configuration for Stage-2 Training
+## Recommended Configuration for Stage 2 Training
 
-- **Depth model**: Apple DepthPro (`apple/DepthPro-hf`)
-- **Splitting**: Standard Sobel gradient
-- **Parameters**: tau=0.01, A_min=1000, sigma=0.0, dilation_iters=3
-- **Instance directory**: `pseudo_instance_depthpro/{train,val}/`
-- **Expected downstream gain**: +1.5-2.5 PQ_things over DA3-based instances in CUPS Stage-2
-
----
+The recommended setting for direct validation pseudo label generation remains DepthPro with standard Sobel gradient, tau 0.01, area minimum 1000, sigma 0.0, and dilation iterations 3. The recommended setting for full Stage 2 training labels is DepthPro with tau 0.20, area minimum 1000, sigma 0.0, and dilation iterations 3 because the full training sensitivity sweep favors a balanced label set over the raw validation optimum.
 
 ## Data Locations
 

@@ -100,3 +100,6 @@ paper_bmvc2026/bmvc_template/.git/
 # Nested git repos
 # ============================================
 **/.git/
+
+# CCR context directory
+.ccr/

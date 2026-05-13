@@ -629,8 +629,9 @@ def semantic_segmentation_to_rgb(semantic_segmentation: Tensor, dataset: str = "
         "waymo",
         "pseudo",
     ), f"Dataset {dataset} not supported!"
-    # Ensure semantic segmentation is on CPU
-    semantic_segmentation = semantic_segmentation.cpu().detach()
+    # Ensure semantic segmentation is on CPU. Clone because the void/OOB remap
+    # below is visualization-only and must not mutate cached predictions.
+    semantic_segmentation = semantic_segmentation.cpu().detach().clone()
     # Get color encoding
     if dataset == "cityscapes":
         color_encoding: Tensor = torch.tensor(CLASS_TO_RGB_CITYSCAPES)
@@ -644,8 +645,14 @@ def semantic_segmentation_to_rgb(semantic_segmentation: Tensor, dataset: str = "
         color_encoding = torch.tensor(CLASS_TO_RGB_MOTS)
     else:
         color_encoding = torch.tensor(RANDOM_COLORS)
-    # map void to last color embedding
-    semantic_segmentation[semantic_segmentation == 255] = len(color_encoding) - 1
+    # Map void and any out-of-range ids to the last color embedding. This keeps
+    # image logging from crashing if a cross-dataset visualization receives a
+    # palette that is narrower than the evaluated taxonomy.
+    void_color_index = len(color_encoding) - 1
+    semantic_segmentation[semantic_segmentation == 255] = void_color_index
+    semantic_segmentation[(semantic_segmentation < 0) | (semantic_segmentation >= len(color_encoding))] = (
+        void_color_index
+    )
     # Semantic segmentation to RGB
     semantic_segmentation_rgb: Tensor = torch.embedding(indices=semantic_segmentation.long(), weight=color_encoding)
     return semantic_segmentation_rgb.permute(2, 0, 1).long()

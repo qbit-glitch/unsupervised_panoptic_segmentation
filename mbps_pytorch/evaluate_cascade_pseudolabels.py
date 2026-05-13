@@ -122,6 +122,62 @@ def _compute_hungarian_mapping(pairs, num_clusters, eval_hw, cause27=False):
     return lut
 
 
+def _compute_majority_mapping(pairs, num_clusters, eval_hw, cause27=False):
+    """Build a many-to-one cluster-to-trainID LUT for overclustered labels.
+
+    Overclustering intentionally allows several clusters to represent one
+    Cityscapes class. A one-to-one Hungarian assignment maps only 19 clusters
+    when k=80, leaving most pixels ignored; majority voting keeps every
+    supported cluster available for semantic and panoptic evaluation.
+    """
+    print(f"\n  Computing majority mapping ({num_clusters} clusters -> {NUM_CLASSES} classes)...")
+    conf = np.zeros((num_clusters, NUM_CLASSES), dtype=np.int64)
+
+    for sem_path, gt_label_path, _, _ in tqdm(pairs, desc="Majority map"):
+        pred = np.array(Image.open(sem_path))
+        if cause27:
+            pred = _CAUSE27_TO_TRAINID[pred]
+        gt_raw = np.array(Image.open(gt_label_path))
+        gt = _remap_to_trainids(gt_raw)
+
+        H, W = eval_hw
+        if pred.shape != (H, W):
+            pred = _resize_nearest(pred, eval_hw)
+        if gt.shape != (H, W):
+            gt = _resize_nearest(gt, eval_hw)
+
+        valid = (gt != IGNORE_LABEL) & (pred < num_clusters)
+        p, g = pred[valid], gt[valid]
+        joint = p.astype(np.int64) * NUM_CLASSES + g.astype(np.int64)
+        counts = np.bincount(joint, minlength=num_clusters * NUM_CLASSES)
+        conf += counts.reshape(num_clusters, NUM_CLASSES)
+
+    lut = np.full(256, IGNORE_LABEL, dtype=np.uint8)
+    support = conf.sum(axis=1)
+    supported = support > 0
+    lut[:num_clusters][supported] = np.argmax(conf[supported], axis=1).astype(np.uint8)
+    print(f"  Mapped {int(supported.sum())}/{num_clusters} clusters by majority vote")
+    return lut
+
+
+def _load_cluster_mapping(mapping_path, num_clusters):
+    """Load cluster_to_class from a kmeans_centroids.npz-style file."""
+    data = np.load(mapping_path)
+    if "cluster_to_class" not in data:
+        raise KeyError(f"{mapping_path} does not contain 'cluster_to_class'")
+    cluster_to_class = data["cluster_to_class"].astype(np.uint8)
+    if len(cluster_to_class) < num_clusters:
+        raise ValueError(
+            f"cluster_to_class has {len(cluster_to_class)} entries, "
+            f"but --num_clusters={num_clusters}"
+        )
+    lut = np.full(256, IGNORE_LABEL, dtype=np.uint8)
+    lut[:num_clusters] = cluster_to_class[:num_clusters]
+    print(f"\n  Loaded many-to-one cluster mapping from {mapping_path}")
+    print(f"  Mapped {num_clusters}/{num_clusters} clusters")
+    return lut
+
+
 def _load_gt_instances(inst_path, target_hw=None):
     """Load GT thing instances from Cityscapes instanceIds.png."""
     inst_map = np.array(Image.open(inst_path), dtype=np.int32)
@@ -210,6 +266,16 @@ def _load_pred_instances(npz_path, target_hw):
     return resized, scores
 
 
+def _load_pred_instance_class_ids(npz_path):
+    """Load optional per-mask trainID labels from an instance NPZ."""
+    data = np.load(str(npz_path))
+    if "class_ids" not in data:
+        return None
+    class_ids = data["class_ids"]
+    num_valid = int(data["num_valid"]) if "num_valid" in data else class_ids.shape[0]
+    return class_ids[:num_valid].astype(np.int32)
+
+
 def _batch_iou(pred_masks, gt_masks):
     """Compute IoU matrix between pred and GT masks. (M_pred, M_gt)."""
     M_pred = pred_masks.shape[0]
@@ -235,7 +301,7 @@ def evaluate_semantic(pairs, eval_hw, cause27=False, cluster_lut=None):
     if cause27:
         print(f"  (remapping CAUSE 27-class → 19 trainIDs)")
     if cluster_lut is not None:
-        print(f"  (applying Hungarian cluster → trainID mapping)")
+        print(f"  (applying cluster → trainID mapping)")
     print(f"{'='*60}")
 
     conf_matrix = np.zeros((NUM_CLASSES, NUM_CLASSES), dtype=np.int64)
@@ -446,7 +512,7 @@ def evaluate_panoptic(pairs, eval_hw, thing_mode="connected_components",
     print(f"PANOPTIC EVALUATION ({split_info})")
     print(f"  Thing instance mode: {thing_mode}")
     if cluster_lut is not None:
-        print(f"  Using Hungarian cluster mapping")
+        print(f"  Using cluster mapping")
     print(f"{'='*60}")
 
     tp = np.zeros(NUM_CLASSES)
@@ -505,19 +571,24 @@ def evaluate_panoptic(pairs, eval_hw, thing_mode="connected_components",
                 next_id += 1
         elif thing_mode in ("maskcut", "hybrid"):
             pred_inst_masks, pred_inst_scores = None, None
+            pred_inst_class_ids = None
             if inst_path is not None and inst_path.exists():
                 pred_inst_masks, pred_inst_scores = _load_pred_instances(inst_path, eval_hw)
+                pred_inst_class_ids = _load_pred_instance_class_ids(inst_path)
             if pred_inst_masks is not None and pred_inst_masks.shape[0] > 0:
                 order = np.argsort(-pred_inst_scores) if pred_inst_scores is not None else np.arange(pred_inst_masks.shape[0])
                 for idx in order:
                     m = pred_inst_masks[idx]
                     if m.sum() < 10:
                         continue
-                    sem_vals = pred_sem[m]
-                    sem_vals = sem_vals[sem_vals < NUM_CLASSES]
-                    if len(sem_vals) == 0:
-                        continue
-                    majority_cls = int(np.bincount(sem_vals, minlength=NUM_CLASSES).argmax())
+                    if pred_inst_class_ids is not None and idx < len(pred_inst_class_ids):
+                        majority_cls = int(pred_inst_class_ids[idx])
+                    else:
+                        sem_vals = pred_sem[m]
+                        sem_vals = sem_vals[sem_vals < NUM_CLASSES]
+                        if len(sem_vals) == 0:
+                            continue
+                        majority_cls = int(np.bincount(sem_vals, minlength=NUM_CLASSES).argmax())
                     if majority_cls not in p_thing:
                         continue
                     pred_pan[m] = next_id
@@ -777,8 +848,14 @@ def main():
                         help="Semantic pseudo-labels are in CAUSE 27-class format. "
                              "Remap to standard 19 trainIDs before evaluation.")
     parser.add_argument("--num_clusters", type=int, default=0,
-                        help="If > 0, apply Hungarian matching from N clusters to 19 classes. "
-                             "Required for evaluating overclustered (k=80) pseudo-labels.")
+                        help="If > 0, map overclustered labels from N clusters to 19 classes.")
+    parser.add_argument("--cluster_mapping", type=str, default="majority",
+                        choices=["majority", "hungarian"],
+                        help="How to build cluster mapping when --num_clusters > 0. "
+                             "Use majority for overclustering; Hungarian is one-to-one.")
+    parser.add_argument("--cluster_mapping_path", type=str, default=None,
+                        help="Optional .npz containing cluster_to_class, e.g. "
+                             "pseudo_semantic_*/kmeans_centroids.npz.")
     args = parser.parse_args()
 
     eval_hw = tuple(args.eval_size)
@@ -820,13 +897,20 @@ def main():
     has_semantic = any(p[0] is not None for p in pairs)
     has_instance = any(p[2] is not None for p in pairs)
 
-    # Compute Hungarian cluster-to-class mapping if overclustered
+    # Compute or load cluster-to-class mapping if overclustered.
     cluster_lut = None
     if args.num_clusters > 0 and has_semantic:
         sem_pairs = [(s, gl, i, gi) for s, gl, i, gi in pairs if s is not None]
-        cluster_lut = _compute_hungarian_mapping(
-            sem_pairs, args.num_clusters, eval_hw, cause27=args.cause27
-        )
+        if args.cluster_mapping_path:
+            cluster_lut = _load_cluster_mapping(args.cluster_mapping_path, args.num_clusters)
+        elif args.cluster_mapping == "hungarian":
+            cluster_lut = _compute_hungarian_mapping(
+                sem_pairs, args.num_clusters, eval_hw, cause27=args.cause27
+            )
+        else:
+            cluster_lut = _compute_majority_mapping(
+                sem_pairs, args.num_clusters, eval_hw, cause27=args.cause27
+            )
 
     # 1. Semantic evaluation
     if has_semantic and not args.skip_semantic:

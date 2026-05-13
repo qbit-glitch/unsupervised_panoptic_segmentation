@@ -53,12 +53,16 @@ log.setLevel(logging.INFO)
 torch.set_float32_matmul_precision("medium")
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Mapillary → Cityscapes class mapping (19 classes)
+# Mapillary → Cityscapes class mapping (19-class or 27-class CUPS protocol)
 # ──────────────────────────────────────────────────────────────────────────────
+# 19-class = standard Cityscapes panoptic (semantic-seg eval taxonomy)
+# 27-class = CUPS in-domain protocol (full Cityscapes label space, including
+#   parking, rail track, guard rail, bridge, tunnel, polegroup, caravan, trailer)
+# Selected via CLI flag --num_target_classes {19,27}; default 19 to match
+# CUPS's own cross-dataset KITTI protocol.
 
-# Mapillary class index → Cityscapes trainID
-# Built from config_v2.0.json analysis
-MAPILLARY_TO_CS = {
+# 19-class mapping (Cityscapes train_id 0-18)
+MAPILLARY_TO_CS_19 = {
     21: 0,    # construction--flat--road → road
     19: 1,    # construction--flat--pedestrian-area → sidewalk
     24: 1,    # construction--flat--sidewalk → sidewalk
@@ -86,16 +90,102 @@ MAPILLARY_TO_CS = {
     105: 18,  # object--vehicle--bicycle → bicycle
 }
 
-# Cityscapes class info
-CS_THING_IDS = {11, 12, 13, 14, 15, 16, 17, 18}
-CS_STUFF_IDS = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
-CS_NAMES = [
+# 27-class mapping (CUPS protocol; Cityscapes c.id - 7 for c.id > 6).
+# Order: road(0), sidewalk(1), parking(2), rail track(3), building(4), wall(5),
+# fence(6), guard rail(7), bridge(8), tunnel(9), pole(10), polegroup(11),
+# traffic light(12), traffic sign(13), vegetation(14), terrain(15), sky(16),
+# person(17), rider(18), car(19), truck(20), bus(21), caravan(22), trailer(23),
+# train(24), motorcycle(25), bicycle(26).
+MAPILLARY_TO_CS_27 = {
+    21: 0,    # construction--flat--road → road
+    19: 1,    # construction--flat--pedestrian-area → sidewalk
+    24: 1,    # construction--flat--sidewalk → sidewalk
+    17: 2,    # construction--flat--parking → parking (NEW in 27)
+    18: 2,    # construction--flat--parking-aisle → parking (NEW in 27)
+    20: 3,    # construction--flat--rail-track → rail track (NEW in 27)
+    27: 4,    # construction--structure--building → building
+    12: 5,    # construction--barrier--wall → wall
+    5: 6,     # construction--barrier--fence → fence
+    6: 7,     # construction--barrier--guard-rail → guard rail (NEW in 27)
+    26: 8,    # construction--structure--bridge → bridge (NEW in 27)
+    29: 9,    # construction--structure--tunnel → tunnel (NEW in 27)
+    85: 10,   # object--support--pole → pole
+    88: 10,   # object--support--utility-pole → pole
+    86: 11,   # object--support--pole-group → polegroup (NEW in 27)
+    90: 12,   # object--traffic-light--general-single → traffic light
+    92: 12,   # object--traffic-light--general-upright → traffic light
+    93: 12,   # object--traffic-light--general-horizontal → traffic light
+    100: 13,  # object--traffic-sign--front → traffic sign
+    64: 14,   # nature--vegetation → vegetation
+    63: 15,   # nature--terrain → terrain
+    61: 16,   # nature--sky → sky
+    30: 17,   # human--person--individual → person
+    32: 18,   # human--rider--bicyclist → rider
+    33: 18,   # human--rider--motorcyclist → rider
+    34: 18,   # human--rider--other-rider → rider
+    108: 19,  # object--vehicle--car → car
+    114: 20,  # object--vehicle--truck → truck
+    107: 21,  # object--vehicle--bus → bus
+    109: 22,  # object--vehicle--caravan → caravan (NEW in 27)
+    113: 23,  # object--vehicle--trailer → trailer (NEW in 27)
+    111: 24,  # object--vehicle--on-rails → train
+    110: 25,  # object--vehicle--motorcycle → motorcycle
+    105: 26,  # object--vehicle--bicycle → bicycle
+}
+
+# 19-class Cityscapes thing/stuff partition
+CS_THING_IDS_19 = {11, 12, 13, 14, 15, 16, 17, 18}
+CS_STUFF_IDS_19 = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+CS_NAMES_19 = [
     "road", "sidewalk", "building", "wall", "fence",
     "pole", "traffic light", "traffic sign", "vegetation", "terrain",
     "sky", "person", "rider", "car", "truck",
     "bus", "train", "motorcycle", "bicycle",
 ]
+
+# 27-class CUPS-protocol Cityscapes thing/stuff partition
+# Things (has_instances=True): person, rider, car, truck, bus, caravan, trailer, train, motorcycle, bicycle
+CS_THING_IDS_27 = {17, 18, 19, 20, 21, 22, 23, 24, 25, 26}
+# Stuff: road, sidewalk, parking, rail track, building, wall, fence, guard rail,
+#        bridge, tunnel, pole, polegroup, traffic light, traffic sign,
+#        vegetation, terrain, sky
+CS_STUFF_IDS_27 = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}
+CS_NAMES_27 = [
+    "road", "sidewalk", "parking", "rail track", "building",
+    "wall", "fence", "guard rail", "bridge", "tunnel",
+    "pole", "polegroup", "traffic light", "traffic sign", "vegetation",
+    "terrain", "sky", "person", "rider", "car",
+    "truck", "bus", "caravan", "trailer", "train",
+    "motorcycle", "bicycle",
+]
+
+# Defaults; overwritten by main() based on --num_target_classes CLI flag
+MAPILLARY_TO_CS = MAPILLARY_TO_CS_19
+CS_THING_IDS = CS_THING_IDS_19
+CS_STUFF_IDS = CS_STUFF_IDS_19
+CS_NAMES = CS_NAMES_19
 NUM_TARGET_CLASSES = 19
+
+
+def select_class_protocol(num_target_classes: int) -> None:
+    """Switch the module-level constants to either the 19- or 27-class
+    Cityscapes protocol. Must be called before build_class_mapping() and
+    before constructing the MapillaryVistas dataset."""
+    global MAPILLARY_TO_CS, CS_THING_IDS, CS_STUFF_IDS, CS_NAMES, NUM_TARGET_CLASSES
+    if num_target_classes == 27:
+        MAPILLARY_TO_CS = MAPILLARY_TO_CS_27
+        CS_THING_IDS = CS_THING_IDS_27
+        CS_STUFF_IDS = CS_STUFF_IDS_27
+        CS_NAMES = CS_NAMES_27
+        NUM_TARGET_CLASSES = 27
+    elif num_target_classes == 19:
+        MAPILLARY_TO_CS = MAPILLARY_TO_CS_19
+        CS_THING_IDS = CS_THING_IDS_19
+        CS_STUFF_IDS = CS_STUFF_IDS_19
+        CS_NAMES = CS_NAMES_19
+        NUM_TARGET_CLASSES = 19
+    else:
+        raise ValueError(f"num_target_classes must be 19 or 27, got {num_target_classes}")
 
 
 def build_class_mapping(void_id: int = 255) -> Tensor:
@@ -232,9 +322,19 @@ def main():
     parser.add_argument("--device", type=str, default="cpu")
     parser.add_argument("--resize_scale", type=float, default=0.5,
                         help="Resize scale for Mapillary images (default 0.5 for memory)")
+    parser.add_argument("--num_target_classes", type=int, default=19, choices=[19, 27],
+                        help="Cityscapes evaluation taxonomy: 19 (standard semantic-seg, "
+                             "matches CUPS cross-dataset KITTI protocol) or 27 (CUPS "
+                             "in-domain protocol, includes parking/rail track/guard rail/"
+                             "bridge/tunnel/polegroup/caravan/trailer)")
     args = parser.parse_args()
 
     os.environ["WANDB_MODE"] = "disabled"
+
+    # Switch class-mapping constants based on selected protocol BEFORE
+    # building the dataset (the dataset reads NUM_TARGET_CLASSES at init).
+    select_class_protocol(args.num_target_classes)
+    log.info(f"Using {NUM_TARGET_CLASSES}-class Cityscapes evaluation protocol")
 
     config = cups.get_default_config(experiment_config_file=args.experiment_config_file)
     config.defrost()

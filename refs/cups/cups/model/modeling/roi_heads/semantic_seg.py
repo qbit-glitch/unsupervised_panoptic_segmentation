@@ -60,6 +60,15 @@ class CustomSemSegFPNHead(nn.Module):
         kd_temperature: float = 2.0,
         aux_weights: Optional[Dict[str, float]] = None,
         aux_params: Optional[Dict[str, float]] = None,
+        rare_stuff_classes: Tuple[int, ...] = (),
+        rare_focal_weight: float = 0.0,
+        rare_focal_gamma: float = 2.0,
+        rare_boundary_weight: float = 0.0,
+        rare_boundary_width: int = 3,
+        ldam_enabled: bool = False,
+        ldam_max_margin: float = 0.5,
+        ldam_s: float = 30.0,
+        ldam_class_freq: Tuple[float, ...] = (),
     ):
         """
         NOTE: this interface is experimental.
@@ -97,6 +106,25 @@ class CustomSemSegFPNHead(nn.Module):
         self.kd_temperature = kd_temperature
         self.aux_weights: Dict[str, float] = dict(aux_weights or {})
         self.aux_params: Dict[str, float] = dict(aux_params or {})
+        self.rare_stuff_classes = tuple(int(c) for c in rare_stuff_classes)
+        self.rare_focal_weight = float(rare_focal_weight)
+        self.rare_focal_gamma = float(rare_focal_gamma)
+        self.rare_boundary_weight = float(rare_boundary_weight)
+        self.rare_boundary_width = int(rare_boundary_width)
+        self.ldam_enabled = bool(ldam_enabled)
+        self.ldam = None
+        if self.ldam_enabled:
+            from cups.losses.long_tail import LDAMSemanticLoss
+
+            freq = ldam_class_freq or tuple(1.0 for _ in range(num_classes))
+            self.ldam = LDAMSemanticLoss(
+                num_classes=num_classes,
+                class_freq=freq,
+                max_margin=ldam_max_margin,
+                s=ldam_s,
+                class_weight=class_weight,
+                ignore_index=ignore_value,
+            )
         # Registry of aux-loss callables. Imported lazily here (not at module
         # load) so test fixtures that do not need aux losses stay lightweight.
         self._aux_fns: Dict[str, Callable[[torch.Tensor, torch.Tensor, dict], torch.Tensor]] = {}
@@ -165,6 +193,15 @@ class CustomSemSegFPNHead(nn.Module):
             "kd_temperature": getattr(head_cfg, "KD_TEMPERATURE", 2.0),
             "aux_weights": aux_weights,
             "aux_params": aux_params,
+            "rare_stuff_classes": tuple(getattr(head_cfg, "RARE_STUFF_CLASSES", ())),
+            "rare_focal_weight": getattr(head_cfg, "RARE_FOCAL_WEIGHT", 0.0),
+            "rare_focal_gamma": getattr(head_cfg, "RARE_FOCAL_GAMMA", 2.0),
+            "rare_boundary_weight": getattr(head_cfg, "RARE_BOUNDARY_WEIGHT", 0.0),
+            "rare_boundary_width": getattr(head_cfg, "RARE_BOUNDARY_WIDTH", 3),
+            "ldam_enabled": getattr(head_cfg, "LDAM_ENABLED", False),
+            "ldam_max_margin": getattr(head_cfg, "LDAM_MAX_MARGIN", 0.5),
+            "ldam_s": getattr(head_cfg, "LDAM_S", 30.0),
+            "ldam_class_freq": tuple(getattr(head_cfg, "LDAM_CLASS_FREQ", ())),
         }
 
     def forward(
@@ -268,26 +305,50 @@ class CustomSemSegFPNHead(nn.Module):
                     mode="bilinear",
                     align_corners=False,
                 ).squeeze(1)
-            loss_unreduced = F.cross_entropy(
-                predictions,
-                targets,
-                reduction="none",
-                ignore_index=self.ignore_value,
-                weight=class_weight,
-            )  # (B, H, W)
+            if self.ldam_enabled:
+                assert self.ldam is not None
+                loss_unreduced = self.ldam(
+                    predictions,
+                    targets,
+                    reduction="none",
+                    class_weight=class_weight,
+                    ignore_value=self.ignore_value,
+                )
+            else:
+                loss_unreduced = F.cross_entropy(
+                    predictions,
+                    targets,
+                    reduction="none",
+                    ignore_index=self.ignore_value,
+                    weight=class_weight,
+                )  # (B, H, W)
             valid = (targets != self.ignore_value).float()
             weighted = loss_unreduced * pixel_weights * valid
             denom = valid.sum().clamp(min=1.0)
             loss = weighted.sum() / denom
         else:
-            loss = F.cross_entropy(
-                predictions,
-                targets,
-                reduction="mean",
-                ignore_index=self.ignore_value,
-                weight=class_weight,
-            )
+            if self.ldam_enabled:
+                assert self.ldam is not None
+                loss = self.ldam(
+                    predictions,
+                    targets,
+                    reduction="mean",
+                    class_weight=class_weight,
+                    ignore_value=self.ignore_value,
+                )
+            else:
+                loss = F.cross_entropy(
+                    predictions,
+                    targets,
+                    reduction="mean",
+                    ignore_index=self.ignore_value,
+                    weight=class_weight,
+                )
         losses = {"loss_sem_seg": loss * self.loss_weight}
+
+        if self.rare_stuff_classes and (self.rare_focal_weight > 0.0 or self.rare_boundary_weight > 0.0):
+            rare_losses = self._compute_rare_semantic_losses(predictions, targets, class_weight)
+            losses.update(rare_losses)
 
         # Stuff-preservation KD loss: KL divergence on stuff pixels only
         if self.stuff_kd_weight > 0.0 and pseudo_onehot is not None:
@@ -324,6 +385,56 @@ class CustomSemSegFPNHead(nn.Module):
                 losses[out_key] = fn(predictions, targets, aux_ctx) * w
 
         return losses
+
+    def _compute_rare_semantic_losses(
+        self,
+        predictions: torch.Tensor,
+        targets: torch.Tensor,
+        class_weight: Optional[torch.Tensor],
+    ) -> Dict[str, torch.Tensor]:
+        rare_ids = torch.tensor(self.rare_stuff_classes, device=targets.device, dtype=targets.dtype)
+        valid = targets != self.ignore_value
+        rare_mask = torch.isin(targets, rare_ids) & valid
+        if not rare_mask.any():
+            zero = predictions.sum() * 0.0
+            out: Dict[str, torch.Tensor] = {}
+            if self.rare_focal_weight > 0.0:
+                out["loss_stage4_rare_focal"] = zero
+            if self.rare_boundary_weight > 0.0:
+                out["loss_stage4_rare_boundary"] = zero
+            return out
+
+        ce = F.cross_entropy(
+            predictions,
+            targets,
+            reduction="none",
+            ignore_index=self.ignore_value,
+            weight=class_weight,
+        )
+        out = {}
+        if self.rare_focal_weight > 0.0:
+            pt = torch.exp(-ce.detach()).clamp(0.0, 1.0)
+            focal = ((1.0 - pt) ** self.rare_focal_gamma) * ce
+            out["loss_stage4_rare_focal"] = focal[rare_mask].mean() * self.rare_focal_weight
+
+        if self.rare_boundary_weight > 0.0:
+            boundary = self._rare_boundary_mask(rare_mask.float())
+            boundary = boundary & valid
+            if boundary.any():
+                out["loss_stage4_rare_boundary"] = ce[boundary].mean() * self.rare_boundary_weight
+            else:
+                out["loss_stage4_rare_boundary"] = predictions.sum() * 0.0
+        return out
+
+    def _rare_boundary_mask(self, rare_mask: torch.Tensor) -> torch.Tensor:
+        width = max(3, int(self.rare_boundary_width))
+        if width % 2 == 0:
+            width += 1
+        pad = width // 2
+        rare_mask = rare_mask.unsqueeze(1)
+        dilated = F.max_pool2d(rare_mask, kernel_size=width, stride=1, padding=pad)
+        eroded = -F.max_pool2d(-rare_mask, kernel_size=width, stride=1, padding=pad)
+        return ((dilated - eroded).squeeze(1) > 0.0)
 
     def _compute_stuff_kd_loss(
         self,

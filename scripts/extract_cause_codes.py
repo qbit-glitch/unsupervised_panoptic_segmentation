@@ -260,6 +260,11 @@ def extract_and_save(
         depth_npy_path = os.path.join(
             cityscapes_root, depth_subdir, split, city, f"{stem}.npy",
         )
+        if not os.path.isfile(depth_npy_path):
+            depth_npy_path = os.path.join(
+                cityscapes_root, depth_subdir, split, city,
+                f"{stem}_leftImg8bit.npy",
+            )
         if os.path.isfile(depth_npy_path):
             depth_full = np.load(depth_npy_path).astype(np.float32)
             depth_t = torch.from_numpy(depth_full).unsqueeze(0).unsqueeze(0)

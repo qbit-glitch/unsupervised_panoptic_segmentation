@@ -29,6 +29,7 @@ from cups.data import (
     MOTS_THING_CLASSES,
     WAYMO_7_MISSING_CS_CLASSES,
     WAYMO_19_MISSING_CS_CLASSES,
+    WAYMO_27_MISSING_CS_CLASSES,
     BDD10kPanopticValidation,
     CityscapesPanopticValidation,
     KITTIInstanceSegmentation,
@@ -144,7 +145,12 @@ def main() -> None:
             crop_resolution=config.DATA.CROP_RESOLUTION,
             num_classes=config.DATA.NUM_CLASSES,
         )
-        classes_mask = WAYMO_19_MISSING_CS_CLASSES if config.DATA.NUM_CLASSES == 19 else WAYMO_7_MISSING_CS_CLASSES
+        if config.DATA.NUM_CLASSES == 27:
+            classes_mask = WAYMO_27_MISSING_CS_CLASSES
+        elif config.DATA.NUM_CLASSES == 19:
+            classes_mask = WAYMO_19_MISSING_CS_CLASSES
+        else:
+            classes_mask = WAYMO_7_MISSING_CS_CLASSES
     elif config.DATA.DATASET == "kitti_instance":
         log.info("KITTI instance dataset used.")
         validation_dataset = KITTIInstanceSegmentation(  # type: ignore
@@ -237,7 +243,7 @@ def main() -> None:
         "experiments",
         run_name,
     )
-    os.makedirs(experiment_path)
+    os.makedirs(experiment_path, exist_ok=True)
     # Init logger
     logger = WandbLogger(
         name=run_name,

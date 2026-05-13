@@ -7,8 +7,10 @@ Variants:
     DepthAdapterFiLM       — B1: FiLM conditioning (depth→γ,β modulation)
     DepthAdapterCrossAttn  — A1: Cross-attention with DINOv2 768D
     DepthAdapterDeep       — B2: 4-layer bottleneck MLP
+    DepthAdapterAdaptFormer — Bottleneck residual in the DCFA code slot
     DepthAdapterWindowAttn — B3: Local 3×3 patch neighborhood attention
     DepthAdapterX          — Combined: FiLM + cross-attention + fusion MLP
+    DepthAdapterX2         — Larger geometry+DINO local-attention replacement
 """
 
 from __future__ import annotations
@@ -44,7 +46,8 @@ def create_adapter(name: str, **kwargs) -> nn.Module:
     """Factory to create adapter by name.
 
     Args:
-        name: Adapter variant name (v3, film, cross_attn, deep, window_attn, x).
+        name: Adapter variant name (v3, film, cross_attn, deep, adaptformer,
+            window_attn, x, x2).
         **kwargs: Passed to adapter constructor.
 
     Returns:
@@ -229,6 +232,93 @@ class DepthAdapterDeep(nn.Module):
         x = self.mlp(x)
         residual = self.out_linear(x)
         return codes + residual
+
+
+# ─── B2b: AdaptFormer-style Bottleneck in DCFA Slot ─────────────────────────
+
+@register_adapter("adaptformer")
+class DepthAdapterAdaptFormer(nn.Module):
+    """AdaptFormer-style residual adapter after CAUSE codes + depth encoding.
+
+    This is the corrected placement for the user's requested AdaptFormer
+    ablation: it replaces the DCFA MLP after frozen CAUSE-TR features, rather
+    than injecting anything into DINOv2.
+
+    input_mode="concat" is the DCFA-comparable path:
+        [code90; depthD] -> bottleneck adapter -> residual90
+
+    input_mode="project_add" preserves the older ablation:
+        code90 + depth_proj(depthD) -> bottleneck adapter -> residual90
+    """
+
+    def __init__(
+        self,
+        code_dim: int = 90,
+        depth_dim: int = 16,
+        bottleneck_dim: int = 64,
+        num_layers: int = 1,
+        dropout: float = 0.05,
+        init_scale: float = 1e-3,
+        learnable_scale: bool = True,
+        input_mode: str = "concat",
+    ) -> None:
+        super().__init__()
+        if input_mode not in ("concat", "project_add"):
+            raise ValueError(
+                f"Unknown AdaptFormer input_mode={input_mode!r}; "
+                "expected 'concat' or 'project_add'."
+            )
+        self.code_dim = code_dim
+        self.depth_dim = depth_dim
+        self.bottleneck_dim = bottleneck_dim
+        self.num_layers = num_layers
+        self.input_mode = input_mode
+
+        if input_mode == "project_add":
+            self.depth_proj = nn.Linear(depth_dim, code_dim)
+            input_dim = code_dim
+        else:
+            self.depth_proj = None
+            input_dim = code_dim + depth_dim
+
+        self.norm = nn.LayerNorm(input_dim)
+        self.down = nn.Linear(input_dim, bottleneck_dim)
+        self.act = nn.GELU()
+        self.dropout = nn.Dropout(dropout) if dropout > 0 else nn.Identity()
+        hidden_layers = []
+        for _ in range(max(0, num_layers - 1)):
+            hidden_layers.extend([
+                nn.Linear(bottleneck_dim, bottleneck_dim),
+                nn.GELU(),
+                nn.Dropout(dropout) if dropout > 0 else nn.Identity(),
+            ])
+        self.hidden = nn.Sequential(*hidden_layers)
+        self.up = nn.Linear(bottleneck_dim, code_dim)
+
+        nn.init.zeros_(self.up.weight)
+        nn.init.zeros_(self.up.bias)
+
+        scale = torch.tensor(float(init_scale))
+        if learnable_scale:
+            self.scale = nn.Parameter(scale)
+        else:
+            self.register_buffer("scale", scale)
+
+    def forward(
+        self, codes: torch.Tensor, depth: torch.Tensor, **kwargs,
+    ) -> torch.Tensor:
+        if depth.dim() == 2:
+            depth = depth.unsqueeze(-1)
+
+        if self.input_mode == "project_add":
+            token = codes + self.depth_proj(depth)
+        else:
+            token = torch.cat([codes, depth], dim=-1)
+        token = self.norm(token)
+        token = self.dropout(self.act(self.down(token)))
+        token = self.hidden(token)
+        residual = self.up(token)
+        return codes + self.scale.to(dtype=codes.dtype) * residual
 
 
 # ─── B3: Local Window Attention ──────────────────────────────────────────────
@@ -432,3 +522,192 @@ class DepthAdapterX(nn.Module):
 
         # Step 4: Skip connection
         return codes + residual
+
+
+# ─── DCFA-X2: Geometry-aware local DINO recovery ─────────────────────────────
+
+@register_adapter("x2")
+class DepthAdapterX2(nn.Module):
+    """DCFA-X2: FiLM + local DINO cross-window attention + gated recovery.
+
+    This adapter is intentionally still a residual correction over 90D CAUSE
+    codes. The final projection is zero-initialized, so the module starts as an
+    identity mapping and only moves features when training discovers a useful
+    depth/DINO correction.
+    """
+
+    def __init__(
+        self,
+        code_dim: int = 90,
+        depth_dim: int = 16,
+        geo_dim: int = 6,
+        dino_dim: int = 768,
+        hidden_dim: int = 384,
+        d_attn: int = 96,
+        num_heads: int = 4,
+        window_size: int = 3,
+        fusion_hidden: int = 384,
+        residual_scale: float = 1.0,
+    ) -> None:
+        super().__init__()
+        if d_attn % num_heads != 0:
+            raise ValueError("d_attn must be divisible by num_heads")
+        if window_size % 2 == 0:
+            raise ValueError("window_size must be odd")
+
+        self.code_dim = code_dim
+        self.depth_dim = depth_dim
+        self.geo_dim = geo_dim
+        self.dino_dim = dino_dim
+        self.hidden_dim = hidden_dim
+        self.d_attn = d_attn
+        self.num_heads = num_heads
+        self.head_dim = d_attn // num_heads
+        self.window_size = window_size
+        self.residual_scale = float(residual_scale)
+
+        geo_in = depth_dim + geo_dim
+
+        self.film_net = nn.Sequential(
+            nn.Linear(geo_in, hidden_dim),
+            nn.LayerNorm(hidden_dim),
+            nn.GELU(),
+            nn.Linear(hidden_dim, code_dim * 2),
+        )
+
+        self.q_proj = nn.Linear(code_dim, d_attn)
+        self.k_proj = nn.Linear(dino_dim + geo_in, d_attn)
+        self.v_proj = nn.Linear(dino_dim + geo_in, d_attn)
+
+        self.dino_recover = nn.Linear(dino_dim, code_dim)
+        self.dino_gate = nn.Sequential(
+            nn.Linear(code_dim + geo_in, code_dim),
+            nn.Sigmoid(),
+        )
+        self.geo_proj = nn.Sequential(
+            nn.Linear(geo_in, d_attn),
+            nn.LayerNorm(d_attn),
+            nn.GELU(),
+        )
+
+        fusion_in = code_dim * 3 + d_attn * 2
+        self.fusion = nn.Sequential(
+            nn.Linear(fusion_in, fusion_hidden),
+            nn.LayerNorm(fusion_hidden),
+            nn.GELU(),
+            nn.Linear(fusion_hidden, hidden_dim),
+            nn.LayerNorm(hidden_dim),
+            nn.GELU(),
+        )
+        self.out_linear = nn.Linear(hidden_dim, code_dim)
+        nn.init.zeros_(self.out_linear.weight)
+        nn.init.zeros_(self.out_linear.bias)
+
+    def _geo_features(
+        self,
+        depth: torch.Tensor,
+        normals: Optional[torch.Tensor],
+        gradients: Optional[torch.Tensor],
+    ) -> torch.Tensor:
+        """Build fixed-width geometry features from depth plus optional cues."""
+        if depth.dim() == 2:
+            depth = depth.unsqueeze(-1)
+
+        parts = [depth]
+        remaining = self.geo_dim
+        device = depth.device
+        dtype = depth.dtype
+        b, n, _ = depth.shape
+
+        if remaining > 0:
+            if normals is not None:
+                normals = normals.to(device=device, dtype=dtype)
+                parts.append(normals[..., :min(3, remaining)])
+                remaining -= min(3, remaining)
+            else:
+                add = min(3, remaining)
+                parts.append(torch.zeros(b, n, add, device=device, dtype=dtype))
+                remaining -= add
+
+        if remaining > 0:
+            if gradients is not None:
+                gradients = gradients.to(device=device, dtype=dtype)
+                parts.append(gradients[..., :remaining])
+                remaining -= min(gradients.shape[-1], remaining)
+            if remaining > 0:
+                parts.append(torch.zeros(b, n, remaining, device=device, dtype=dtype))
+
+        geo = torch.cat(parts, dim=-1)
+        expected = self.depth_dim + self.geo_dim
+        if geo.shape[-1] != expected:
+            raise ValueError(f"Expected geo dim {expected}, got {geo.shape[-1]}")
+        return geo
+
+    def _local_cross_attention(
+        self,
+        q: torch.Tensor,
+        k: torch.Tensor,
+        v: torch.Tensor,
+        spatial_shape: tuple,
+    ) -> torch.Tensor:
+        b, n, _ = q.shape
+        ph, pw = spatial_shape
+        if ph * pw != n:
+            raise ValueError(f"spatial_shape {spatial_shape} does not match N={n}")
+
+        pad = self.window_size // 2
+        ws2 = self.window_size * self.window_size
+
+        def unfold_windows(x: torch.Tensor) -> torch.Tensor:
+            x_2d = x.reshape(b, ph, pw, self.d_attn).permute(0, 3, 1, 2)
+            windows = F.unfold(x_2d, kernel_size=self.window_size, padding=pad)
+            windows = windows.transpose(1, 2).reshape(b, n, self.d_attn, ws2)
+            windows = windows.permute(0, 1, 3, 2)
+            return windows.reshape(b, n, ws2, self.num_heads, self.head_dim)
+
+        qh = q.reshape(b, n, self.num_heads, self.head_dim)
+        kh = unfold_windows(k)
+        vh = unfold_windows(v)
+
+        scores = torch.einsum("bnhd,bnwhd->bnhw", qh, kh)
+        scores = scores / math.sqrt(self.head_dim)
+        weights = F.softmax(scores, dim=-1)
+        ctx = torch.einsum("bnhw,bnwhd->bnhd", weights, vh)
+        return ctx.reshape(b, n, self.d_attn)
+
+    def forward(
+        self,
+        codes: torch.Tensor,
+        depth: torch.Tensor,
+        dino768: Optional[torch.Tensor] = None,
+        normals: Optional[torch.Tensor] = None,
+        gradients: Optional[torch.Tensor] = None,
+        spatial_shape: Optional[tuple] = None,
+        **kwargs,
+    ) -> torch.Tensor:
+        if dino768 is None:
+            raise ValueError("DepthAdapterX2 requires dino768 input")
+        if spatial_shape is None:
+            raise ValueError("DepthAdapterX2 requires spatial_shape")
+
+        dino768 = dino768.to(device=codes.device, dtype=codes.dtype)
+        geo = self._geo_features(depth, normals, gradients).to(dtype=codes.dtype)
+
+        film_params = self.film_net(geo)
+        gamma, beta = film_params.chunk(2, dim=-1)
+        codes_film = (gamma + 1.0) * codes + beta
+
+        kv_input = torch.cat([dino768, geo], dim=-1)
+        q = self.q_proj(codes_film)
+        k = self.k_proj(kv_input)
+        v = self.v_proj(kv_input)
+        local_ctx = self._local_cross_attention(q, k, v, spatial_shape)
+
+        gate = self.dino_gate(torch.cat([codes_film, geo], dim=-1))
+        gated_dino = gate * self.dino_recover(dino768)
+        geo_proj = self.geo_proj(geo)
+
+        fused = torch.cat([codes, codes_film, local_ctx, gated_dino, geo_proj], dim=-1)
+        hidden = self.fusion(fused)
+        residual = self.out_linear(hidden)
+        return codes + self.residual_scale * residual

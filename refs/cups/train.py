@@ -36,6 +36,7 @@ from cups.augmentation import (
     ResolutionJitter,
     get_pseudo_label_augmentations,
 )
+from cups.augmentation_rare_pool import RareInstancePoolCopyPaste
 from cups.data import (
     CITYSCAPES_CLASSNAMES,
     CITYSCAPES_CLASSNAMES_19,
@@ -46,6 +47,7 @@ from cups.data import (
     CityscapesPanopticValidation,
     KITTIPanopticValidation,
     PseudoLabelDataset,
+    RepeatFactorTrainingSampler,
     StepDataset,
     collate_function_validation,
 )
@@ -87,7 +89,14 @@ def configure() -> CfgNode:
         action="store_true",
         help="Binary flag. If set run will not be tracked with Weights and Biases.",
     )
-    parser.add_argument("--experiment_config_file", default=None, type=str, help="Path to experiment config file.")
+    parser.add_argument(
+        "--experiment_config_file",
+        "--config-file",
+        dest="experiment_config_file",
+        default=None,
+        type=str,
+        help="Path to experiment config file.",
+    )
     parser.add_argument("--ckpt_path", default=None, type=str, help="Path to checkpoint for resuming training.")
     # Get arguments
     args = parser.parse_args()
@@ -118,7 +127,9 @@ def main() -> None:
     # Set seed
     seed_everything(config.SYSTEM.SEED)
     # Make datasets
-    training_dataset = PseudoLabelDataset(
+    sem_seg_head = getattr(config.MODEL, "SEM_SEG_HEAD", None)
+    stuff_kd_weight = getattr(sem_seg_head, "STUFF_KD_WEIGHT", 0.0) if sem_seg_head is not None else 0.0
+    dataset_kwargs = dict(
         root=config.DATA.ROOT,
         root_pseudo=config.DATA.ROOT_PSEUDO,
         return_detectron2_format=True,
@@ -129,13 +140,19 @@ def main() -> None:
         augmentations=get_pseudo_label_augmentations(config.DATA.CROP_RESOLUTION),
         dataset=config.DATA.DATASET,
         only_use_non_empty_samples=True,
-        # Approach B: depth + pseudo-onehot for stuff KD / depth FiLM
-        depth_subdir=getattr(config.DATA, "DEPTH_SUBDIR", ""),
-        num_pseudo_classes=config.DATA.NUM_PSEUDO_CLASSES,
-        load_pseudo_onehot=(
-            getattr(config.MODEL.SEM_SEG_HEAD, "STUFF_KD_WEIGHT", 0.0) > 0
-        ),
     )
+    dataset_init_args = PseudoLabelDataset.__init__.__code__.co_varnames
+    if "depth_subdir" in dataset_init_args:
+        dataset_kwargs["depth_subdir"] = getattr(config.DATA, "DEPTH_SUBDIR", "")
+    if "num_pseudo_classes" in dataset_init_args:
+        dataset_kwargs["num_pseudo_classes"] = config.DATA.NUM_PSEUDO_CLASSES
+    if "load_pseudo_onehot" in dataset_init_args:
+        dataset_kwargs["load_pseudo_onehot"] = stuff_kd_weight > 0
+    training_dataset = PseudoLabelDataset(**dataset_kwargs)
+    if getattr(config.MODEL.SEM_SEG_HEAD, "LDAM_ENABLED", False) and not config.MODEL.SEM_SEG_HEAD.LDAM_CLASS_FREQ:
+        config.defrost()
+        config.MODEL.SEM_SEG_HEAD.LDAM_CLASS_FREQ = tuple(float(v) for v in training_dataset.class_distribution)
+        config.freeze()
     # Init validation set
     if config.DATA.DATASET in ("cityscapes", "cityscapes_val"):
         validation_dataset = CityscapesPanopticValidation(
@@ -163,19 +180,44 @@ def main() -> None:
     log.info(f"{len(training_dataset)} training samples and {len(validation_dataset)} validation samples detected.")
     # Make data loaders
     num_workers = config.SYSTEM.NUM_WORKERS
-    training_data_loader = DataLoader(
-        dataset=StepDataset(
-            training_dataset, steps=config.TRAINING.STEPS * config.SYSTEM.NUM_GPUS * config.TRAINING.BATCH_SIZE * getattr(config.TRAINING, "ACCUMULATE_GRAD_BATCHES", 1)
-        ),
-        batch_size=config.TRAINING.BATCH_SIZE,
-        shuffle=True,
-        num_workers=num_workers,
-        collate_fn=lambda x: x,
-        drop_last=True,
-        pin_memory=False,
-        persistent_workers=False,
-        prefetch_factor=6 if num_workers > 0 else None,
+    train_num_samples = (
+        config.TRAINING.STEPS
+        * config.SYSTEM.NUM_GPUS
+        * config.TRAINING.BATCH_SIZE
+        * getattr(config.TRAINING, "ACCUMULATE_GRAD_BATCHES", 1)
     )
+    if config.DATA.USE_REPEAT_FACTOR_SAMPLER:
+        sampler = RepeatFactorTrainingSampler(
+            training_dataset,
+            threshold_t=config.DATA.RFS_THRESHOLD_T,
+            num_samples=train_num_samples,
+            cache_path=config.DATA.RFS_PRECOMPUTE_CACHE or None,
+            seed=config.SYSTEM.SEED,
+        )
+        training_data_loader = DataLoader(
+            dataset=training_dataset,
+            sampler=sampler,
+            batch_size=config.TRAINING.BATCH_SIZE,
+            shuffle=False,
+            num_workers=num_workers,
+            collate_fn=lambda x: x,
+            drop_last=True,
+            pin_memory=False,
+            persistent_workers=False,
+            prefetch_factor=6 if num_workers > 0 else None,
+        )
+    else:
+        training_data_loader = DataLoader(
+            dataset=StepDataset(training_dataset, steps=train_num_samples),
+            batch_size=config.TRAINING.BATCH_SIZE,
+            shuffle=True,
+            num_workers=num_workers,
+            collate_fn=lambda x: x,
+            drop_last=True,
+            pin_memory=False,
+            persistent_workers=False,
+            prefetch_factor=6 if num_workers > 0 else None,
+        )
     validation_data_loader = DataLoader(
         dataset=validation_dataset,
         batch_size=min(config.TRAINING.BATCH_SIZE, 2),
@@ -185,6 +227,23 @@ def main() -> None:
         drop_last=False,
         pin_memory=False,
     )
+    if config.AUGMENTATION.USE_RARE_POOL:
+        copy_paste_augmentation = RareInstancePoolCopyPaste(
+            thing_class=len(training_dataset.stuff_classes),
+            pool_path=config.AUGMENTATION.RARE_POOL_PATH,
+            pastes_per_image=config.AUGMENTATION.RARE_POOL_PASTES_PER_IMAGE,
+            use_depth_placement=config.AUGMENTATION.RARE_POOL_USE_DEPTH_PLACEMENT,
+            class_repeat_overrides=config.AUGMENTATION.RARE_POOL_CLASS_REPEAT_OVERRIDES,
+            thing_id_to_trainid=training_dataset.things_classes,
+        )
+    elif config.AUGMENTATION.COPY_PASTE:
+        copy_paste_augmentation = CopyPasteAugmentation(
+            thing_class=len(training_dataset.stuff_classes),
+            max_num_pasted_objects=config.AUGMENTATION.MAX_NUM_PASTED_OBJECTS,
+        )
+    else:
+        copy_paste_augmentation = None
+
     # Init model
     model: LightningModule = cups.build_model_pseudo(
         config=config,
@@ -201,14 +260,7 @@ def main() -> None:
             if config.TRAINING.CLASS_WEIGHTING
             else None
         ),
-        copy_paste_augmentation=(
-            CopyPasteAugmentation(
-                thing_class=len(training_dataset.stuff_classes),
-                max_num_pasted_objects=config.AUGMENTATION.MAX_NUM_PASTED_OBJECTS,
-            )
-            if config.AUGMENTATION.COPY_PASTE
-            else None
-        ),
+        copy_paste_augmentation=copy_paste_augmentation,
         photometric_augmentation=PhotometricAugmentations(),
         resolution_jitter_augmentation=ResolutionJitter(
             scales=None,
@@ -254,11 +306,12 @@ def main() -> None:
     accum = getattr(config.TRAINING, "ACCUMULATE_GRAD_BATCHES", 1)
     effective_batch = config.TRAINING.BATCH_SIZE * config.SYSTEM.NUM_GPUS * accum
     log.info(f"Effective batch size: {config.TRAINING.BATCH_SIZE} × {config.SYSTEM.NUM_GPUS} GPUs × {accum} accum = {effective_batch}")
-    # Checkpoint interval in optimizer steps — default: align with validation (1 ckpt per val)
-    ckpt_every = getattr(config.TRAINING, "CKPT_EVERY_N_STEPS", None)
-    if ckpt_every is None:
-        ckpt_every = max(1, config.TRAINING.VAL_EVERY_N_STEPS // accum)
-    log.info(f"Checkpoint every {ckpt_every} optimizer steps (validation every {config.TRAINING.VAL_EVERY_N_STEPS} batch steps)")
+    max_steps = config.TRAINING.STEPS
+    log.info(f"Training for {max_steps} trainer steps with gradient accumulation {accum}")
+    log.info(
+        "Checkpoint top-k is evaluated after every validation "
+        f"({config.TRAINING.VAL_EVERY_N_STEPS} raw train batches)"
+    )
     trainer: Trainer = Trainer(
         default_root_dir=experiment_path,
         accelerator=config.SYSTEM.ACCELERATOR,
@@ -266,8 +319,8 @@ def main() -> None:
         num_nodes=config.SYSTEM.NUM_NODES,
         strategy=strategy,
         precision=config.TRAINING.PRECISION,
-        max_steps=config.TRAINING.STEPS,
-        min_steps=config.TRAINING.STEPS,
+        max_steps=max_steps,
+        min_steps=max_steps,
         accumulate_grad_batches=accum,
         callbacks=[
             RTPTCallback(name_initials="CR&OH", experiment_name="UPS"),
@@ -278,7 +331,6 @@ def main() -> None:
                 mode="max",
                 save_top_k=6,
                 save_last=True,
-                every_n_train_steps=ckpt_every,
             ),
             LearningRateMonitor(logging_interval="step", log_momentum=True),
         ],

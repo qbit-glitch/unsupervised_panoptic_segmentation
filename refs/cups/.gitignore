@@ -141,3 +141,6 @@ dmypy.json
 /cups/model/backbone_checkpoints/dino_RN50_pretrain_d2_format.pkl
 /cups/optical_flow/checkpoints/raft_smurf.pt
 /assets/cups.ckpt
+
+# CCR context directory
+.ccr/

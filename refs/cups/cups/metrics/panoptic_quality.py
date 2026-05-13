@@ -4,6 +4,7 @@ import logging
 from typing import Dict, List, Set, Tuple
 
 import torch
+import torch.distributed as dist
 from scipy.optimize import linear_sum_assignment
 from torch import Tensor
 from torchmetrics.detection import PanopticQuality as PanopticQualityTM
@@ -11,6 +12,20 @@ from torchmetrics.detection import PanopticQuality as PanopticQualityTM
 logging.basicConfig(format="%(message)s")
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
+
+
+def _distributed_sum(tensor: Tensor) -> Tensor:
+    if not dist.is_available() or not dist.is_initialized():
+        return tensor
+    device = tensor.device
+    backend = dist.get_backend()
+    synced = tensor.detach().clone()
+    if backend == "nccl" and synced.device.type == "cpu":
+        synced = synced.to(torch.device("cuda", torch.cuda.current_device()))
+    elif backend != "nccl":
+        synced = synced.cpu()
+    dist.all_reduce(synced, op=dist.ReduceOp.SUM)
+    return synced.to(device)
 
 
 class PanopticQualitySemanticMatching(PanopticQualityTM):
@@ -393,6 +408,7 @@ class PanopticQualitySemanticMatching(PanopticQualityTM):
             miou (Tensor): Class-wise mIoU as a scalar tensor.
             assignments (Tensor): The semantic class permutation from matching shape is [num clusters].
         """
+        self.cost_matrix = _distributed_sum(self.cost_matrix)  # type: ignore
         # Assignments to device
         self.assignments = self.matching().to(self.device)
         # Initialized cost matrix for class-wise mIoU
@@ -422,6 +438,10 @@ class PanopticQualitySemanticMatching(PanopticQualityTM):
                 target = target[None]
             # Make PQ update
             super(PanopticQualitySemanticMatching, self).update(prediction, target)
+        iou_sum = _distributed_sum(self.iou_sum)
+        true_positives = _distributed_sum(self.true_positives)
+        false_positives = _distributed_sum(self.false_positives)
+        false_negatives = _distributed_sum(self.false_negatives)
         # Compute final metric
         (
             pq,
@@ -437,10 +457,10 @@ class PanopticQualitySemanticMatching(PanopticQualityTM):
             sq_stuffs,
             rq_stuffs,
         ) = _panoptic_quality_compute(
-            self.iou_sum,
-            self.true_positives,
-            self.false_positives,
-            self.false_negatives,
+            iou_sum,
+            true_positives,
+            false_positives,
+            false_negatives,
             self.cat_id_to_continuous_id,
             self.things,
             self.stuffs,
@@ -467,6 +487,7 @@ class PanopticQualitySemanticMatching(PanopticQualityTM):
                 self.num_classes,
                 self.num_classes,
             )
+        cost_matrix_matched = _distributed_sum(cost_matrix_matched)
         # Compute mIoU based on matched cost matrix
         miou, acc = _miou_compute(cost_matrix_matched)
         return (

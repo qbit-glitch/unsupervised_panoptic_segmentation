@@ -1,6 +1,7 @@
 import os
 import sys
 from collections import namedtuple
+from pathlib import Path
 from typing import Dict, List, Tuple
 
 import numpy as np
@@ -39,29 +40,100 @@ WAYMO_19_MISSING_CS_CLASSES: List[bool] = [
 ]
 WAYMO_7_MISSING_CS_CLASSES: List[bool] = [True, True, True, True, True, True, True]
 
+# 27-class evaluation mask. True = class is present in Waymo GT (or has a
+# proxy class that maps to it); False = absent from Waymo and excluded from
+# the per-class average. Of the 8 Cityscapes-27 extras (parking, rail track,
+# guard rail, bridge, tunnel, polegroup, caravan, trailer), only "trailer"
+# (Waymo id 8) has GT support; the other seven are absent from Waymo's
+# 30-class taxonomy.
+WAYMO_27_MISSING_CS_CLASSES: List[bool] = [
+    True,   # 0  road           (Waymo: road, lanemarker, road marker)
+    True,   # 1  sidewalk       (Waymo: sidewalk)
+    False,  # 2  parking        - absent
+    False,  # 3  rail track     - absent
+    True,   # 4  building       (Waymo: building)
+    False,  # 5  wall           - absent
+    False,  # 6  fence          - absent
+    False,  # 7  guard rail     - absent
+    False,  # 8  bridge         - absent
+    False,  # 9  tunnel         - absent
+    True,   # 10 pole           (Waymo: pole)
+    False,  # 11 polegroup      - absent
+    True,   # 12 traffic light  (Waymo: traffic light)
+    True,   # 13 traffic sign   (Waymo: sign)
+    True,   # 14 vegetation     (Waymo: vegetation)
+    False,  # 15 terrain        - absent
+    True,   # 16 sky            (Waymo: sky)
+    True,   # 17 person         (Waymo: pedestrian)
+    True,   # 18 rider          (Waymo: cyclist, motorcyclist)
+    True,   # 19 car            (Waymo: car)
+    True,   # 20 truck          (Waymo: truck)
+    True,   # 21 bus            (Waymo: bus)
+    False,  # 22 caravan        - absent
+    True,   # 23 trailer        (Waymo: trailer - NEW vs. CS19)
+    True,   # 24 train          (Waymo: other large vehicle proxy)
+    True,   # 25 motorcycle     (Waymo: motorcycle)
+    True,   # 26 bicycle        (Waymo: bicycle)
+]
+
+# CS19 train_id -> CS27 train_id (used to lift Waymo's to_cs19 to CS27 via a
+# table lookup; trailer is handled as an explicit override below).
+_CS19_TO_CS27: Dict[int, int] = {
+    0: 0,   1: 1,   2: 4,   3: 5,   4: 6,   5: 10,  6: 12,  7: 13,
+    8: 14,  9: 15,  10: 16, 11: 17, 12: 18, 13: 19, 14: 20, 15: 21,
+    16: 24, 17: 25, 18: 26,
+    255: 255,
+}
+
+
+def _paired_label_path(image_path: str, label_kind: str) -> str:
+    """Return the paired semantic/instance label path for a Waymo image path."""
+    direct_path = image_path.replace("image", label_kind)
+    if os.path.exists(direct_path):
+        return direct_path
+    stem_path = Path(direct_path)
+    for suffix in (".png", ".tif", ".tiff"):
+        candidate = stem_path.with_suffix(suffix)
+        if candidate.exists():
+            return str(candidate)
+    return direct_path
+
 
 def waymo2cs_class_mapping(num_classes: int = 19, void_id: int = 255) -> Tensor:
-    """FUnction returns the mapping from raw Cityscapes classes to the supported number of classes (27, 19, and 7).
+    """Function returns the mapping from raw Waymo classes to the supported
+    Cityscapes evaluation taxonomy (27, 19, or 7).
 
     Args:
-        num_classes (int): Number of classes to be utilized. Default is 27.
+        num_classes (int): Number of classes to be utilized. Supported: 27, 19, 7.
         void_id (int): Void id class to ignore parts.
 
     Returns:
-        mapping_weights (Tensor): Mapping weights of the shape [34, 1]
+        mapping_weights (Tensor): Mapping weights of the shape [num_waymo_labels, 1]
     """
     # Check input
-    assert num_classes in (19, 7), f"{num_classes} classes is not supported."
+    assert num_classes in (27, 19, 7), f"{num_classes} classes is not supported."
+    # 27 classes case (CUPS in-domain protocol). Lift each Waymo label's CS19
+    # train_id to CS27 via the _CS19_TO_CS27 table, with a special case for
+    # "trailer" which is mapped to CS27 id 23 even though it is void in CS19.
+    if num_classes == 27:
+        cs27_ids = []
+        for c in WAYMO_LABEL:
+            if c.name == "trailer":
+                cs27_ids.append(23)
+            else:
+                cs27_ids.append(_CS19_TO_CS27.get(int(c.to_cs19), void_id))
+        weights: Tensor = torch.Tensor(cs27_ids).int()
+        weights[weights == 254] = void_id
     # 19 classes case
-    if num_classes == 19:
-        weights: Tensor = torch.Tensor([c.to_cs19 for c in WAYMO_LABEL]).int()
+    elif num_classes == 19:
+        weights = torch.Tensor([c.to_cs19 for c in WAYMO_LABEL]).int()
         weights[weights == 254] = void_id
     # 7 parent classes
-    if num_classes == 7:
+    else:
         weights = torch.Tensor([c.categoryId - 1 for c in WAYMO_LABEL]).int()
         weights[weights == 254] = void_id
 
-    # Reshape weights to [34, 1]
+    # Reshape weights to [num_waymo_labels, 1]
     weights = weights[..., None]
     return weights
 
@@ -163,9 +235,10 @@ class WaymoPanopticValidation(Dataset):
             # frames_paths = sorted(frames_paths)
             for frame_path in frames_paths:
                 # ignore frames without labels
-                if not os.path.exists(os.path.join(scene_path, frame_path.replace("image", "semantic"))):
+                image_path = os.path.join(scene_path, frame_path)
+                if not os.path.exists(_paired_label_path(image_path, "semantic")):
                     continue
-                self.images.append(os.path.join(scene_path, frame_path))
+                self.images.append(image_path)
 
     def __len__(self) -> int:
         """Returns the length of the dataset.
@@ -192,11 +265,13 @@ class WaymoPanopticValidation(Dataset):
         # Resize images
         image_0_l = F.interpolate(image_0_l, scale_factor=self.resize_scale, mode="bilinear")
         # Load labels
+        semantic_path = _paired_label_path(image_0_l_path, "semantic")
+        instance_path = _paired_label_path(image_0_l_path, "instance")
         semantic_label = torch.Tensor(
-            np.array(Image.open(image_0_l_path.replace("image", "semantic")), dtype=int)
+            np.array(Image.open(semantic_path), dtype=int)
         ).long()
         instance_label = torch.Tensor(
-            np.array(Image.open(image_0_l_path.replace("image", "instance")), dtype=int)
+            np.array(Image.open(instance_path), dtype=int)
         ).long()
         semantic_label = self.class_mapping[semantic_label].squeeze()
         # Resize labels
@@ -224,7 +299,7 @@ class WaymoPanopticValidation(Dataset):
             "semantic_gt": semantic_label,
             "instance_gt": instance_label,
             "image_name": self.images[index].split("/")[-2]  # type: ignore
-            + self.images[index].split("/")[-1].replace(".png", ""),  # type: ignore
+            + Path(self.images[index]).stem,  # type: ignore
         }
         return output
 
