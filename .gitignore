@@ -103,3 +103,4 @@ paper_bmvc2026/bmvc_template/.git/
 
 # CCR context directory
 .ccr/
+.gcloud_waymo/
