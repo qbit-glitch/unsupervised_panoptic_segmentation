@@ -1,0 +1,11 @@
+*.pyc
+__pycache__
+output/
+tmp/
+.ipynb_checkpoints/
+wandb/
+ImageNetV2-matched-frequency/
+ImageNetV2-matched-frequency.tar.gz
+config/default_local.yaml
+*.csv
+*.ipynb

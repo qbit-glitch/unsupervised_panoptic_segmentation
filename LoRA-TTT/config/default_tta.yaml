@@ -1,0 +1,217 @@
+_base_: './default.yaml'
+
+data:
+  batch_size: 64
+  dataset:
+    meta:
+      imagenet:
+        type: img_classification
+        path: '/path/to/dataset'
+        classes: 'imagenet'
+        prompt: 'simple'
+      imagenet_a:
+        type: img_classification
+        path: '/path/to/dataset'
+        classes: 'imagenet_a'
+        prompt: 'simple'
+      imagenetv2:
+        type: img_classification
+        path: '/path/to/dataset'
+        classes: 'imagenet'
+        prompt: 'simple'
+      imagenet_r:
+        type: img_classification
+        path: '/path/to/dataset'
+        classes: 'imagenet_r'
+        prompt: 'simple'
+      imagenet_sketch:
+        type: img_classification
+        path: '/path/to/dataset'
+        classes: 'imagenet'
+        prompt: 'simple'
+
+      flower102:
+        type: img_classification
+        path: '/path/to/dataset'
+        label: '/path/to/label'
+        classes: 'flower102'
+        prompt: 'simple'
+      food101:
+        type: img_classification
+        path: '/path/to/dataset'
+        label: '/path/to/label'
+        classes: 'food101'
+        prompt: 'simple'
+      dtd:
+        type: img_classification
+        path: '/path/to/dataset'
+        label: '/path/to/label'
+        classes: 'dtd'
+        prompt: 'simple'
+      pets:
+        type: img_classification
+        path: '/path/to/dataset'
+        label: '/path/to/label'
+        classes: 'pets'
+        prompt: 'simple'
+      sun397:
+        type: img_classification
+        path: '/path/to/dataset'
+        label: '/path/to/label'
+        classes: 'sun397'
+        prompt: 'simple'
+      caltech101:
+        type: img_classification
+        path: '/path/to/dataset'
+        label: '/path/to/label'
+        classes: 'caltech101'
+        prompt: 'simple'
+      ucf101:
+        type: img_classification
+        path: '/path/to/dataset'
+        label: '/path/to/label'
+        classes: 'ucf101'
+        prompt: 'simple'
+      cars:
+        type: img_classification
+        path: '/path/to/dataset'
+        label: '/path/to/label'
+        classes: 'cars'
+        prompt: 'simple'
+      eurosat:
+        type: img_classification
+        path: '/path/to/dataset'
+        label: '/path/to/label'
+        classes: 'eurosat'
+        prompt: 'simple'
+      aircraft:
+        type: img_classification
+        path: '/path/to/dataset'
+        label: ''
+        classes: 'aircraft'
+        prompt: 'simple'
+
+    tta: ['imagenet', 'imagenet_a', 'imagenetv2', 'imagenet_r', 'imagenet_sketch']
+    train: ['gcc3m_005']
+
+model:
+  image:
+    encoder:
+      name: 'vit-b'
+      size: 224
+      patch_size: 16
+      embeddings: 768
+    decoder:
+      layer: 8
+      head: 16
+  mae:
+    mask_ratio: 0.75
+    reconst: 'feature'
+    decoder: false
+  loss:
+    alpha: 1
+  peft:
+    name: 'lora'
+    r: 16
+    alpha_r_scale: 2
+    target_modules: ["k_proj", "v_proj", "q_proj", "out_proj"]
+    dropout: 0.01
+    layers_to_transform: [10,11]
+
+train:
+  start_epoch: 0
+  epochs: 1
+  warmup_epochs: 2
+  lr: 1e-4
+  weight_decay: 0.05
+  warmup_lr: 1e-6
+  min_lr: 1e-7
+  clip_grad: 0.1
+
+  lr_scheduler:
+    name: cosine
+  loss:
+    clip_weight: 1
+    mae_weight: 1
+
+tta:
+  peft:
+    batch_size: 64
+    epochs: 1
+    optimizer: 'adam'
+    lr: 1e-3
+    weight_decay: 0.2
+    eps: 1e-8
+    betas: [0.9, 0.999] # default
+    loss: ['mem']
+    selection_p: 0.1
+    reset: true
+    adaptive: false
+    mae:
+      weight: 1
+    mem:
+      weight: 1
+
+  ie:
+    batch_size: 64
+    epochs: 1
+    optimizer: 'adam'
+    lr: 1e-3
+    weight_decay: 0.2
+    eps: 1e-8
+    betas: [0.9, 0.999] # default
+    loss: ['mem']
+    selection_p: 0.1
+    layers: [11]
+    reset: true
+    adaptive: false
+    mae:
+      weight: 1
+    mem:
+      weight: 1
+
+  affine:
+    batch_size: 64
+    epochs: 1
+    optimizer: 'adam'
+    lr: 1e-3
+    weight_decay: 0.2
+    eps: 1e-8
+    betas: [0.9, 0.999] # default
+    loss: ['mem']
+    selection_p: 0.1
+    layers: [11]
+    reset: true
+    adaptive: false
+    mae:
+      weight: 1
+    mem:
+      weight: 1
+
+
+  tp:
+    batch_size: 64
+    epochs: 1
+    optimizer: 'adam'
+    lr: 5e-3
+    weight_decay: 0.01  # default
+    eps: 1e-8           # default
+    betas: [0.9, 0.999] # default
+    loss: ['mem']
+    selection_p: 0.1
+    reset: true
+    adaptive: false
+    mta: false
+    ctpt: false
+    mem:
+      weight: 1
+
+  params: ['peft']
+  run_freq: 1
+
+world_size: 1
+
+wandb_project: 'test'
+output: './test'
+finetune: false
+checkpoint: false
