@@ -1,0 +1,29 @@
+{
+  "cluster_ids": [
+    8,
+    10,
+    13,
+    32,
+    33,
+    41,
+    43,
+    45,
+    47,
+    49,
+    52,
+    55,
+    58,
+    69,
+    72
+  ],
+  "num_clusters_present": 15,
+  "invalid_ids_rendered_black": [
+    255
+  ],
+  "invalid_pixel_count": 81760,
+  "dataset": "cityscapes",
+  "image_id": "munster_000001_000019",
+  "source_path": "/Users/qbit-glitch/Desktop/datasets/cityscapes/leftImg8bit/val/munster/munster_000001_000019_leftImg8bit.png",
+  "out_dir": "/Users/qbit-glitch/Desktop/coding-projects/mbps_panoptic_segmentation/notebooks/qualitative_results/raw80_ours/cityscapes/munster_000001_000019",
+  "checkpoint": "/Users/qbit-glitch/Desktop/coding-projects/mbps_panoptic_segmentation/checkpoints/stage4_pathB_focal_w005_gated_v2/best_pq_step=000575.ckpt"
+}

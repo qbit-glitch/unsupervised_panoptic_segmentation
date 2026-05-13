@@ -1,0 +1,84 @@
+{
+  "dataset": "waymo",
+  "image_id": "9243656068381062947_1297_428_1317_428_1508793808711324_cam4_image",
+  "source_path": "/Volumes/code_files/datasets/panoptic_segmentation_datasets/waymo_v2_0_1_preprocessed/validation/9243656068381062947_1297_428_1317_428/1508793808711324_cam4_image.jpg",
+  "semantic_mapping_for_overlay": "cityscapes27",
+  "ours_checkpoint": "/Users/qbit-glitch/Desktop/coding-projects/mbps_panoptic_segmentation/checkpoints/stage3_dcfa_simcf_abc/best_pq_step=003000.ckpt",
+  "ours_config": "/Users/qbit-glitch/Desktop/coding-projects/mbps_panoptic_segmentation/refs/cups/configs/val_stage3_dcfa_simcf_abc_local.yaml",
+  "cups_checkpoint": "/Users/qbit-glitch/Desktop/coding-projects/mbps_panoptic_segmentation/weights/cups.ckpt",
+  "standard_format": {
+    "channel_0": "raw semantic pseudo-class id",
+    "channel_1": "raw thing instance id; 0 means stuff/background/no thing instance"
+  },
+  "void_fill_for_visualization": "on",
+  "ours": {
+    "semantic_ids": [
+      0,
+      9,
+      10,
+      13,
+      17,
+      24,
+      25,
+      27,
+      32,
+      33,
+      41,
+      43,
+      45,
+      46,
+      47,
+      49,
+      55,
+      255
+    ],
+    "thing_semantic_ids": [],
+    "thing_instance_ids": [],
+    "num_thing_instances": 0,
+    "thing_pixel_count": 0,
+    "thing_classes_config": [
+      64,
+      65,
+      66,
+      67,
+      68,
+      69,
+      70,
+      71,
+      72,
+      73,
+      74,
+      75,
+      76,
+      77,
+      78,
+      79
+    ]
+  },
+  "cups": {
+    "semantic_ids": [
+      4,
+      7,
+      9,
+      10,
+      11,
+      12,
+      13,
+      16,
+      17,
+      18,
+      255
+    ],
+    "thing_semantic_ids": [],
+    "thing_instance_ids": [],
+    "num_thing_instances": 0,
+    "thing_pixel_count": 0,
+    "thing_classes_config": [
+      22,
+      23,
+      24,
+      25,
+      26
+    ]
+  }
+}

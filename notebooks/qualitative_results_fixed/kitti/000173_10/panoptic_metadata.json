@@ -1,0 +1,114 @@
+{
+  "dataset": "kitti",
+  "image_id": "000173_10",
+  "source_path": "/Users/qbit-glitch/Desktop/datasets/kitti_panoptic/validation/images/000173_10.png",
+  "semantic_mapping_for_overlay": "cityscapes27",
+  "ours_checkpoint": "/Users/qbit-glitch/Desktop/coding-projects/mbps_panoptic_segmentation/checkpoints/stage3_dcfa_simcf_abc/best_pq_step=003000.ckpt",
+  "ours_config": "/Users/qbit-glitch/Desktop/coding-projects/mbps_panoptic_segmentation/refs/cups/configs/val_stage3_dcfa_simcf_abc_local.yaml",
+  "cups_checkpoint": "/Users/qbit-glitch/Desktop/coding-projects/mbps_panoptic_segmentation/weights/cups.ckpt",
+  "standard_format": {
+    "channel_0": "raw semantic pseudo-class id",
+    "channel_1": "raw thing instance id; 0 means stuff/background/no thing instance"
+  },
+  "ours": {
+    "semantic_ids": [
+      0,
+      6,
+      8,
+      10,
+      13,
+      14,
+      15,
+      19,
+      20,
+      22,
+      31,
+      32,
+      33,
+      36,
+      37,
+      41,
+      42,
+      45,
+      50,
+      55,
+      69,
+      72,
+      255
+    ],
+    "thing_semantic_ids": [
+      69,
+      72
+    ],
+    "thing_instance_ids": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "num_thing_instances": 8,
+    "thing_pixel_count": 18076,
+    "thing_classes_config": [
+      64,
+      65,
+      66,
+      67,
+      68,
+      69,
+      70,
+      71,
+      72,
+      73,
+      74,
+      75,
+      76,
+      77,
+      78,
+      79
+    ]
+  },
+  "cups": {
+    "semantic_ids": [
+      1,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      16,
+      17,
+      18,
+      23,
+      26,
+      255
+    ],
+    "thing_semantic_ids": [
+      23,
+      26
+    ],
+    "thing_instance_ids": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "num_thing_instances": 6,
+    "thing_pixel_count": 33165,
+    "thing_classes_config": [
+      22,
+      23,
+      24,
+      25,
+      26
+    ]
+  }
+}

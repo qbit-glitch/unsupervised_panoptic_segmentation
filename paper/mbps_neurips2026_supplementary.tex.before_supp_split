@@ -1,0 +1,76 @@
+% NeurIPS 2026 Supplementary Material
+\documentclass{article}
+
+\usepackage[preprint,nonatbib]{neurips_2026}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[breaklinks,colorlinks]{hyperref}
+\usepackage{url}
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{placeins}
+\usepackage{float}
+
+\title{Supplementary Material for\\
+Depth-Conditioned Pseudo-Labels for\\
+Scene-Centric Unsupervised Panoptic Segmentation}
+
+\author{Anonymous Author(s)}
+
+\begin{document}
+\maketitle
+
+\appendix
+\renewcommand{\thefigure}{\Alph{section}.\arabic{figure}}
+
+%=========================================================================
+\section{Additional Qualitative Figures}
+\label{sec:supp:qualitative}
+%=========================================================================
+
+\subsection{Stage-1 Pseudo-Label Trace}
+\label{sec:supp:stage1_trace}
+
+Figure~\ref{fig:supp_real_data_flow} traces the Stage-1 data flow on real Cityscapes images, showing intermediate pseudo-label outputs together with the paired RGB/label transformations used by panoptic bootstrapping and panoptic network training.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{../figures/paper_ready/fig5_stage1_trace_composite.png}
+\caption{Stage-1 pseudo-label trace on four Cityscapes train frames. Columns: RGB; DepthPro depth; CAUSE-TR~\cite{kim2024cause} raw $K{=}80$ clusters; DCFA-adjusted $K{=}80$; depth-CC instances on RGB; final SIMCF-filtered panoptic pseudo-labels on RGB. Row 2 (hamburg) is the canonical co-planar pedestrian failure case discussed in the main paper's Discussion and Limitations sections.}
+\label{fig:supp_real_data_flow}
+\end{figure}
+
+\clearpage
+
+\subsection{Stage-3 Panoptic Predictions}
+\label{sec:supp:stage3_predictions}
+
+Figure~\ref{fig:supp_qualitative_stage3} shows representative panoptic predictions from the trained Stage-3 network on nine Cityscapes val images, none of which were used for training. Each row presents the input RGB, the panoptic prediction colorized in the $K=80$ pseudo-class space, and the prediction overlaid on the input.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.92\linewidth]{../figures/paper_ready/qualitative_stage3.png}
+\caption{Stage-3 panoptic predictions on Cityscapes val (9 held-out images). Columns: RGB input, panoptic prediction in the $K=80$ pseudo-class space, RGB overlay ($\alpha{=}0.55$). Hungarian alignment to the 27-class Cityscapes evaluation taxonomy is computed only at metric time and is not applied here, so colors track pseudo-class IDs rather than benchmark classes. Light grey marks pixels that the network rejects below its semantic confidence threshold (void).}
+\label{fig:supp_qualitative_stage3}
+\end{figure}
+
+\clearpage
+
+%=========================================================================
+\section{Broader Impact}
+\label{sec:impact}
+%=========================================================================
+
+\noindent Removing stereo and motion requirements at pseudo-label time broadens the range of imagery to which scene-centric unsupervised panoptic segmentation can be applied. The intended beneficiaries are autonomous-driving and robotic-perception pipelines that ingest monocular footage from phones, dashcams, or fixed cameras, where calibrated stereo rigs and synchronized video are unavailable.
+
+The same property creates dual-use risk. A monocular-only pipeline lowers the data and hardware bar for deployment in surveillance and behavioral-monitoring settings that the original stereo-based methods could not easily reach. We do not release pretrained weights tuned to specific surveillance contexts, and the system as evaluated targets street-scene categories rather than person re-identification.
+
+Two technical-bias concerns also follow from the design. First, the frozen pseudo-label vocabulary inherits any class-imbalance and dataset-bias signal already present in CAUSE-TR's~\cite{kim2024cause} Cityscapes-derived clusterbook; six dead classes, discussed in the main paper's limitations section, are a direct symptom and would compound on demographically less-represented scenes. Second, depth-based instance separation degrades on co-planar pedestrian crowds, which are over-represented in dense urban settings and may correlate with population density or geography. These limitations should be accounted for before downstream deployment, particularly in settings where the consequences of mispredicted person-class instances are non-trivial.
+
+%=========================================================================
+\begin{thebibliography}{1}
+%=========================================================================
+\bibitem{kim2024cause} J.~Kim, et~al. Causal unsupervised semantic segmentation. \emph{arXiv preprint arXiv:2310.07379}, 2024.
+\end{thebibliography}
+
+\end{document}

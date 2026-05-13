@@ -1,0 +1,112 @@
+{
+  "dataset": "mapillary",
+  "image_id": "k0Ey_K2TwNo5cSOFY_aXrw",
+  "source_path": "/Users/qbit-glitch/Desktop/datasets/mapillary-vistas-v2/validation/images/k0Ey_K2TwNo5cSOFY_aXrw.jpg",
+  "semantic_mapping_for_overlay": "cityscapes27",
+  "void_fill_for_visualization": "on",
+  "ours_checkpoint": "/Users/qbit-glitch/Desktop/coding-projects/mbps_panoptic_segmentation/checkpoints/stage4_pathB_focal_w005_gated_v2/best_pq_step=000575.ckpt",
+  "ours_config": "/Users/qbit-glitch/Desktop/coding-projects/mbps_panoptic_segmentation/refs/cups/configs/val_stage4_fine_object_local.yaml",
+  "cups_checkpoint": "/Users/qbit-glitch/Desktop/coding-projects/mbps_panoptic_segmentation/weights/cups.ckpt",
+  "standard_format": {
+    "channel_0": "raw semantic pseudo-class id",
+    "channel_1": "raw thing instance id; 0 means stuff/background/no thing instance"
+  },
+  "ours": {
+    "semantic_ids": [
+      0,
+      8,
+      9,
+      11,
+      13,
+      14,
+      15,
+      22,
+      24,
+      41,
+      45,
+      47,
+      48,
+      55,
+      65,
+      69,
+      255
+    ],
+    "thing_semantic_ids": [
+      65,
+      69
+    ],
+    "thing_instance_ids": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "num_thing_instances": 4,
+    "thing_pixel_count": 12060,
+    "thing_classes_config": [
+      64,
+      65,
+      66,
+      67,
+      68,
+      69,
+      70,
+      71,
+      72,
+      73,
+      74,
+      75,
+      76,
+      77,
+      78,
+      79
+    ]
+  },
+  "cups": {
+    "semantic_ids": [
+      0,
+      2,
+      4,
+      8,
+      9,
+      10,
+      11,
+      14,
+      16,
+      18,
+      22,
+      23,
+      26,
+      255
+    ],
+    "thing_semantic_ids": [
+      22,
+      23,
+      26
+    ],
+    "thing_instance_ids": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13
+    ],
+    "num_thing_instances": 13,
+    "thing_pixel_count": 44682,
+    "thing_classes_config": [
+      22,
+      23,
+      24,
+      25,
+      26
+    ]
+  }
+}

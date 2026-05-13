@@ -1,0 +1,1 @@
+/Volumes/code_files/datasets/panoptic_segmentation_datasets/waymo_v2_0_1_preprocessed/validation/933621182106051783_4160_000_4180_000/1543516671972707_cam1_image.jpg

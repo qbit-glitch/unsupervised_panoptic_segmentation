@@ -1,0 +1,1 @@
+/Users/qbit-glitch/Desktop/datasets/cityscapes/leftImg8bit/val/frankfurt/frankfurt_000000_008206_leftImg8bit.png

@@ -1,0 +1,220 @@
+\relax 
+\providecommand\hyper@newdestlabel[2]{}
+\providecommand\HyperFirstAtBeginDocument{\AtBeginDocument}
+\HyperFirstAtBeginDocument{\ifx\hyper@anchor\@undefined
+\global\let\oldcontentsline\contentsline
+\gdef\contentsline#1#2#3#4{\oldcontentsline{#1}{#2}{#3}}
+\global\let\oldnewlabel\newlabel
+\gdef\newlabel#1#2{\newlabelxx{#1}#2}
+\gdef\newlabelxx#1#2#3#4#5#6{\oldnewlabel{#1}{{#2}{#3}}}
+\AtEndDocument{\ifx\hyper@anchor\@undefined
+\let\contentsline\oldcontentsline
+\let\newlabel\oldnewlabel
+\fi}
+\fi}
+\global\let\hyper@last\relax 
+\gdef\HyperFirstAtBeginDocument#1{#1}
+\providecommand*\HyPL@Entry[1]{}
+\citation{caron2021dino,oquab2024dinov2}
+\citation{hamilton2022stego,kim2024cause}
+\citation{simeoni2021lost,wang2023tokencut,wang2023cutler}
+\citation{sick2025cuts3d}
+\citation{hahn2025cups}
+\HyPL@Entry{0<</S/D>>}
+\@writefile{toc}{\contentsline {section}{\numberline {1}\hskip -1em.\nobreakspace  {}Introduction}{1}{section.1}\protected@file@percent }
+\newlabel{sec:intro}{{1}{1}{\texorpdfstring {\hskip -1em.~}{}Introduction}{section.1}{}}
+\newlabel{sec:intro@cref}{{[section][1][]1}{[1][1][]1}}
+\citation{ji2019iic}
+\citation{cho2021picie}
+\citation{caron2021dino,oquab2024dinov2}
+\citation{hamilton2022stego}
+\citation{seong2023hp}
+\citation{kim2024cause}
+\citation{kim2024eagle}
+\citation{seong2024ppap}
+\citation{couairon2024diffcut}
+\citation{bonnet2024hierarchy}
+\citation{sick2024depthg}
+\citation{hahn2025cups}
+\citation{hoyer2021threeways}
+\citation{li2025dformerv2}
+\citation{simeoni2021lost}
+\citation{wang2023tokencut}
+\citation{wang2023cutler}
+\citation{wang2023cutler}
+\citation{vangansbeke2022maskdistill}
+\citation{wang2022freesolo}
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Pipeline overview. Stage 1 constructs panoptic pseudo-labels from a single RGB image using frozen semantic features, monocular depth, DCFA, and SIMCF. Stage 2 adopts CUPS-style panoptic bootstrapping and panoptic network training on the filtered labels.\relax }}{2}{figure.caption.1}\protected@file@percent }
+\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
+\newlabel{fig:pipeline_overview}{{1}{2}{Pipeline overview. Stage 1 constructs panoptic pseudo-labels from a single RGB image using frozen semantic features, monocular depth, DCFA, and SIMCF. Stage 2 adopts CUPS-style panoptic bootstrapping and panoptic network training on the filtered labels.\relax }{figure.caption.1}{}}
+\newlabel{fig:pipeline_overview@cref}{{[figure][1][]1}{[1][1][]2}}
+\@writefile{toc}{\contentsline {section}{\numberline {2}\hskip -1em.\nobreakspace  {}Related Work}{2}{section.2}\protected@file@percent }
+\newlabel{sec:related}{{2}{2}{\texorpdfstring {\hskip -1em.~}{}Related Work}{section.2}{}}
+\newlabel{sec:related@cref}{{[section][2][]2}{[1][2][]2}}
+\@writefile{toc}{\contentsline {paragraph}{Unsupervised Semantic Segmentation.}{2}{section*.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Unsupervised Instance Segmentation.}{2}{section*.3}\protected@file@percent }
+\citation{arica2024cuvler}
+\citation{feng2025coler}
+\citation{li2024promerge}
+\citation{yang2025unmore}
+\citation{wang2024unsam,yu2025unsamv2}
+\citation{seitzer2023dinosaur}
+\citation{gong2025mrdinosaur}
+\citation{sick2025cuts3d}
+\citation{niu2024u2seg}
+\citation{hahn2025cups}
+\citation{stone2021smurf}
+\citation{sommer2022sf2se3}
+\citation{xu2025s2uniseg}
+\citation{hahn2025cups}
+\citation{cordts2016cityscapes}
+\citation{hahn2025cups}
+\citation{kim2024cause}
+\@writefile{toc}{\contentsline {paragraph}{Unsupervised Panoptic Segmentation.}{3}{section*.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {3}\hskip -1em.\nobreakspace  {}Method}{3}{section.3}\protected@file@percent }
+\newlabel{sec:method}{{3}{3}{\texorpdfstring {\hskip -1em.~}{}Method}{section.3}{}}
+\newlabel{sec:method@cref}{{[section][3][]3}{[1][3][]3}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}\hskip -1em.\nobreakspace  {}Problem Setup and Pipeline Overview}{3}{subsection.3.1}\protected@file@percent }
+\newlabel{sec:method:setup}{{3.1}{3}{\texorpdfstring {\hskip -1em.~}{}Problem Setup and Pipeline Overview}{subsection.3.1}{}}
+\newlabel{sec:method:setup@cref}{{[subsection][1][3]3.1}{[1][3][]3}}
+\newlabel{eq:pipeline}{{1}{3}{\texorpdfstring {\hskip -1em.~}{}Problem Setup and Pipeline Overview}{equation.3.1}{}}
+\newlabel{eq:pipeline@cref}{{[equation][1][]1}{[1][3][]3}}
+\citation{oquab2024dinov2}
+\citation{kim2024cause}
+\citation{hahn2025cups}
+\citation{bochkovskii2024depthpro}
+\citation{sick2024depthg}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}\hskip -1em.\nobreakspace  {}Monocular Pseudo-Label Baseline}{4}{subsection.3.2}\protected@file@percent }
+\newlabel{sec:method:baseline}{{3.2}{4}{\texorpdfstring {\hskip -1em.~}{}Monocular Pseudo-Label Baseline}{subsection.3.2}{}}
+\newlabel{sec:method:baseline@cref}{{[subsection][2][3]3.2}{[1][3][]4}}
+\newlabel{eq:depth_boundary}{{2}{4}{\texorpdfstring {\hskip -1em.~}{}Monocular Pseudo-Label Baseline}{equation.3.2}{}}
+\newlabel{eq:depth_boundary@cref}{{[equation][2][]2}{[1][4][]4}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}\hskip -1em.\nobreakspace  {}Depth-Conditioned Feature Adapter (DCFA)}{4}{subsection.3.3}\protected@file@percent }
+\newlabel{sec:method:dcfa}{{3.3}{4}{\texorpdfstring {\hskip -1em.~}{}Depth-Conditioned Feature Adapter (DCFA)}{subsection.3.3}{}}
+\newlabel{sec:method:dcfa@cref}{{[subsection][3][3]3.3}{[1][4][]4}}
+\newlabel{eq:sinusoid}{{3}{4}{\texorpdfstring {\hskip -1em.~}{}Depth-Conditioned Feature Adapter (DCFA)}{equation.3.3}{}}
+\newlabel{eq:sinusoid@cref}{{[equation][3][]3}{[1][4][]4}}
+\newlabel{eq:residual}{{4}{4}{\texorpdfstring {\hskip -1em.~}{}Depth-Conditioned Feature Adapter (DCFA)}{equation.3.4}{}}
+\newlabel{eq:residual@cref}{{[equation][4][]4}{[1][4][]4}}
+\citation{simeoni2025dinov3}
+\citation{hahn2025cups}
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Pseudo-label generation. The semantic branch clusters depth-conditioned CAUSE-TR codes, the instance branch converts monocular depth gradients into connected components inside thing-eligible regions, and SIMCF filters the candidate semantic and instance labels into panoptic pseudo-labels.\relax }}{5}{figure.caption.5}\protected@file@percent }
+\newlabel{fig:pseudolabel_generation}{{2}{5}{Pseudo-label generation. The semantic branch clusters depth-conditioned CAUSE-TR codes, the instance branch converts monocular depth gradients into connected components inside thing-eligible regions, and SIMCF filters the candidate semantic and instance labels into panoptic pseudo-labels.\relax }{figure.caption.5}{}}
+\newlabel{fig:pseudolabel_generation@cref}{{[figure][2][]2}{[1][3][]5}}
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces DCFA adapter training. A frozen CAUSE-TR code is adjusted by a depth-conditioned residual before $k$-means clustering, while a preservation term keeps the adapted code close to the original frozen semantic manifold.\relax }}{5}{figure.caption.6}\protected@file@percent }
+\newlabel{fig:dcfa_adapter}{{3}{5}{DCFA adapter training. A frozen CAUSE-TR code is adjusted by a depth-conditioned residual before $k$-means clustering, while a preservation term keeps the adapted code close to the original frozen semantic manifold.\relax }{figure.caption.6}{}}
+\newlabel{fig:dcfa_adapter@cref}{{[figure][3][]3}{[1][4][]5}}
+\newlabel{eq:dcfa_loss}{{5}{5}{\texorpdfstring {\hskip -1em.~}{}Depth-Conditioned Feature Adapter (DCFA)}{equation.3.5}{}}
+\newlabel{eq:dcfa_loss@cref}{{[equation][5][]5}{[1][4][]5}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.4}\hskip -1em.\nobreakspace  {}SIMCF: Semantic Instance Mutual Consistency Filtering}{5}{subsection.3.4}\protected@file@percent }
+\newlabel{sec:method:simcf}{{3.4}{5}{\texorpdfstring {\hskip -1em.~}{}SIMCF: Semantic Instance Mutual Consistency Filtering}{subsection.3.4}{}}
+\newlabel{sec:method:simcf@cref}{{[subsection][4][3]3.4}{[1][5][]5}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.5}\hskip -1em.\nobreakspace  {}Panoptic Bootstrapping and Panoptic Network Training}{5}{subsection.3.5}\protected@file@percent }
+\newlabel{sec:method:detector}{{3.5}{5}{\texorpdfstring {\hskip -1em.~}{}Panoptic Bootstrapping and Panoptic Network Training}{subsection.3.5}{}}
+\newlabel{sec:method:detector@cref}{{[subsection][5][3]3.5}{[1][5][]5}}
+\citation{wang2023cutler}
+\citation{kirillov2019panoptic}
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Panoptic bootstrapping and panoptic network training. Filtered pseudo-labels supervise the initial panoptic network, and EMA self-training refines the labels and network across subsequent rounds, following the CUPS training recipe.\relax }}{6}{figure.caption.7}\protected@file@percent }
+\newlabel{fig:panoptic_training}{{4}{6}{Panoptic bootstrapping and panoptic network training. Filtered pseudo-labels supervise the initial panoptic network, and EMA self-training refines the labels and network across subsequent rounds, following the CUPS training recipe.\relax }{figure.caption.7}{}}
+\newlabel{fig:panoptic_training@cref}{{[figure][4][]4}{[1][5][]6}}
+\newlabel{alg:simcf}{{1}{6}{\texorpdfstring {\hskip -1em.~}{}Panoptic Bootstrapping and Panoptic Network Training}{algorithm.1}{}}
+\newlabel{alg:simcf@cref}{{[algorithm][1][]1}{[1][5][]6}}
+\citation{cordts2016cityscapes}
+\citation{kirillov2019panoptic}
+\citation{oquab2024dinov2}
+\citation{kim2024cause}
+\citation{bochkovskii2024depthpro}
+\citation{wang2023cutler}
+\citation{cai2018cascade}
+\citation{simeoni2025dinov3}
+\citation{niu2024u2seg}
+\citation{xu2025s2uniseg}
+\citation{hahn2025cups}
+\citation{lin2025da3}
+\citation{lin2025da3}
+\citation{bochkovskii2024depthpro}
+\citation{bochkovskii2024depthpro}
+\citation{geiger2012kitti}
+\citation{voigtlaender2019mots}
+\citation{caesar2018coco}
+\@writefile{toc}{\contentsline {section}{\numberline {4}\hskip -1em.\nobreakspace  {}Experiments}{7}{section.4}\protected@file@percent }
+\newlabel{sec:experiments}{{4}{7}{\texorpdfstring {\hskip -1em.~}{}Experiments}{section.4}{}}
+\newlabel{sec:experiments@cref}{{[section][4][]4}{[1][7][]7}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}\hskip -1em.\nobreakspace  {}Experimental Setup}{7}{subsection.4.1}\protected@file@percent }
+\newlabel{sec:exp:setup}{{4.1}{7}{\texorpdfstring {\hskip -1em.~}{}Experimental Setup}{subsection.4.1}{}}
+\newlabel{sec:exp:setup@cref}{{[subsection][1][4]4.1}{[1][7][]7}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}\hskip -1em.\nobreakspace  {}Main Cityscapes Results}{7}{subsection.4.2}\protected@file@percent }
+\newlabel{sec:exp:main}{{4.2}{7}{\texorpdfstring {\hskip -1em.~}{}Main Cityscapes Results}{subsection.4.2}{}}
+\newlabel{sec:exp:main@cref}{{[subsection][2][4]4.2}{[1][7][]7}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}\hskip -1em.\nobreakspace  {}Ablations}{7}{subsection.4.3}\protected@file@percent }
+\newlabel{sec:exp:ablations}{{4.3}{7}{\texorpdfstring {\hskip -1em.~}{}Ablations}{subsection.4.3}{}}
+\newlabel{sec:exp:ablations@cref}{{[subsection][3][4]4.3}{[1][7][]7}}
+\@writefile{toc}{\contentsline {paragraph}{Component contribution.}{7}{section*.10}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Depth model.}{7}{section*.12}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.4}\hskip -1em.\nobreakspace  {}Generalization and Failure Analysis}{7}{subsection.4.4}\protected@file@percent }
+\newlabel{sec:exp:generalization}{{4.4}{7}{\texorpdfstring {\hskip -1em.~}{}Generalization and Failure Analysis}{subsection.4.4}{}}
+\newlabel{sec:exp:generalization@cref}{{[subsection][4][4]4.4}{[1][7][]7}}
+\@writefile{toc}{\contentsline {paragraph}{Per-class failure analysis.}{7}{section*.15}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Cityscapes panoptic results. ``PL inputs'' are the inputs available at pseudo-label time. Published rows use metrics reported by the original papers; rows 4--5 isolate DCFA+SIMCF under the same panoptic bootstrapping and panoptic network training implementation.\relax }}{8}{table.caption.9}\protected@file@percent }
+\newlabel{tab:main}{{1}{8}{Cityscapes panoptic results. ``PL inputs'' are the inputs available at pseudo-label time. Published rows use metrics reported by the original papers; rows 4--5 isolate DCFA+SIMCF under the same panoptic bootstrapping and panoptic network training implementation.\relax }{table.caption.9}{}}
+\newlabel{tab:main@cref}{{[table][1][]1}{[1][7][]8}}
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Pseudo-label component complementarity at fixed $\tau _d = 0.20$ DepthPro instances. ``Raw $K$=80'' is the no-DCFA, no-SIMCF baseline.\relax }}{8}{table.caption.11}\protected@file@percent }
+\newlabel{tab:components}{{2}{8}{Pseudo-label component complementarity at fixed $\tau _d = 0.20$ DepthPro instances. ``Raw $K$=80'' is the no-DCFA, no-SIMCF baseline.\relax }{table.caption.11}{}}
+\newlabel{tab:components@cref}{{[table][2][]2}{[1][7][]8}}
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Depth and threshold diagnostics with aggregate SQ/RQ.\relax }}{8}{table.caption.13}\protected@file@percent }
+\newlabel{tab:depth}{{3}{8}{Depth and threshold diagnostics with aggregate SQ/RQ.\relax }{table.caption.13}{}}
+\newlabel{tab:depth@cref}{{[table][3][]3}{[1][7][]8}}
+\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces Zero-shot cross-dataset transfer (no fine-tuning).\relax }}{8}{table.caption.14}\protected@file@percent }
+\newlabel{tab:transfer}{{4}{8}{Zero-shot cross-dataset transfer (no fine-tuning).\relax }{table.caption.14}{}}
+\newlabel{tab:transfer@cref}{{[table][4][]4}{[1][7][]8}}
+\@writefile{toc}{\contentsline {section}{\numberline {5}\hskip -1em.\nobreakspace  {}Discussion}{8}{section.5}\protected@file@percent }
+\newlabel{sec:discussion}{{5}{8}{\texorpdfstring {\hskip -1em.~}{}Discussion}{section.5}{}}
+\newlabel{sec:discussion@cref}{{[section][5][]5}{[1][8][]8}}
+\bibcite{cordts2016cityscapes}{{1}{}{{}}{{}}}
+\bibcite{voigtlaender2019mots}{{2}{}{{}}{{}}}
+\bibcite{geiger2012kitti}{{3}{}{{}}{{}}}
+\bibcite{caesar2018coco}{{4}{}{{}}{{}}}
+\bibcite{kirillov2019panoptic}{{5}{}{{}}{{}}}
+\bibcite{caron2021dino}{{6}{}{{}}{{}}}
+\bibcite{oquab2024dinov2}{{7}{}{{}}{{}}}
+\bibcite{simeoni2025dinov3}{{8}{}{{}}{{}}}
+\bibcite{kim2024cause}{{9}{}{{}}{{}}}
+\bibcite{bochkovskii2024depthpro}{{10}{}{{}}{{}}}
+\bibcite{yang2024da2}{{11}{}{{}}{{}}}
+\bibcite{lin2025da3}{{12}{}{{}}{{}}}
+\bibcite{cai2018cascade}{{13}{}{{}}{{}}}
+\bibcite{wang2023cutler}{{14}{}{{}}{{}}}
+\bibcite{wang2023tokencut}{{15}{}{{}}{{}}}
+\bibcite{hahn2025cups}{{16}{}{{}}{{}}}
+\bibcite{niu2024u2seg}{{17}{}{{}}{{}}}
+\bibcite{xu2025s2uniseg}{{18}{}{{}}{{}}}
+\bibcite{sick2024depthg}{{19}{}{{}}{{}}}
+\bibcite{sick2025cuts3d}{{20}{}{{}}{{}}}
+\bibcite{hamilton2022stego}{{21}{}{{}}{{}}}
+\bibcite{ji2019iic}{{22}{}{{}}{{}}}
+\bibcite{cho2021picie}{{23}{}{{}}{{}}}
+\bibcite{seong2023hp}{{24}{}{{}}{{}}}
+\bibcite{kim2024eagle}{{25}{}{{}}{{}}}
+\bibcite{seong2024ppap}{{26}{}{{}}{{}}}
+\bibcite{couairon2024diffcut}{{27}{}{{}}{{}}}
+\bibcite{bonnet2024hierarchy}{{28}{}{{}}{{}}}
+\bibcite{hoyer2021threeways}{{29}{}{{}}{{}}}
+\bibcite{li2025dformerv2}{{30}{}{{}}{{}}}
+\bibcite{simeoni2021lost}{{31}{}{{}}{{}}}
+\bibcite{vangansbeke2022maskdistill}{{32}{}{{}}{{}}}
+\bibcite{wang2022freesolo}{{33}{}{{}}{{}}}
+\bibcite{arica2024cuvler}{{34}{}{{}}{{}}}
+\bibcite{feng2025coler}{{35}{}{{}}{{}}}
+\bibcite{li2024promerge}{{36}{}{{}}{{}}}
+\bibcite{yang2025unmore}{{37}{}{{}}{{}}}
+\bibcite{wang2024unsam}{{38}{}{{}}{{}}}
+\bibcite{yu2025unsamv2}{{39}{}{{}}{{}}}
+\bibcite{seitzer2023dinosaur}{{40}{}{{}}{{}}}
+\bibcite{gong2025mrdinosaur}{{41}{}{{}}{{}}}
+\bibcite{stone2021smurf}{{42}{}{{}}{{}}}
+\bibcite{sommer2022sf2se3}{{43}{}{{}}{{}}}
+\providecommand\NAT@force@numbers{}\NAT@force@numbers
+\@writefile{toc}{\contentsline {section}{\numberline {6}\hskip -1em.\nobreakspace  {}Limitations}{9}{section.6}\protected@file@percent }
+\newlabel{sec:limitations}{{6}{9}{\texorpdfstring {\hskip -1em.~}{}Limitations}{section.6}{}}
+\newlabel{sec:limitations@cref}{{[section][6][]6}{[1][9][]9}}
+\gdef \@abspage@last{9}

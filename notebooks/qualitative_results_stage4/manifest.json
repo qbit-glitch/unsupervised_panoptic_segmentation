@@ -1,0 +1,202 @@
+[
+  {
+    "dataset": "cityscapes",
+    "image_id": "munster_000001_000019",
+    "source_path": "/Users/qbit-glitch/Desktop/datasets/cityscapes/leftImg8bit/val/munster/munster_000001_000019_leftImg8bit.png",
+    "output_dir": "notebooks/qualitative_results_stage4/cityscapes/munster_000001_000019",
+    "semantic_mapping": "cityscapes27",
+    "ours_num_thing_instances": "15",
+    "cups_num_thing_instances": "10",
+    "status": "ok"
+  },
+  {
+    "dataset": "cityscapes",
+    "image_id": "frankfurt_000001_004327",
+    "source_path": "/Users/qbit-glitch/Desktop/datasets/cityscapes/leftImg8bit/val/frankfurt/frankfurt_000001_004327_leftImg8bit.png",
+    "output_dir": "notebooks/qualitative_results_stage4/cityscapes/frankfurt_000001_004327",
+    "semantic_mapping": "cityscapes27",
+    "ours_num_thing_instances": "34",
+    "cups_num_thing_instances": "9",
+    "status": "ok"
+  },
+  {
+    "dataset": "cityscapes",
+    "image_id": "frankfurt_000000_005898",
+    "source_path": "/Users/qbit-glitch/Desktop/datasets/cityscapes/leftImg8bit/val/frankfurt/frankfurt_000000_005898_leftImg8bit.png",
+    "output_dir": "notebooks/qualitative_results_stage4/cityscapes/frankfurt_000000_005898",
+    "semantic_mapping": "cityscapes27",
+    "ours_num_thing_instances": "21",
+    "cups_num_thing_instances": "12",
+    "status": "ok"
+  },
+  {
+    "dataset": "cityscapes",
+    "image_id": "munster_000053_000019",
+    "source_path": "/Users/qbit-glitch/Desktop/datasets/cityscapes/leftImg8bit/val/munster/munster_000053_000019_leftImg8bit.png",
+    "output_dir": "notebooks/qualitative_results_stage4/cityscapes/munster_000053_000019",
+    "semantic_mapping": "cityscapes27",
+    "ours_num_thing_instances": "11",
+    "cups_num_thing_instances": "17",
+    "status": "ok"
+  },
+  {
+    "dataset": "cityscapes",
+    "image_id": "frankfurt_000001_037705",
+    "source_path": "/Users/qbit-glitch/Desktop/datasets/cityscapes/leftImg8bit/val/frankfurt/frankfurt_000001_037705_leftImg8bit.png",
+    "output_dir": "notebooks/qualitative_results_stage4/cityscapes/frankfurt_000001_037705",
+    "semantic_mapping": "cityscapes27",
+    "ours_num_thing_instances": "20",
+    "cups_num_thing_instances": "16",
+    "status": "ok"
+  },
+  {
+    "dataset": "cityscapes",
+    "image_id": "frankfurt_000001_029600",
+    "source_path": "/Users/qbit-glitch/Desktop/datasets/cityscapes/leftImg8bit/val/frankfurt/frankfurt_000001_029600_leftImg8bit.png",
+    "output_dir": "notebooks/qualitative_results_stage4/cityscapes/frankfurt_000001_029600",
+    "semantic_mapping": "cityscapes27",
+    "ours_num_thing_instances": "19",
+    "cups_num_thing_instances": "11",
+    "status": "ok"
+  },
+  {
+    "dataset": "cityscapes",
+    "image_id": "frankfurt_000001_024927",
+    "source_path": "/Users/qbit-glitch/Desktop/datasets/cityscapes/leftImg8bit/val/frankfurt/frankfurt_000001_024927_leftImg8bit.png",
+    "output_dir": "notebooks/qualitative_results_stage4/cityscapes/frankfurt_000001_024927",
+    "semantic_mapping": "cityscapes27",
+    "ours_num_thing_instances": "40",
+    "cups_num_thing_instances": "16",
+    "status": "ok"
+  },
+  {
+    "dataset": "cityscapes",
+    "image_id": "frankfurt_000001_009058",
+    "source_path": "/Users/qbit-glitch/Desktop/datasets/cityscapes/leftImg8bit/val/frankfurt/frankfurt_000001_009058_leftImg8bit.png",
+    "output_dir": "notebooks/qualitative_results_stage4/cityscapes/frankfurt_000001_009058",
+    "semantic_mapping": "cityscapes27",
+    "ours_num_thing_instances": "4",
+    "cups_num_thing_instances": "9",
+    "status": "ok"
+  },
+  {
+    "dataset": "cityscapes",
+    "image_id": "munster_000051_000019",
+    "source_path": "/Users/qbit-glitch/Desktop/datasets/cityscapes/leftImg8bit/val/munster/munster_000051_000019_leftImg8bit.png",
+    "output_dir": "notebooks/qualitative_results_stage4/cityscapes/munster_000051_000019",
+    "semantic_mapping": "cityscapes27",
+    "ours_num_thing_instances": "11",
+    "cups_num_thing_instances": "20",
+    "status": "ok"
+  },
+  {
+    "dataset": "cityscapes",
+    "image_id": "frankfurt_000001_002512",
+    "source_path": "/Users/qbit-glitch/Desktop/datasets/cityscapes/leftImg8bit/val/frankfurt/frankfurt_000001_002512_leftImg8bit.png",
+    "output_dir": "notebooks/qualitative_results_stage4/cityscapes/frankfurt_000001_002512",
+    "semantic_mapping": "cityscapes27",
+    "ours_num_thing_instances": "3",
+    "cups_num_thing_instances": "9",
+    "status": "ok"
+  },
+  {
+    "dataset": "cityscapes",
+    "image_id": "munster_000020_000019",
+    "source_path": "/Users/qbit-glitch/Desktop/datasets/cityscapes/leftImg8bit/val/munster/munster_000020_000019_leftImg8bit.png",
+    "output_dir": "notebooks/qualitative_results_stage4/cityscapes/munster_000020_000019",
+    "semantic_mapping": "cityscapes27",
+    "ours_num_thing_instances": "17",
+    "cups_num_thing_instances": "19",
+    "status": "ok"
+  },
+  {
+    "dataset": "cityscapes",
+    "image_id": "munster_000130_000019",
+    "source_path": "/Users/qbit-glitch/Desktop/datasets/cityscapes/leftImg8bit/val/munster/munster_000130_000019_leftImg8bit.png",
+    "output_dir": "notebooks/qualitative_results_stage4/cityscapes/munster_000130_000019",
+    "semantic_mapping": "cityscapes27",
+    "ours_num_thing_instances": "17",
+    "cups_num_thing_instances": "11",
+    "status": "ok"
+  },
+  {
+    "dataset": "cityscapes",
+    "image_id": "lindau_000012_000019",
+    "source_path": "/Users/qbit-glitch/Desktop/datasets/cityscapes/leftImg8bit/val/lindau/lindau_000012_000019_leftImg8bit.png",
+    "output_dir": "notebooks/qualitative_results_stage4/cityscapes/lindau_000012_000019",
+    "semantic_mapping": "cityscapes27",
+    "ours_num_thing_instances": "31",
+    "cups_num_thing_instances": "6",
+    "status": "ok"
+  },
+  {
+    "dataset": "cityscapes",
+    "image_id": "frankfurt_000000_020321",
+    "source_path": "/Users/qbit-glitch/Desktop/datasets/cityscapes/leftImg8bit/val/frankfurt/frankfurt_000000_020321_leftImg8bit.png",
+    "output_dir": "notebooks/qualitative_results_stage4/cityscapes/frankfurt_000000_020321",
+    "semantic_mapping": "cityscapes27",
+    "ours_num_thing_instances": "21",
+    "cups_num_thing_instances": "18",
+    "status": "ok"
+  },
+  {
+    "dataset": "cityscapes",
+    "image_id": "lindau_000035_000019",
+    "source_path": "/Users/qbit-glitch/Desktop/datasets/cityscapes/leftImg8bit/val/lindau/lindau_000035_000019_leftImg8bit.png",
+    "output_dir": "notebooks/qualitative_results_stage4/cityscapes/lindau_000035_000019",
+    "semantic_mapping": "cityscapes27",
+    "ours_num_thing_instances": "9",
+    "cups_num_thing_instances": "6",
+    "status": "ok"
+  },
+  {
+    "dataset": "cityscapes",
+    "image_id": "frankfurt_000001_062509",
+    "source_path": "/Users/qbit-glitch/Desktop/datasets/cityscapes/leftImg8bit/val/frankfurt/frankfurt_000001_062509_leftImg8bit.png",
+    "output_dir": "notebooks/qualitative_results_stage4/cityscapes/frankfurt_000001_062509",
+    "semantic_mapping": "cityscapes27",
+    "ours_num_thing_instances": "5",
+    "cups_num_thing_instances": "21",
+    "status": "ok"
+  },
+  {
+    "dataset": "cityscapes",
+    "image_id": "frankfurt_000000_008451",
+    "source_path": "/Users/qbit-glitch/Desktop/datasets/cityscapes/leftImg8bit/val/frankfurt/frankfurt_000000_008451_leftImg8bit.png",
+    "output_dir": "notebooks/qualitative_results_stage4/cityscapes/frankfurt_000000_008451",
+    "semantic_mapping": "cityscapes27",
+    "ours_num_thing_instances": "6",
+    "cups_num_thing_instances": "16",
+    "status": "ok"
+  },
+  {
+    "dataset": "cityscapes",
+    "image_id": "frankfurt_000000_008206",
+    "source_path": "/Users/qbit-glitch/Desktop/datasets/cityscapes/leftImg8bit/val/frankfurt/frankfurt_000000_008206_leftImg8bit.png",
+    "output_dir": "notebooks/qualitative_results_stage4/cityscapes/frankfurt_000000_008206",
+    "semantic_mapping": "cityscapes27",
+    "ours_num_thing_instances": "52",
+    "cups_num_thing_instances": "11",
+    "status": "ok"
+  },
+  {
+    "dataset": "cityscapes",
+    "image_id": "frankfurt_000000_021879",
+    "source_path": "/Users/qbit-glitch/Desktop/datasets/cityscapes/leftImg8bit/val/frankfurt/frankfurt_000000_021879_leftImg8bit.png",
+    "output_dir": "notebooks/qualitative_results_stage4/cityscapes/frankfurt_000000_021879",
+    "semantic_mapping": "cityscapes27",
+    "ours_num_thing_instances": "18",
+    "cups_num_thing_instances": "12",
+    "status": "ok"
+  },
+  {
+    "dataset": "cityscapes",
+    "image_id": "frankfurt_000001_023235",
+    "source_path": "/Users/qbit-glitch/Desktop/datasets/cityscapes/leftImg8bit/val/frankfurt/frankfurt_000001_023235_leftImg8bit.png",
+    "output_dir": "notebooks/qualitative_results_stage4/cityscapes/frankfurt_000001_023235",
+    "semantic_mapping": "cityscapes27",
+    "ours_num_thing_instances": "11",
+    "cups_num_thing_instances": "7",
+    "status": "ok"
+  }
+]

@@ -1,0 +1,72 @@
+# CAUSE-TR Mode B with DINOv3 ViT-B/16 + frozen codebook & cluster_probe.
+# See docs/plans/2026-04-27-cause-modeb-dinov3-vitb16.md for full design rationale.
+
+experiment_name: cause_modeb_dinov3_vitb16_cs27
+seed: 42
+
+backbone:
+  model_name: facebook/dinov3-vitb16-pretrain-lvd1689m
+  freeze: true
+  embed_dim: 768
+  patch_size: 16
+
+# Resolution decision: 320 = smallest multiple of 16 near CAUSE's 322 (DINOv2@p14)
+# 320/16 = 20 -> 20x20 = 400 patches. Eval upsamples predictions to 1024x2048
+# (Cityscapes label resolution).
+resolution: 320
+patches_per_side: 20
+num_patches: 400
+
+# Frozen artifacts extracted from CAUSE-TR DINOv2 cluster_tr.pth.
+frozen_centroids_npz: refs/cause/CAUSE/cityscapes/extracted_centroids/cause_tr_centroids_cityscapes.npz
+
+# CAUSE module dims — must match the frozen artifacts above.
+cause:
+  dim: 768                # backbone embed_dim
+  reduced_dim: 90         # TR decoder output dim — must match cluster_probe column count
+  projection_dim: 2048    # contrastive projection dim
+  num_codebook: 2048      # = codebook row count
+  n_classes: 27           # = cluster_probe row count
+  num_queries: 400        # = num_patches; query_pos sized accordingly
+
+# DINOv3 -> DINOv2 alignment adapter
+adapter:
+  type: linear_identity_init
+  in_dim: 768
+  out_dim: 768
+  bias: true
+
+# Training schedule (CAUSE original Stage B = 40 epochs).
+training:
+  epochs: 40
+  batch_size: 8
+  grad_accum_steps: 2     # effective batch_size = 16
+  optimizer: adam
+  head_lr: 5.0e-5         # CAUSE original (refs/cause/train_cause_tr_dinov2.py:534)
+  adapter_lr: 1.0e-4      # 2x head_lr; small enough not to dominate
+  weight_decay: 0.0
+  grad_clip_norm: 1.0
+  ema_decay: 0.99
+  contrastive_temp: 0.07
+  pos_thresh: 0.3
+  neg_thresh: 0.1
+  bank_max_size: 100
+  loss_weights:
+    contrastive: 1.0
+    centroid: 1.0
+
+validation:
+  every_epoch: 1
+  flip_tta: true
+  hungarian_match: true   # 27x27 — identity-like once converged
+
+data:
+  cityscapes_root: /Users/qbit-glitch/Desktop/datasets/cityscapes
+  num_workers: 4
+  imagenet_mean: [0.485, 0.456, 0.406]
+  imagenet_std:  [0.229, 0.224, 0.225]
+
+logging:
+  output_dir: refs/cause/CAUSE_modeb_dinov3_vitb16
+  save_every: 5
+  log_every: 50

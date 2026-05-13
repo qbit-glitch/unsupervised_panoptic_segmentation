@@ -1,0 +1,124 @@
+{
+  "dataset": "mapillary",
+  "image_id": "jqh8xIPwEZiRmWEwY9ZVaA",
+  "source_path": "/Users/qbit-glitch/Desktop/datasets/mapillary-vistas-v2/validation/images/jqh8xIPwEZiRmWEwY9ZVaA.jpg",
+  "semantic_mapping_for_overlay": "cityscapes27",
+  "ours_checkpoint": "/Users/qbit-glitch/Desktop/coding-projects/mbps_panoptic_segmentation/checkpoints/stage3_dcfa_simcf_abc/best_pq_step=003000.ckpt",
+  "ours_config": "/Users/qbit-glitch/Desktop/coding-projects/mbps_panoptic_segmentation/refs/cups/configs/val_stage3_dcfa_simcf_abc_local.yaml",
+  "cups_checkpoint": "/Users/qbit-glitch/Desktop/coding-projects/mbps_panoptic_segmentation/weights/cups.ckpt",
+  "standard_format": {
+    "channel_0": "raw semantic pseudo-class id",
+    "channel_1": "raw thing instance id; 0 means stuff/background/no thing instance"
+  },
+  "void_fill_for_visualization": "on",
+  "ours": {
+    "semantic_ids": [
+      0,
+      6,
+      8,
+      9,
+      13,
+      14,
+      17,
+      20,
+      21,
+      22,
+      25,
+      26,
+      28,
+      30,
+      35,
+      36,
+      41,
+      43,
+      55,
+      69,
+      72,
+      75,
+      255
+    ],
+    "thing_semantic_ids": [
+      69,
+      72,
+      75
+    ],
+    "thing_instance_ids": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12
+    ],
+    "num_thing_instances": 12,
+    "thing_pixel_count": 953,
+    "thing_classes_config": [
+      64,
+      65,
+      66,
+      67,
+      68,
+      69,
+      70,
+      71,
+      72,
+      73,
+      74,
+      75,
+      76,
+      77,
+      78,
+      79
+    ]
+  },
+  "cups": {
+    "semantic_ids": [
+      1,
+      2,
+      4,
+      8,
+      10,
+      11,
+      13,
+      14,
+      16,
+      17,
+      18,
+      22,
+      23,
+      26,
+      255
+    ],
+    "thing_semantic_ids": [
+      22,
+      23,
+      26
+    ],
+    "thing_instance_ids": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "num_thing_instances": 9,
+    "thing_pixel_count": 39962,
+    "thing_classes_config": [
+      22,
+      23,
+      24,
+      25,
+      26
+    ]
+  }
+}

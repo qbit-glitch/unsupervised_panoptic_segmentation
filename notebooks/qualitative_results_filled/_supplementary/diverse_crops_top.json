@@ -1,0 +1,218 @@
+[
+  {
+    "dataset": "kitti",
+    "image_id": "000163_10",
+    "x": 256,
+    "y": 0,
+    "diversity": 9,
+    "instance_count": 5,
+    "n_colors": 64
+  },
+  {
+    "dataset": "mapillary",
+    "image_id": "k0Ey_K2TwNo5cSOFY_aXrw",
+    "x": 256,
+    "y": 128,
+    "diversity": 9,
+    "instance_count": 4,
+    "n_colors": 45
+  },
+  {
+    "dataset": "mapillary",
+    "image_id": "k0Ey_K2TwNo5cSOFY_aXrw",
+    "x": 128,
+    "y": 256,
+    "diversity": 9,
+    "instance_count": 1,
+    "n_colors": 37
+  },
+  {
+    "dataset": "waymo",
+    "image_id": "1024360143612057520_3580_000_3600_000_1553735870653287_cam5_image",
+    "x": 128,
+    "y": 0,
+    "diversity": 9,
+    "instance_count": 1,
+    "n_colors": 28
+  },
+  {
+    "dataset": "mapillary",
+    "image_id": "1Q7hEw4K52MUqo3W8-ygoA",
+    "x": 256,
+    "y": 128,
+    "diversity": 9,
+    "instance_count": 0,
+    "n_colors": 31
+  },
+  {
+    "dataset": "waymo",
+    "image_id": "8956556778987472864_3404_790_3424_790_1513450825606540_cam5_image",
+    "x": 640,
+    "y": 256,
+    "diversity": 9,
+    "instance_count": 0,
+    "n_colors": 25
+  },
+  {
+    "dataset": "cityscapes",
+    "image_id": "frankfurt_000001_024927",
+    "x": 640,
+    "y": 128,
+    "diversity": 8,
+    "instance_count": 44,
+    "n_colors": 50
+  },
+  {
+    "dataset": "waymo",
+    "image_id": "1024360143612057520_3580_000_3600_000_1553735869659406_cam5_image",
+    "x": 896,
+    "y": 0,
+    "diversity": 8,
+    "instance_count": 34,
+    "n_colors": 50
+  },
+  {
+    "dataset": "cityscapes",
+    "image_id": "frankfurt_000000_020321",
+    "x": 1024,
+    "y": 256,
+    "diversity": 8,
+    "instance_count": 9,
+    "n_colors": 41
+  },
+  {
+    "dataset": "mapillary",
+    "image_id": "PxmqFeA1n_avfakO17JaZg",
+    "x": 256,
+    "y": 256,
+    "diversity": 8,
+    "instance_count": 8,
+    "n_colors": 47
+  },
+  {
+    "dataset": "kitti",
+    "image_id": "000007_10",
+    "x": 128,
+    "y": 0,
+    "diversity": 8,
+    "instance_count": 6,
+    "n_colors": 80
+  },
+  {
+    "dataset": "waymo",
+    "image_id": "1024360143612057520_3580_000_3600_000_1553735872838329_cam4_image",
+    "x": 0,
+    "y": 256,
+    "diversity": 8,
+    "instance_count": 6,
+    "n_colors": 57
+  },
+  {
+    "dataset": "cityscapes",
+    "image_id": "frankfurt_000000_008206",
+    "x": 896,
+    "y": 128,
+    "diversity": 8,
+    "instance_count": 6,
+    "n_colors": 37
+  },
+  {
+    "dataset": "kitti",
+    "image_id": "000008_10",
+    "x": 128,
+    "y": 0,
+    "diversity": 8,
+    "instance_count": 4,
+    "n_colors": 81
+  },
+  {
+    "dataset": "kitti",
+    "image_id": "000026_10",
+    "x": 256,
+    "y": 0,
+    "diversity": 8,
+    "instance_count": 4,
+    "n_colors": 66
+  },
+  {
+    "dataset": "waymo",
+    "image_id": "9243656068381062947_1297_428_1317_428_1508793809111496_cam1_image",
+    "x": 128,
+    "y": 256,
+    "diversity": 8,
+    "instance_count": 4,
+    "n_colors": 40
+  },
+  {
+    "dataset": "waymo",
+    "image_id": "1024360143612057520_3580_000_3600_000_1553735872838329_cam4_image",
+    "x": 896,
+    "y": 384,
+    "diversity": 8,
+    "instance_count": 4,
+    "n_colors": 28
+  },
+  {
+    "dataset": "cityscapes",
+    "image_id": "frankfurt_000000_005898",
+    "x": 384,
+    "y": 128,
+    "diversity": 8,
+    "instance_count": 3,
+    "n_colors": 36
+  },
+  {
+    "dataset": "cityscapes",
+    "image_id": "frankfurt_000000_021879",
+    "x": 768,
+    "y": 128,
+    "diversity": 8,
+    "instance_count": 3,
+    "n_colors": 29
+  },
+  {
+    "dataset": "mapillary",
+    "image_id": "jqh8xIPwEZiRmWEwY9ZVaA",
+    "x": 640,
+    "y": 384,
+    "diversity": 8,
+    "instance_count": 3,
+    "n_colors": 26
+  },
+  {
+    "dataset": "kitti",
+    "image_id": "000151_10",
+    "x": 896,
+    "y": 0,
+    "diversity": 8,
+    "instance_count": 2,
+    "n_colors": 59
+  },
+  {
+    "dataset": "mapillary",
+    "image_id": "4XNyiO49GE1W6chmXeP3ig",
+    "x": 640,
+    "y": 256,
+    "diversity": 8,
+    "instance_count": 2,
+    "n_colors": 23
+  },
+  {
+    "dataset": "cityscapes",
+    "image_id": "frankfurt_000000_008206",
+    "x": 256,
+    "y": 128,
+    "diversity": 8,
+    "instance_count": 1,
+    "n_colors": 57
+  },
+  {
+    "dataset": "kitti",
+    "image_id": "000189_10",
+    "x": 0,
+    "y": 0,
+    "diversity": 8,
+    "instance_count": 1,
+    "n_colors": 57
+  }
+]

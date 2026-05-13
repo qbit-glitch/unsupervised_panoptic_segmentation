@@ -1,0 +1,1 @@
+/Users/qbit-glitch/Desktop/datasets/cityscapes/leftImg8bit/val/munster/munster_000051_000019_leftImg8bit.png

@@ -1,0 +1,101 @@
+{
+  "dataset": "kitti",
+  "image_id": "000022_10",
+  "source_path": "/Users/qbit-glitch/Desktop/datasets/kitti_panoptic/validation/images/000022_10.png",
+  "semantic_mapping_for_overlay": "cityscapes27",
+  "void_fill_for_visualization": "on",
+  "ours_checkpoint": "/Users/qbit-glitch/Desktop/coding-projects/mbps_panoptic_segmentation/checkpoints/stage4_pathB_focal_w005_gated_v2/best_pq_step=000575.ckpt",
+  "ours_config": "/Users/qbit-glitch/Desktop/coding-projects/mbps_panoptic_segmentation/refs/cups/configs/val_stage4_fine_object_local.yaml",
+  "cups_checkpoint": "/Users/qbit-glitch/Desktop/coding-projects/mbps_panoptic_segmentation/weights/cups.ckpt",
+  "standard_format": {
+    "channel_0": "raw semantic pseudo-class id",
+    "channel_1": "raw thing instance id; 0 means stuff/background/no thing instance"
+  },
+  "ours": {
+    "semantic_ids": [
+      13,
+      17,
+      21,
+      32,
+      33,
+      41,
+      43,
+      45,
+      55,
+      69,
+      75,
+      255
+    ],
+    "thing_semantic_ids": [
+      69,
+      75
+    ],
+    "thing_instance_ids": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+    ],
+    "num_thing_instances": 14,
+    "thing_pixel_count": 10726,
+    "thing_classes_config": [
+      64,
+      65,
+      66,
+      67,
+      68,
+      69,
+      70,
+      71,
+      72,
+      73,
+      74,
+      75,
+      76,
+      77,
+      78,
+      79
+    ]
+  },
+  "cups": {
+    "semantic_ids": [
+      7,
+      8,
+      9,
+      10,
+      12,
+      13,
+      16,
+      23,
+      255
+    ],
+    "thing_semantic_ids": [
+      23
+    ],
+    "thing_instance_ids": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "num_thing_instances": 4,
+    "thing_pixel_count": 25087,
+    "thing_classes_config": [
+      22,
+      23,
+      24,
+      25,
+      26
+    ]
+  }
+}

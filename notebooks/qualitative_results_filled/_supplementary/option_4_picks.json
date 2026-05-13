@@ -1,0 +1,44 @@
+[
+  {
+    "label": "Building / Wall / Window",
+    "dataset": "cityscapes",
+    "image_id": "frankfurt_000000_008206",
+    "x": 896,
+    "y": 128
+  },
+  {
+    "label": "Road / Sidewalk / Pole",
+    "dataset": "cityscapes",
+    "image_id": "frankfurt_000000_008206",
+    "x": 256,
+    "y": 128
+  },
+  {
+    "label": "Pedestrian Cluster",
+    "dataset": "cityscapes",
+    "image_id": "frankfurt_000000_020321",
+    "x": 1024,
+    "y": 256
+  },
+  {
+    "label": "Vegetation / Vehicles / Road",
+    "dataset": "kitti",
+    "image_id": "000163_10",
+    "x": 256,
+    "y": 0
+  },
+  {
+    "label": "Vehicle Cluster + Vegetation",
+    "dataset": "cityscapes",
+    "image_id": "frankfurt_000000_005898",
+    "x": 384,
+    "y": 128
+  },
+  {
+    "label": "Sky / Vegetation / Poles",
+    "dataset": "mapillary",
+    "image_id": "PxmqFeA1n_avfakO17JaZg",
+    "x": 256,
+    "y": 256
+  }
+]

@@ -1,0 +1,108 @@
+{
+  "dataset": "mapillary",
+  "image_id": "k2SFNqIK6sRuNnTxZz0gBA",
+  "source_path": "/Users/qbit-glitch/Desktop/datasets/mapillary-vistas-v2/validation/images/k2SFNqIK6sRuNnTxZz0gBA.jpg",
+  "semantic_mapping_for_overlay": "cityscapes27",
+  "ours_checkpoint": "/Users/qbit-glitch/Desktop/coding-projects/mbps_panoptic_segmentation/checkpoints/stage3_dcfa_simcf_abc/best_pq_step=003000.ckpt",
+  "ours_config": "/Users/qbit-glitch/Desktop/coding-projects/mbps_panoptic_segmentation/refs/cups/configs/val_stage3_dcfa_simcf_abc_local.yaml",
+  "cups_checkpoint": "/Users/qbit-glitch/Desktop/coding-projects/mbps_panoptic_segmentation/weights/cups.ckpt",
+  "standard_format": {
+    "channel_0": "raw semantic pseudo-class id",
+    "channel_1": "raw thing instance id; 0 means stuff/background/no thing instance"
+  },
+  "ours": {
+    "semantic_ids": [
+      0,
+      6,
+      14,
+      22,
+      24,
+      32,
+      33,
+      35,
+      36,
+      41,
+      42,
+      43,
+      45,
+      46,
+      50,
+      51,
+      55,
+      56,
+      69,
+      72,
+      79,
+      255
+    ],
+    "thing_semantic_ids": [
+      69,
+      72,
+      79
+    ],
+    "thing_instance_ids": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "num_thing_instances": 4,
+    "thing_pixel_count": 6053,
+    "thing_classes_config": [
+      64,
+      65,
+      66,
+      67,
+      68,
+      69,
+      70,
+      71,
+      72,
+      73,
+      74,
+      75,
+      76,
+      77,
+      78,
+      79
+    ]
+  },
+  "cups": {
+    "semantic_ids": [
+      1,
+      4,
+      6,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      16,
+      17,
+      22,
+      23,
+      255
+    ],
+    "thing_semantic_ids": [
+      22,
+      23
+    ],
+    "thing_instance_ids": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "num_thing_instances": 5,
+    "thing_pixel_count": 15216,
+    "thing_classes_config": [
+      22,
+      23,
+      24,
+      25,
+      26
+    ]
+  }
+}
