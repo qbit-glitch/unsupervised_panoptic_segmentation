@@ -245,6 +245,17 @@ _C.TRAINING.DROP_LOSS_IOU_THRESHOLD = 0.4
 _C.TRAINING.DROP_LOSS = True
 # Gradient accumulation steps (effective batch = batch_size * num_gpus * accumulate)
 _C.TRAINING.ACCUMULATE_GRAD_BATCHES = 1
+# Per-cascade-stage multipliers applied to loss_box_reg_stage{0,1,2}.
+# Empty tuple = no rescaling. Consumed by UnsupervisedModelLossOnly to combat
+# noisy-box whiplash on s1/s2 from depth-split pseudo-labels.
+_C.TRAINING.CASCADE_BOX_REG_WEIGHTS = ()
+# Optional LR schedule. TYPE in {"none", "cosine_warmup"}. When set to
+# "cosine_warmup", LR linearly warms up over WARMUP_STEPS then cosine-decays
+# from ADAMW.LEARNING_RATE to MIN_LR by TRAINING.STEPS.
+_C.TRAINING.LR_SCHEDULER = CfgNode()
+_C.TRAINING.LR_SCHEDULER.TYPE = "none"
+_C.TRAINING.LR_SCHEDULER.WARMUP_STEPS = 500
+_C.TRAINING.LR_SCHEDULER.MIN_LR = 0.000001
 
 # Self-training specific config
 _C.SELF_TRAINING = CfgNode()

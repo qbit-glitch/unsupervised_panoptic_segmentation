@@ -264,6 +264,8 @@ def evaluate_instances(
     print(f"{'='*60}")
     print(f"Found {len(inst_files)} instance pseudo-label files")
 
+    iou_thresholds = np.arange(0.50, 0.96, 0.05)
+    all_ap = []
     all_ap50 = []
     all_ap75 = []
     all_recall = []
@@ -371,6 +373,7 @@ def evaluate_instances(
         M_gt = gt_masks.shape[0]
 
         if M_pred == 0:
+            all_ap.append(0.0)
             all_ap50.append(0.0)
             all_ap75.append(0.0)
             all_recall.append(0.0)
@@ -433,10 +436,13 @@ def evaluate_instances(
             idx = np.where(mrec[1:] != mrec[:-1])[0] + 1
             return float(np.sum((mrec[idx] - mrec[idx - 1]) * mpre[idx]))
 
+        ap_values = [compute_ap_at_thresh(float(thresh)) for thresh in iou_thresholds]
+        all_ap.append(float(np.mean(ap_values)))
         all_ap50.append(compute_ap_at_thresh(0.5))
         all_ap75.append(compute_ap_at_thresh(0.75))
 
     # Aggregate
+    mean_ap = float(np.mean(all_ap)) if all_ap else 0.0
     mean_ap50 = float(np.mean(all_ap50)) if all_ap50 else 0.0
     mean_ap75 = float(np.mean(all_ap75)) if all_ap75 else 0.0
     mean_recall = float(np.mean(all_recall)) if all_recall else 0.0
@@ -444,6 +450,7 @@ def evaluate_instances(
     mean_gt_count = float(np.mean(gt_counts)) if gt_counts else 0.0
 
     print(f"\n  AR@100 (IoU=0.5): {mean_recall:.4f} ({mean_recall * 100:.2f}%)")
+    print(f"  AP@[.50:.95]:     {mean_ap:.4f} ({mean_ap * 100:.2f}%)")
     print(f"  AP@50:            {mean_ap50:.4f} ({mean_ap50 * 100:.2f}%)")
     print(f"  AP@75:            {mean_ap75:.4f} ({mean_ap75 * 100:.2f}%)")
     print(f"  Avg pred instances/image: {mean_pred_count:.1f}")
@@ -452,6 +459,8 @@ def evaluate_instances(
 
     return {
         "ar_100": mean_recall,
+        "ap": mean_ap,
+        "ap_mean": mean_ap,
         "ap_50": mean_ap50,
         "ap_75": mean_ap75,
         "avg_pred_instances": mean_pred_count,
@@ -841,6 +850,7 @@ def main():
         print(f"  Pixel Accuracy:   {results['semantic']['pixel_accuracy']*100:.2f}%")
     if "instance" in results:
         print(f"  Instance AR@100:  {results['instance']['ar_100']*100:.2f}%")
+        print(f"  Instance AP:      {results['instance']['ap']*100:.2f}%")
         print(f"  Instance AP@50:   {results['instance']['ap_50']*100:.2f}%")
         print(f"  Instance AP@75:   {results['instance']['ap_75']*100:.2f}%")
     if "panoptic" in results:

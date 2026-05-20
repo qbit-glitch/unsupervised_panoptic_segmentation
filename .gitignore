@@ -29,6 +29,25 @@ logs/
 nohup.out
 
 # ============================================
+# Local datasets, generated outputs, and metrics
+# ============================================
+datasets/
+outputs/
+results/
+
+# ============================================
+# Generated media / visual artifacts
+# ============================================
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.gif
+*.bmp
+*.tif
+*.tiff
+
+# ============================================
 # Node.js (1.1GB)
 # ============================================
 node_modules/
@@ -94,7 +113,16 @@ Thumbs.db
 # Large generated files
 # ============================================
 graphify-out/graph.json
+graphify-out/.graphify_root
+graphify-out/cache/ast/
+graphify-out/converted/
+graphify-out/manifest.json
 paper_bmvc2026/bmvc_template/.git/
+
+# ============================================
+# Local research/source clones
+# ============================================
+test-instance-labels/
 
 # ============================================
 # Nested git repos
@@ -104,3 +132,4 @@ paper_bmvc2026/bmvc_template/.git/
 # CCR context directory
 .ccr/
 .gcloud_waymo/
+.claude/*.lock

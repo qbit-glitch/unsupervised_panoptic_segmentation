@@ -372,17 +372,19 @@ def evaluate_semantic(pairs, eval_hw, cause27=False, cluster_lut=None):
 
 # ─── Instance Evaluation ───
 
-def evaluate_instances(pairs, eval_hw):
-    """Compute AR@100, AP@50, AP@75 for thing instances."""
+def evaluate_instances(pairs, eval_hw, max_detections=100):
+    """Compute class-aware AP, AP@50, AP@75, and AR@100 for thing instances."""
     print(f"\n{'='*60}")
     print(f"INSTANCE EVALUATION")
     print(f"{'='*60}")
 
-    all_ap50, all_ap75, all_recall = [], [], []
+    iou_thresholds = np.arange(0.50, 0.96, 0.05)
+    eval_records = []
+    class_aware = True
     pred_counts, gt_counts = [], []
     skipped = 0
 
-    for _, _, inst_path, gt_inst_path in tqdm(pairs, desc="Instance eval"):
+    for image_idx, (_, _, inst_path, gt_inst_path) in enumerate(tqdm(pairs, desc="Instance eval")):
         if inst_path is None or gt_inst_path is None:
             skipped += 1
             continue
@@ -392,72 +394,150 @@ def evaluate_instances(pairs, eval_hw):
             skipped += 1
             continue
 
+        pred_class_ids = _load_pred_instance_class_ids(inst_path)
+        if pred_class_ids is None or pred_class_ids.shape[0] != pred_masks.shape[0]:
+            class_aware = False
+            pred_class_ids = np.full(pred_masks.shape[0], -1, dtype=np.int32)
+
         gt_masks, gt_classes = _load_gt_instances(gt_inst_path, eval_hw)
 
         pred_counts.append(pred_masks.shape[0])
         gt_counts.append(gt_masks.shape[0])
 
-        if gt_masks.shape[0] == 0:
-            continue
-        if pred_masks.shape[0] == 0:
-            all_recall.append(0.0)
-            all_ap50.append(0.0)
-            all_ap75.append(0.0)
-            continue
+        if pred_masks.shape[0] > max_detections:
+            top_idx = np.argsort(-pred_scores)[:max_detections]
+            pred_masks = pred_masks[top_idx]
+            pred_scores = pred_scores[top_idx]
+            pred_class_ids = pred_class_ids[top_idx]
 
         # Compute IoU matrix
-        iou_matrix = _batch_iou(pred_masks, gt_masks)
-        M_pred, M_gt = iou_matrix.shape
+        if pred_masks.shape[0] and gt_masks.shape[0]:
+            iou_matrix = _batch_iou(pred_masks, gt_masks)
+        else:
+            iou_matrix = np.zeros((pred_masks.shape[0], gt_masks.shape[0]), dtype=np.float32)
 
-        # AR@100: fraction of GT matched at IoU >= 0.5
-        best_per_gt = iou_matrix.max(axis=0)  # (M_gt,)
-        recall = float((best_per_gt >= 0.5).sum() / M_gt)
-        all_recall.append(recall)
+        if not class_aware:
+            gt_classes = np.full(gt_masks.shape[0], -1, dtype=np.int32)
 
-        # AP computation with greedy matching
-        sorted_idx = np.argsort(-pred_scores)
+        eval_records.append({
+            "image_idx": image_idx,
+            "scores": pred_scores.astype(np.float32),
+            "pred_classes": pred_class_ids.astype(np.int32),
+            "gt_classes": gt_classes.astype(np.int32),
+            "iou": iou_matrix,
+        })
 
-        def compute_ap(iou_thresh):
-            gt_matched = set()
-            tp = np.zeros(M_pred)
-            fp = np.zeros(M_pred)
-            for rank, i in enumerate(sorted_idx):
-                ious_i = iou_matrix[i].copy()
-                # Mask already-matched GT
-                for j_matched in gt_matched:
-                    ious_i[j_matched] = 0.0
-                best_j = int(np.argmax(ious_i))
-                if ious_i[best_j] >= iou_thresh:
+    if not class_aware:
+        for rec in eval_records:
+            rec["pred_classes"] = np.full(rec["scores"].shape[0], -1, dtype=np.int32)
+            rec["gt_classes"] = np.full(rec["gt_classes"].shape[0], -1, dtype=np.int32)
+
+    eval_class_ids = sorted({
+        int(cls)
+        for rec in eval_records
+        for cls in rec["gt_classes"].tolist()
+    })
+    if not eval_class_ids:
+        eval_class_ids = [-1]
+
+    def compute_ap(iou_thresh):
+        aps = []
+        for cls in eval_class_ids:
+            num_gt = sum(int((rec["gt_classes"] == cls).sum()) for rec in eval_records)
+            if num_gt == 0:
+                continue
+            preds = []
+            for rec_idx, rec in enumerate(eval_records):
+                pred_idx = np.where(rec["pred_classes"] == cls)[0]
+                for idx in pred_idx:
+                    preds.append((float(rec["scores"][idx]), rec_idx, int(idx)))
+            preds.sort(key=lambda item: item[0], reverse=True)
+            tp = np.zeros(len(preds), dtype=np.float32)
+            fp = np.zeros(len(preds), dtype=np.float32)
+            matched = defaultdict(set)
+            for rank, (_, rec_idx, pred_idx) in enumerate(preds):
+                rec = eval_records[rec_idx]
+                gt_idx = np.where(rec["gt_classes"] == cls)[0]
+                best_iou = 0.0
+                best_j = -1
+                for j in gt_idx:
+                    if int(j) in matched[rec_idx]:
+                        continue
+                    iou = float(rec["iou"][pred_idx, j])
+                    if iou > best_iou:
+                        best_iou = iou
+                        best_j = int(j)
+                if best_iou >= iou_thresh and best_j >= 0:
                     tp[rank] = 1
-                    gt_matched.add(best_j)
+                    matched[rec_idx].add(best_j)
                 else:
                     fp[rank] = 1
+            if len(preds) == 0:
+                aps.append(0.0)
+                continue
             cum_tp = np.cumsum(tp)
             cum_fp = np.cumsum(fp)
             prec = cum_tp / (cum_tp + cum_fp + 1e-8)
-            rec = cum_tp / (M_gt + 1e-8)
-            # VOC-style AP
+            rec = cum_tp / (num_gt + 1e-8)
             mrec = np.concatenate(([0.0], rec, [1.0]))
             mpre = np.concatenate(([1.0], prec, [0.0]))
             for k in range(len(mpre) - 1, 0, -1):
                 mpre[k - 1] = max(mpre[k - 1], mpre[k])
             idx = np.where(mrec[1:] != mrec[:-1])[0] + 1
-            return float(np.sum((mrec[idx] - mrec[idx - 1]) * mpre[idx]))
+            aps.append(float(np.sum((mrec[idx] - mrec[idx - 1]) * mpre[idx])))
+        return float(np.mean(aps)) if aps else 0.0
 
-        all_ap50.append(compute_ap(0.5))
-        all_ap75.append(compute_ap(0.75))
+    def compute_recall(iou_thresh):
+        recalls = []
+        for cls in eval_class_ids:
+            num_gt = sum(int((rec["gt_classes"] == cls).sum()) for rec in eval_records)
+            if num_gt == 0:
+                continue
+            matched_total = 0
+            for rec in eval_records:
+                gt_idx = np.where(rec["gt_classes"] == cls)[0]
+                pred_idx = np.where(rec["pred_classes"] == cls)[0]
+                if gt_idx.size == 0 or pred_idx.size == 0:
+                    continue
+                order = pred_idx[np.argsort(-rec["scores"][pred_idx])[:max_detections]]
+                matched_gt = set()
+                for pred_i in order:
+                    best_iou = 0.0
+                    best_j = -1
+                    for j in gt_idx:
+                        if int(j) in matched_gt:
+                            continue
+                        iou = float(rec["iou"][pred_i, j])
+                        if iou > best_iou:
+                            best_iou = iou
+                            best_j = int(j)
+                    if best_iou >= iou_thresh and best_j >= 0:
+                        matched_gt.add(best_j)
+                matched_total += len(matched_gt)
+            recalls.append(matched_total / num_gt)
+        return float(np.mean(recalls)) if recalls else 0.0
+
+    ap_values = [compute_ap(float(thresh)) for thresh in iou_thresholds]
+    ar_values = [compute_recall(float(thresh)) for thresh in iou_thresholds]
 
     results = {
-        "ar_100": round(float(np.mean(all_recall)) * 100, 2) if all_recall else 0.0,
-        "ap_50": round(float(np.mean(all_ap50)) * 100, 2) if all_ap50 else 0.0,
-        "ap_75": round(float(np.mean(all_ap75)) * 100, 2) if all_ap75 else 0.0,
+        "ar_100": round(float(np.mean(ar_values)) * 100, 2) if ar_values else 0.0,
+        "ap": round(float(np.mean(ap_values)) * 100, 2) if ap_values else 0.0,
+        "ap_mean": round(float(np.mean(ap_values)) * 100, 2) if ap_values else 0.0,
+        "ap_50": round(compute_ap(0.5) * 100, 2),
+        "ap_75": round(compute_ap(0.75) * 100, 2),
+        "class_aware": bool(class_aware),
+        "num_eval_classes": len(eval_class_ids),
         "avg_pred_instances": round(float(np.mean(pred_counts)), 1) if pred_counts else 0.0,
         "avg_gt_instances": round(float(np.mean(gt_counts)), 1) if gt_counts else 0.0,
-        "num_images": len(all_recall),
+        "num_images": len(eval_records),
         "skipped": skipped,
     }
 
-    print(f"\n  AR@100 (IoU≥0.5): {results['ar_100']:.2f}%")
+    mode = "class-aware" if class_aware else "class-agnostic"
+    print(f"\n  Metric mode:       {mode}")
+    print(f"  AR@100:           {results['ar_100']:.2f}%")
+    print(f"  AP@[.50:.95]:     {results['ap']:.2f}%")
     print(f"  AP@50:            {results['ap_50']:.2f}%")
     print(f"  AP@75:            {results['ap_75']:.2f}%")
     print(f"  Avg pred instances: {results['avg_pred_instances']:.1f}")
@@ -955,6 +1035,7 @@ def main():
         print(f"  Pixel Accuracy:    {results['semantic']['pixel_accuracy']:.1f}%")
     if "instance" in results:
         print(f"  Instance AR@100:   {results['instance']['ar_100']:.1f}%")
+        print(f"  Instance AP:       {results['instance']['ap']:.1f}%")
         print(f"  Instance AP@50:    {results['instance']['ap_50']:.1f}%")
         print(f"  Instance AP@75:    {results['instance']['ap_75']:.1f}%")
     if "panoptic" in results:
