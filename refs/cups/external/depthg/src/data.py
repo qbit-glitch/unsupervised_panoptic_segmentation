@@ -24,8 +24,17 @@ import tarfile
 import zipfile
 # import h5py
 import sys
-sys.path.append(os.getcwd())    
-from cups.utils import normalize
+sys.path.append(os.getcwd())
+
+
+# Inlined to avoid loading the whole `cups` package at data.py import time
+# (the package pulls in stage4_utils etc. that aren't needed for DepthG training).
+# This matches cups.utils.normalize (ImageNet mean/std).
+def normalize(images, mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)):
+    import torch as _torch
+    mean_t = _torch.tensor(mean, dtype=images.dtype, device=images.device).view(1, 3, 1, 1)
+    std_t = _torch.tensor(std, dtype=images.dtype, device=images.device).view(1, 3, 1, 1)
+    return (images - mean_t) / std_t
 
 
 def bit_get(val, idx):
