@@ -649,8 +649,15 @@ def my_app(cfg: DictConfig) -> None:
     ])
 
     sys.stdout.flush()
+    # When crop_type is null we use raw datasets (e.g. CityscapesSeg) and need data_dir to be
+    # the raw cityscapes root, not its `depthg_processed_data` sibling. The original sibling
+    # path was for the pre-cropped CroppedDataset layout.
+    if cfg.dataset_name in ("cityscapes", "cityscapes_19") and cfg.get("crop_type", None) is None:
+        train_data_dir = os.environ.get("DEPTHG_CITYSCAPES_ROOT", cfg.get("cityscapes_root", data_dir))
+    else:
+        train_data_dir = os.path.join(os.path.dirname(data_dir[:-1]), 'depthg_processed_data')
     train_dataset = ContrastiveSegDataset(
-        data_dir=os.path.join(os.path.dirname(data_dir[:-1]), 'depthg_processed_data'),
+        data_dir=train_data_dir,
         dataset_name=cfg.dataset_name,
         crop_type=cfg.crop_type,
         image_set="train",
