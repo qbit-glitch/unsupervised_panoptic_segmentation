@@ -19,7 +19,11 @@ dataset_name: cityscapes        # 27-class, same as CUPS' published ckpt
 dir_dataset_name: null
 dir_dataset_n_classes: 5
 has_labels: false
-crop_type: five
+# Upstream config used crop_type=five which requires a pre-cropped on-disk layout
+# (cropped/cityscapes_five_crop_0.5_depthpro/img/{train,val}/<i>.jpg). We skip that
+# preprocessing and route to CityscapesSeg via crop_type=null. The data.py patch at
+# line ~1075 now forwards depth_type so the depthpro branch fires inside CityscapesSeg.
+crop_type: null
 crop_ratio: 0.5
 res: 224                        # CUPS' published depthg.ckpt was trained at 224
 loader_crop_type: center
