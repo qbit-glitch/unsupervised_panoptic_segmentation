@@ -541,7 +541,17 @@ class CityscapesSeg(Dataset):
             mask = target == -1
 
             if self.return_depth:
-                return image.squeeze(0), target.squeeze(0), mask.squeeze(0), depth.squeeze(0)
+                # Resize depth to match the transformed image's spatial size, and KEEP the
+                # singleton channel dim so the DataLoader batch is 4D (N, 1, H, W). The upstream
+                # CityscapesSeg.__getitem__ called .squeeze(0) on depth which dropped the
+                # channel dim and broke modules.py:1261 interpolate (needs 4D input).
+                _ih, _iw = image.shape[-2], image.shape[-1]
+                if depth.dim() == 2:
+                    depth = depth.unsqueeze(0)        # (H, W) -> (1, H, W)
+                _d = depth.unsqueeze(0)               # (1, 1, H, W) for F.interpolate
+                _d = torch.nn.functional.interpolate(_d, size=(_ih, _iw), mode='bilinear', align_corners=False)
+                depth = _d.squeeze(0)                 # (1, _ih, _iw) — keep channel dim
+                return image.squeeze(0), target.squeeze(0), mask.squeeze(0), depth
             else:
                 return image.squeeze(0), target.squeeze(0), mask.squeeze(0)
 
