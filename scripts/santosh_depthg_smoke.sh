@@ -50,9 +50,13 @@ print(f"[sanity ok] sample img={sample_img.name}  depth={dp_path.name}  shape={a
 PY
 
 # --- launch -------------------------------------------------------------------
-cd "$(dirname "$0")/../refs/cups/external/depthg/src"
+# train_segmentation.py line 6 does `sys.path.append(os.path.join(os.getcwd(), 'external/depthg'))`,
+# so we must cd to the CUPS repo root (refs/cups) before invoking it.
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "${REPO_ROOT}/refs/cups"
+export PYTHONPATH="${REPO_ROOT}/refs/cups/external/depthg:${PYTHONPATH:-}"
 echo "[$(date +'%F %T')] starting smoke (200 steps) on CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES}"
-python -u train_segmentation.py \
+python -u external/depthg/src/train_segmentation.py \
     experiment_name=smoke_depthpro \
     max_steps=200 \
     val_freq=200 \

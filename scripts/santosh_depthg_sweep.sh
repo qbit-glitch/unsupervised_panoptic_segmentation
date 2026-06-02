@@ -36,7 +36,11 @@ SHIFTS=(0.006144 0.012288 0.024576)    # 0.5x  1x  2x
 
 # --- run scheduler -----------------------------------------------------------
 # Up to 2 concurrent processes (1 per GPU). Block when 2 are running.
-cd "$(dirname "$0")/../refs/cups/external/depthg/src"
+# train_segmentation.py expects CWD == refs/cups (sys.path.append('external/depthg')).
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "${REPO_ROOT}/refs/cups"
+export PYTHONPATH="${REPO_ROOT}/refs/cups/external/depthg:${PYTHONPATH:-}"
+TRAIN_SCRIPT="external/depthg/src/train_segmentation.py"
 PIDS=()
 run_idx=0
 for w in "${WEIGHTS[@]}"; do
@@ -47,7 +51,7 @@ for w in "${WEIGHTS[@]}"; do
     log="${SWEEP_LOG_DIR}/run${run_idx}_${tag}_gpu${gpu}.log"
     echo "[$(date +'%F %T')] launching run ${run_idx}/9: w=${w} s=${s} on GPU ${gpu} -> ${log}"
     CUDA_VISIBLE_DEVICES="${gpu}" \
-      nohup python -u train_segmentation.py \
+      nohup python -u "${TRAIN_SCRIPT}" \
         experiment_name="sweep_${tag}" \
         max_steps=1500 \
         val_freq=300 \
