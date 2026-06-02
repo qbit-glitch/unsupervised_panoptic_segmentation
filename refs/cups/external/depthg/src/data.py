@@ -491,11 +491,27 @@ class CityscapesSeg(Dataset):
             subfolder = path.parent.stem
             if self.depth_type == "zoedepth":
                 depth_path = join(self.depth_folder_path, subfolder, filename + ".png") #"_zoedepth.png")
+                depth = Image.open(depth_path)
+                depth = to_tensor(depth)
+            elif self.depth_type == "depthpro":
+                # CUPS-mono retrain: DepthPro monocular depth as .npy.
+                # Cache layout: $DEPTHG_DEPTHPRO_ROOT/<split>/<city>/<frame>.npy
+                # where <frame> drops the trailing "_leftImg8bit" suffix from the image stem.
+                depth_root = os.environ.get(
+                    "DEPTHG_DEPTHPRO_ROOT",
+                    "/home/santosh/datasets/cityscapes/depth_depthpro",
+                )
+                frame_stem = filename.replace("_leftImg8bit", "")
+                depth_path = join(depth_root, self.split, subfolder, frame_stem + ".npy")
+                depth_np = np.load(depth_path).astype(np.float32)
+                if depth_np.ndim == 3:
+                    depth_np = depth_np[0] if depth_np.shape[0] == 1 else depth_np[..., 0]
+                d_min, d_max = float(depth_np.min()), float(depth_np.max())
+                if d_max - d_min > 1e-6:
+                    depth_np = (depth_np - d_min) / (d_max - d_min)
+                depth = torch.from_numpy(depth_np).unsqueeze(0)
             else:
-                raise NotImplementedError("Depth type {} not implemented. Available depth types are zoedepth, kbr, midas.".format(self.depth_type))
-
-            depth = Image.open(depth_path)
-            depth = to_tensor(depth)
+                raise NotImplementedError("Depth type {} not implemented. Available depth types are zoedepth, depthpro, kbr, midas.".format(self.depth_type))
 
         if self.transform is not None:
             image, target = self.inner_loader[index]

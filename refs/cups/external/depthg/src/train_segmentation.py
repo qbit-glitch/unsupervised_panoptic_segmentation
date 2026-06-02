@@ -676,9 +676,9 @@ def my_app(cfg: DictConfig) -> None:
         data_dir = os.path.join(data_dir, "nyuv2")
 
     if cfg.dataset_name == "cityscapes" or cfg.dataset_name == "cityscapes_19":
-        data_dir = '/path_to_datasets/cityscapes'
+        data_dir = os.environ.get("DEPTHG_CITYSCAPES_ROOT", cfg.get("cityscapes_root", None) or '/path_to_datasets/cityscapes')
     elif cfg.dataset_name == "kitti":
-        data_dir = '/path_to_datasets/KITTI-raw'
+        data_dir = os.environ.get("DEPTHG_KITTI_ROOT", '/path_to_datasets/KITTI-raw')
     val_dataset = ContrastiveSegDataset(
         data_dir=data_dir,
         dataset_name=cfg.dataset_name,
@@ -736,8 +736,9 @@ def my_app(cfg: DictConfig) -> None:
     else:
         if torch.cuda.is_available() and cfg.gpus > 0:
             gpu_args = dict(devices=1, accelerator='gpu', val_check_interval=cfg.val_freq)
-            if torch.cuda.device_count() > 1:
-                os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+            # Upstream hardcoded CUDA_VISIBLE_DEVICES=1 here; respect the caller's CUDA_VISIBLE_DEVICES env instead.
+            if torch.cuda.device_count() > 1 and "CUDA_VISIBLE_DEVICES" not in os.environ:
+                os.environ["CUDA_VISIBLE_DEVICES"] = "0"
         else:
             gpu_args = dict(devices=1, accelerator='cpu', val_check_interval=cfg.val_freq)
 

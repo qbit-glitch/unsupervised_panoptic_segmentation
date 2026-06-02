@@ -1,0 +1,123 @@
+# DepthG retrain config — Cityscapes + DepthPro monocular depth (santosh, 1x GTX 1080 Ti)
+#
+# Provenance: extracted from CUPS' published `depthg.ckpt` hyper_parameters.cfg (~/datasets/cityscapes/depthg.ckpt),
+# then narrowed to the values that change for our setup. All other values match the upstream training exactly.
+#
+# Overrides at runtime via Hydra CLI, e.g.:
+#   python train_segmentation.py experiment_name=smoke max_steps=200
+#   python train_segmentation.py experiment_name=sweep_w1_s1 depth_feat_weight=0.036864 depth_feat_shift=0.012288
+
+# ---- paths (overridable via env) ----------------------------------------------------------------
+output_root: ${oc.env:DEPTHG_OUTPUT_ROOT,/home/santosh/datasets/cityscapes/depthg_retrain}
+data_dir:    ${oc.env:DEPTHG_CITYSCAPES_ROOT,/home/santosh/datasets/cityscapes}
+cityscapes_root: ${oc.env:DEPTHG_CITYSCAPES_ROOT,/home/santosh/datasets/cityscapes}
+log_dir:     ${oc.env:DEPTHG_OUTPUT_ROOT,/home/santosh/datasets/cityscapes/depthg_retrain}
+experiment_name: depthpro_monocular
+
+# ---- dataset ------------------------------------------------------------------------------------
+dataset_name: cityscapes        # 27-class, same as CUPS' published ckpt
+dir_dataset_name: null
+dir_dataset_n_classes: 5
+has_labels: false
+crop_type: five
+crop_ratio: 0.5
+res: 224                        # CUPS' published depthg.ckpt was trained at 224
+loader_crop_type: center
+extra_clusters: 0
+use_true_labels: false
+use_recalibrator: false
+
+# ---- depth source (our swap: depthpro replaces zoedepth) -----------------------------------------
+generate_depth: true
+use_depth: true
+depth_type: depthpro            # was: zoedepth — single change vs upstream config
+use_depth_only_intra: false
+guidance: none
+depth_feat_correlation_loss: true
+depth_loss_decay: true
+fix_depth_feat_shift: false
+decay_every_steps: 400
+fps_until_step: 0
+post_fps_samples: 11
+fps_sample_decay: false
+fps_sample_decay_every_steps: 300
+fps_sample_decay_factor: 0.9
+fps_min_samples: 0
+depth_sampling: none
+propagation_strategy: depth
+
+# ---- LHP (off, matches upstream) ----------------------------------------------------------------
+lhp: false
+lhp_weight: 0.2
+lhp_depth_weight: 1.0
+lhp_weight_balance: false
+
+# ---- model / backbone ---------------------------------------------------------------------------
+model_type: vit_base
+arch: dino                      # arch.__contains__("depth") == False ⇒ img only as input; depth feeds only the correlation loss
+use_fit_model: false
+dino_feat_type: feat
+projection_type: nonlinear
+dino_patch_size: 8
+granularity: 1
+continuous: true
+dim: 100
+dropout: true
+zero_clamp: true
+pretrained_weights: null
+use_salience: false
+
+# ---- optimizer / schedule -----------------------------------------------------------------------
+lr: 0.0005
+max_steps: 7000                 # upstream final-run value; smoke override to e.g. 200
+batch_size: 16                  # upstream was 32 on a beefier GPU; 1080 Ti budget = 16 at res 224, vit_base
+num_neighbors: 7
+fps_gpu: false
+
+# ---- correspondence loss --------------------------------------------------------------------
+stabalize: false
+stop_at_zero: true
+pointwise: false
+feature_samples: 11
+neg_samples: 5
+aug_alignment_weight: 0.0
+correspondence_weight: 1.0
+neg_inter_weight: 0.5700000000000001
+pos_inter_weight: 1.02
+pos_intra_weight: 0.95
+neg_inter_shift: 0.26
+pos_inter_shift: 0.25
+pos_intra_shift: 0.39
+
+# ---- depth-feature correlation (the 2-knob sweep targets) ---------------------------------------
+depth_feat_weight: 0.036864     # CUPS-published default — sweep target
+depth_feat_shift: 0.012288      # CUPS-published default — sweep target
+depth_loss_decay_factor: 0.8
+depth_weight_decay_min: 0.0
+depth_shift_decay_min: 0.0
+
+# ---- auxiliary losses (off, matches upstream) ----------------------------------------------------
+rec_weight: 0.0
+repulsion_weight: 0.0
+crf_weight: 0.0
+alpha: 0.5
+beta: 0.15
+gamma: 0.05
+w1: 10.0
+w2: 3.0
+shift: 0.0
+crf_samples: 1000
+color_space: rgb
+
+# ---- runtime ------------------------------------------------------------------------------------
+gpus: 1                         # one GPU per process; the sweep launcher round-robins GPU 0/1
+wandb_logging: false            # no W&B token on santosh; TensorBoard only
+num_workers: 4                  # 1080 Ti host, conservative
+reset_probe_steps: null
+n_images: 5
+scalar_log_freq: 10
+checkpoint_freq: 50
+val_freq: 200                   # less frequent than upstream (100); reduces 1080 Ti I/O pressure
+hist_freq: 200
+submitting_to_aml: false
+full_name: depthpro_monocular_cityscapes
