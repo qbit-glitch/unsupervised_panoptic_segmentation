@@ -15,11 +15,14 @@
 #   - val_check at step 200 produces a test/cluster/mIoU number.
 #   - smoke checkpoint saved under $DEPTHG_OUTPUT_ROOT/checkpoints/.
 
-set -euo pipefail
+set -eo pipefail
 
 # --- env ----------------------------------------------------------------------
+# Relax -u around conda activate (santosh's activate hooks reference unbound ADDR2LINE).
+set +u
 source ~/anaconda3/etc/profile.d/conda.sh
 conda activate cups
+set -u
 export LD_LIBRARY_PATH="${CONDA_PREFIX}/lib:${LD_LIBRARY_PATH:-}"
 export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
 

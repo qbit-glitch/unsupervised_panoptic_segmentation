@@ -12,11 +12,14 @@
 # so the upstream-canonical depth_feat_weight=0.036864 / depth_feat_shift=0.012288 should be close but is not
 # guaranteed optimal. 3x3 around the defaults at half/x1/x2 covers the plausible range without overspending compute.
 
-set -euo pipefail
+set -eo pipefail
 
 # --- env ---------------------------------------------------------------------
+# Relax -u around conda activate (santosh's activate hooks reference unbound ADDR2LINE).
+set +u
 source ~/anaconda3/etc/profile.d/conda.sh
 conda activate cups
+set -u
 export LD_LIBRARY_PATH="${CONDA_PREFIX}/lib:${LD_LIBRARY_PATH:-}"
 
 # --- paths -------------------------------------------------------------------
