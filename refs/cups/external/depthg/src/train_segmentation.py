@@ -742,9 +742,13 @@ def my_app(cfg: DictConfig) -> None:
 
     else:
         if torch.cuda.is_available() and cfg.gpus > 0:
-            gpu_args = dict(devices=1, accelerator='gpu', val_check_interval=cfg.val_freq)
-            # Upstream hardcoded CUDA_VISIBLE_DEVICES=1 here; respect the caller's CUDA_VISIBLE_DEVICES env instead.
-            if torch.cuda.device_count() > 1 and "CUDA_VISIBLE_DEVICES" not in os.environ:
+            # Respect cfg.gpus (1 = single GPU, >1 = DDP). The original code hardcoded devices=1.
+            num_devices = int(cfg.gpus)
+            gpu_args = dict(devices=num_devices, accelerator='gpu', val_check_interval=cfg.val_freq)
+            if num_devices > 1:
+                gpu_args["strategy"] = "ddp_find_unused_parameters_true"
+            # Upstream hardcoded CUDA_VISIBLE_DEVICES=1 here; respect the caller's env instead.
+            if "CUDA_VISIBLE_DEVICES" not in os.environ and torch.cuda.device_count() > 1 and num_devices == 1:
                 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
         else:
             gpu_args = dict(devices=1, accelerator='cpu', val_check_interval=cfg.val_freq)

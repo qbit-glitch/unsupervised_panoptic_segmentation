@@ -23,7 +23,8 @@ source ~/anaconda3/etc/profile.d/conda.sh
 conda activate cups
 set -u
 export LD_LIBRARY_PATH="${CONDA_PREFIX}/lib:${LD_LIBRARY_PATH:-}"
-export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
+# 2-GPU DDP: bs=16 per GPU = effective bs=32 (matches upstream CUPS bs=32).
+export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0,1}"
 
 # --- paths -------------------------------------------------------------------
 export DEPTHG_CITYSCAPES_ROOT="${DEPTHG_CITYSCAPES_ROOT:-/home/santosh/datasets/cityscapes}"
@@ -42,7 +43,9 @@ echo "  depthpro    : ${DEPTHG_DEPTHPRO_ROOT}"
 echo "  output      : ${DEPTHG_OUTPUT_ROOT}"
 
 python -u external/depthg/src/train_segmentation.py \
-    experiment_name=depthpro_monocular \
+    experiment_name=depthpro_monocular_ddp \
+    gpus=2 \
+    batch_size=16 \
     max_steps=7000 \
     val_freq=500 \
     checkpoint_freq=500 \
