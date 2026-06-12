@@ -55,6 +55,32 @@ on per-pixel semantic maps where a weak class only claims pixels it wins in
 the argmax. The original `make_pseudo_labels` (now running unmodified)
 contains this by construction.
 
+## First real-GT validation tick (baseline, ~25 optimizer steps)
+
+CUPS 27-class Hungarian protocol — directly comparable to CUPS's 27.8:
+
+| PQ | PQ_things | PQ_stuff | SQ | RQ | mIoU | Acc |
+|---|---|---|---|---|---|---|
+| **19.58** | 9.55 | 25.48 | 60.47 | 25.74 | 36.73 | 84.30 |
+
+This is effectively the first real-GT measurement of the Stage-2 EoMT model
+(its pseudo-val PQ ~28–30 against pseudo-labels was flattering it; the
+Cascade R-CNN Stage-2 scores 24.7 on this same protocol). Things (9.6) are
+the weak side. The run's success criterion is the TRAJECTORY from this 19.6
+baseline under the original CUPS recipe.
+
+## Operational notes
+
+- wandb disabled (`WANDB_MODE=disabled`): `wandb.init` crashes in the cups
+  env on a package with broken metadata (`working_set()` →
+  TypeError NoneType). PQ/losses go to stdout/log; ModelCheckpoint monitors
+  `pq_val` via Lightning callback metrics.
+- Remote `refs/cups/cups/` was stale (missing `stage4_utils`) — re-synced
+  from local before launch.
+- Throughput: ~0.37 it/s training (batch steps), validation ~8 min per tick
+  (63 val batches/rank; each val batch also runs teacher TTA + train-mode
+  losses per CUPS's validation_step).
+
 ## Verification before launch
 
 - Local CPU smoke: D2→EoMT target conversion exact (thing idx / stuff
