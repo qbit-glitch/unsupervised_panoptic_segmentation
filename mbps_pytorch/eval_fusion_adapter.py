@@ -240,10 +240,6 @@ def run_side_a(args: argparse.Namespace, device: torch.device) -> None:
         nice = cause_eval.NiceTool(N_CLASSES, device)
         mapper = ConfusionMapper()
         stored = []  # (stem, raw_pred uint8) for dumps
-        pool = None
-        if use_crf:
-            from multiprocessing import Pool
-            pool = Pool(args.num_pool_workers)
         metric_dict: Dict[str, float] = {}
         for bi, batch in enumerate(loader):
             if args.limit and bi >= args.limit:
@@ -265,7 +261,12 @@ def run_side_a(args: argparse.Namespace, device: torch.device) -> None:
                                        align_corners=False)
                 if use_crf:
                     logits = cluster.forward_centroid(untransform(interp), crf=True)
-                    preds = cause_eval.do_crf(pool, img, logits).argmax(1).to(device)
+                    # sequential dense_crf: the official pool pickles _apply_crf by
+                    # module name, which breaks under importlib loading (spawn)
+                    crf_out = torch.cat([
+                        torch.from_numpy(cause_eval.dense_crf(i.cpu(), p.cpu())).unsqueeze(0)
+                        for i, p in zip(img, logits)])
+                    preds = crf_out.argmax(1).to(device)
                 else:
                     preds = cluster.forward_centroid(untransform(interp), inference=True)
                 metric_dict, desc = nice.eval(preds, label)
@@ -277,8 +278,6 @@ def run_side_a(args: argparse.Namespace, device: torch.device) -> None:
             if bi % 10 == 0:
                 logger.info("[A][%s] batch %d/%d %s",
                             "CRF" if use_crf else "noCRF", bi, len(loader), desc)
-        if pool is not None:
-            pool.close()
         if args.dump_preds and stored:
             m = mapper.mapping()
             dump_dir = Path(args.dump_preds)
