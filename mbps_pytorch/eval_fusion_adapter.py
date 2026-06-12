@@ -98,6 +98,54 @@ def normalize_stem(name: str) -> str:
     return name.replace("_leftImg8bit", "")
 
 
+def dataset_file_order(dataset) -> List[str]:
+    """True file order from the wrapped torchvision Cityscapes loader.
+
+    Both CAUSE's and DepthG's ContrastiveSegDataset wrap CityscapesSeg whose
+    inner torchvision Cityscapes builds its list with UNSORTED os.listdir —
+    a sorted glob does NOT reproduce it (mis-pairs stems with preds/conds).
+    """
+    inner = getattr(dataset, "dataset", dataset)
+    tv = getattr(inner, "inner_loader", None)
+    if tv is None or not hasattr(tv, "images"):
+        raise RuntimeError("cannot extract file order from dataset internals")
+    return [str(p) for p in tv.images]
+
+
+def _gt_crop_27(data_root: Path, stem: str, res: int) -> np.ndarray:
+    """gtFine labelIds -> 27-class at the protocol center crop (-1 ignore)."""
+    from PIL import Image
+    city = stem.split("_")[0]
+    p = data_root / "cityscapes" / "gtFine" / "val" / city / f"{stem}_gtFine_labelIds.png"
+    img = Image.open(p)
+    w, h = img.size
+    scale = res / min(h, w)
+    img = img.resize((round(w * scale), round(h * scale)), Image.NEAREST)
+    w2, h2 = img.size
+    img = img.crop(((w2 - res) // 2, (h2 - res) // 2,
+                    (w2 - res) // 2 + res, (h2 - res) // 2 + res))
+    arr = np.array(img).astype(np.int64) - 7
+    arr[(arr < 0) | (arr >= N_CLASSES)] = -1
+    return arr
+
+
+def verify_pairing(dataset, val_files: List[str], data_dir: str, res: int) -> None:
+    """Canary: dataset[0]'s label must match the GT of the claimed stem."""
+    item = dataset[0]
+    label = item["label"]
+    if torch.is_tensor(label):
+        label = label.squeeze().cpu().numpy().astype(np.int64)
+    stem = normalize_stem(Path(val_files[0]).name)
+    gt = _gt_crop_27(Path(data_dir), stem, res)
+    m = (gt >= 0) & (label >= 0)
+    match = float((gt[m] == label[m]).mean()) if m.any() else 0.0
+    if match < 0.9:
+        raise RuntimeError(
+            f"pairing canary FAILED for stem {stem}: label match {match:.2%} — "
+            "dataset order does not correspond to the extracted file list")
+    logger.info("pairing canary OK (%.1f%% label match for %s)", match * 100, stem)
+
+
 class ConfusionMapper:
     """27x27 confusion accumulated in cluster space; Hungarian map for dumps."""
 
@@ -168,11 +216,9 @@ def run_side_a(args: argparse.Namespace, device: torch.device) -> None:
                                          shuffle=False, num_workers=0)
     logger.info("side A val set: %d images", len(dataset))
 
-    # CityscapesSeg wraps torchvision Cityscapes (leftImg8bit layout, sorted
-    # city dirs then sorted files) — replicate its ordering for cond pairing.
-    val_files = sorted(
-        p.name for p in (Path(args.data_dir) / "cityscapes" / "leftImg8bit" / "val").glob("*/*.png"))
+    val_files = dataset_file_order(dataset)
     assert len(val_files) == len(dataset), (len(val_files), len(dataset))
+    verify_pairing(dataset, val_files, args.data_dir, ca.test_resolution)
 
     adapter = None
     dcfa = None
@@ -199,7 +245,7 @@ def run_side_a(args: argparse.Namespace, device: torch.device) -> None:
             return None
         toks = []
         for ind in batch_inds.tolist():
-            stem = normalize_stem(val_files[ind])
+            stem = normalize_stem(Path(val_files[ind]).name)
             g = torch.from_numpy(np.load(cond_index[stem]).astype(np.float32))
             toks.append(crop_region_tokens(g, out_hw))
         return torch.stack(toks).to(device)
@@ -210,7 +256,7 @@ def run_side_a(args: argparse.Namespace, device: torch.device) -> None:
         toks = []
         droot = Path(args.data_dir) / "cityscapes" / "depth_depthpro" / "val"
         for ind in batch_inds.tolist():
-            stem = normalize_stem(val_files[ind])
+            stem = normalize_stem(Path(val_files[ind]).name)
             city = stem.split("_")[0]
             dp = droot / city / f"{stem}_leftImg8bit.npy"
             if not dp.is_file():
@@ -273,7 +319,7 @@ def run_side_a(args: argparse.Namespace, device: torch.device) -> None:
             mapper.update(preds, label)
             if args.dump_preds:
                 for k, ind in enumerate(inds.tolist()):
-                    stored.append((normalize_stem(val_files[ind]),
+                    stored.append((normalize_stem(Path(val_files[ind]).name),
                                    preds[k].cpu().numpy().astype(np.uint8)))
             if bi % 10 == 0:
                 logger.info("[A][%s] batch %d/%d %s",
@@ -323,9 +369,9 @@ def run_side_b(args: argparse.Namespace, device: torch.device) -> None:
                                          shuffle=False, num_workers=0)
     logger.info("side B val set: %d images (ckpt=%s)", len(dataset), args.depthg_ckpt)
 
-    val_files = sorted(
-        str(p) for p in (Path(args.data_dir) / "cityscapes" / "leftImg8bit" / "val").glob("*/*.png"))
+    val_files = dataset_file_order(dataset)
     assert len(val_files) == len(dataset), (len(val_files), len(dataset))
+    verify_pairing(dataset, val_files, args.data_dir, res)
 
     adapter = None
     cond_index: Dict[str, Path] = {}
