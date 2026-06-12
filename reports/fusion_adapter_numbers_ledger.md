@@ -45,7 +45,7 @@ local diagnostics only.
 
 | # | Value | System | Command/log |
 |---|-------|--------|-------------|
-| R1 | pending | CAUSE-TR vanilla re-run, official script | `logs/phase0a_cause_eval_*.log` |
+| R1 | **29.8 mIoU / 89.8 Acc (CRF, 500 imgs)** — PASS vs P1=29.9 (Δ 0.1) | CAUSE-TR vanilla re-run, official script, MPS, 2026-06-12 | `logs/phase0a_cause_eval_20260612_180747.log` |
 | R2 | pending | DepthG official ckpt (`cityscapes_vitb.ckpt`), local eval via fusion glue `--vanilla` | `logs/glue_check_B_official_*.log` |
 | R3 | pending | DepthG mono ckpt via fusion glue `--vanilla` (expect ≈ L3) | `logs/glue_check_B_mono_*.log` |
 | R4 | pending | CAUSE-TR vanilla via fusion glue `--vanilla` (expect ≈ R1) | `logs/glue_check_A_*.log` |
