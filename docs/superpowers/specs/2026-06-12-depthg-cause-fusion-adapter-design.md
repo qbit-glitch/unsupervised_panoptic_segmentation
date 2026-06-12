@@ -9,7 +9,7 @@
 
 Two frozen unsupervised semantic models coexist in this project with complementary
 strengths: CAUSE-TR (DINOv2 ViT-B/14, 90-dim codes — strong semantic purity, coarse
-14-px grid) and DepthG (DINO ViT-S/8, STEGO-style code — weak semantics, fine 8-px
+14-px grid) and DepthG (DINO ViT-B/8, STEGO-style code — weak semantics, fine 8-px
 grid with depth-guided relational structure). This spec defines a pair of small,
 preservation-anchored residual adapters that let each model teach the other **only at
 the scale where it is strong**: DepthG teaches short-range (local structure,
@@ -53,7 +53,7 @@ rule: no paper number is quoted from memory anywhere in specs, reports, or prose
 ## 3. Verified background facts (project context, not comparison targets)
 
 - **CAUSE-TR codes**: DINOv2 ViT-B/14 + TR decoder, 90-dim, frozen. Native 14-px patch grid. The official CAUSE eval path is the one already exercised by the Mode B (DINOv3 codebook) work.
-- **DepthG model**: DINO ViT-S/8 + STEGO-style segmentation head producing a dense code `g` of dimension d_g (read from the checkpoint head config at implementation time; the adapter projection layer is shape-agnostic, `Linear(d_g, w)`). Inference: sliding window, 320×320 crops, stride 160, at 640×1280, via `refs/cups/cups/semantics/model.py::DepthG`. Official eval/training code vendored at `refs/cups/external/depthg/`.
+- **DepthG model**: DINO ViT-B/8 + STEGO-style segmentation head producing a dense code `g` of dimension d_g (read from the checkpoint head config at implementation time; the adapter projection layer is shape-agnostic, `Linear(d_g, w)`). Inference: sliding window, 320×320 crops, stride 160, at 640×1280, via `refs/cups/cups/semantics/model.py::DepthG`. Official eval/training code vendored at `refs/cups/external/depthg/`.
 - **DepthG checkpoints**:
   - Shippable (mono-pure): `checkpoints/depthg_depthpro_monocular/epoch6_step1680.ckpt`. Known to sit below the official checkpoint on cluster probe (−7.5; see retrain report).
   - The CUPS-release DepthG checkpoint used by `refs/cups` `gen_pseudo_labels.py`: used for Phase 0a protocol reproduction (it is the artifact closest to the published numbers) and as an audit reference. Its training-depth provenance must be verified before it could ship in any mono-pure claim.
@@ -93,11 +93,15 @@ matrix (no new loss math).
 ### 4.4 Adapter A (CAUSE side)
 
 ```
-z'(p) = z(p) + r_A( W_A · ĝ(p) )      W_A: d_g → 16,  r_A: 16 → 384 → 90  (~45K params)
+z'(p) = z(p) + r_A( [z(p) ; W_A · ĝ(p)] )      W_A: d_g → 16,
+r_A: (90+16) → 384 → 384 → 90, zero-init output     (~225K params incl. W_A)
 ```
 
-Exact architectural mirror of DCFA v4 with the 16-D sinusoidal depth encoding slot
-replaced by a 16-D projection of the DepthG code. Loss:
+Exact mirror of the *deployed* DCFA-V3 code path
+(`mbps_pytorch/models/semantic/depth_adapter.py::DepthAdapter`, concat
+conditioning, two hidden layers at h=384, zero-initialized residual head) with the
+16-D sinusoidal depth encoding slot replaced by a learned 16-D projection of the
+DepthG code. Loss:
 
 ```
 L_A =   Σ_{P_s} corr( S_{z'}, S_g )      # cross-teacher: DepthG teaches local structure
@@ -119,7 +123,8 @@ adapter must earn its deviations).
 ### 4.5 Adapter B (DepthG side)
 
 ```
-g'(q) = g(q) + r_B( W_B · ẑ(q) )      W_B: 90 → 16,  r_B: 16 → 384 → d_g
+g'(q) = g(q) + r_B( [g(q) ; W_B · ẑ(q)] )      W_B: 90 → 16,
+r_B: (d_g+16) → 384 → 384 → d_g, zero-init output (same deployed-DCFA mirror)
 ```
 
 Symmetric loss with the teacher roles swapped:
@@ -137,14 +142,17 @@ fine structure (at long range, blockiness is irrelevant).
 
 ### 4.6 Probes on adapted codes
 
-Both adapters change their model's code space, so each paper's probes are refit on
-the adapted codes exactly as the papers fit them on the original codes — cluster
-probe (27 classes, unsupervised k-means + Hungarian matching to GT at evaluation
-only) as the primary headline, linear probe as the standard secondary diagnostic
-(GT-trained by definition; reported because the baseline papers report it, never
-shipped into any training path). Probe fitting happens **once** per adapter variant
-on the train split; centroids/probe weights are saved and frozen (centroids are
-single-source-of-truth — the A6000 reproducibility lesson).
+Both baseline papers' published numbers come from probes *trained jointly with* the
+model (CAUSE's `cluster_tr` probe; DepthG's `cluster_probe`/`linear_probe` inside
+the Lightning checkpoint). The preservation anchor keeps adapted codes close to the
+original code distribution, so the **primary readout applies the frozen original
+probes unchanged to the adapted codes** — the most conservative and most
+protocol-faithful comparison (identical readout weights as the published row; only
+the code geometry changes). Secondary readout: 27-way spherical k-means refit
+**once** on adapted train-split codes, centroids saved and frozen (centroids are
+single-source-of-truth — the A6000 reproducibility lesson), reported alongside.
+Linear probe is the standard eval-only diagnostic (GT-trained by definition; never
+ships into any training path).
 
 ### 4.7 Training configuration (both adapters)
 
@@ -204,7 +212,7 @@ entered.
 | File | Purpose | Size guard |
 |---|---|---|
 | `mbps_pytorch/cache_fusion_features.py` | One-pass cache builder: per image, dump fp16 `z` grid (CAUSE) and `g` grid (DepthG sliding-window) to the data drive | ≤ 300 lines |
-| `mbps_pytorch/models/adapters/cross_model_adapter.py` | `CrossModelAdapter` module (covers A and B via config: in_dim, proj_width, out_dim) + stratified pair sampler | ≤ 300 lines |
+| `mbps_pytorch/models/semantic/cross_model_adapter.py` | `CrossModelAdapter` module (covers A and B via config: code_dim, cond_dim, proj_width) + stratified pair sampler + teacher loss — lives beside `depth_adapter.py`, the DCFA pattern it wraps | ≤ 300 lines |
 | `mbps_pytorch/train_fusion_adapter.py` | Trainer for both adapters, cloned from the DCFA/V3 trainer (locate via repo index: config label `V3_dd16_h384_l2`); teacher mode and pair stratification as CLI flags | ≤ 400 lines |
 | `mbps_pytorch/eval_fusion_adapter.py` | Glue: adapted codes → probe refit (§4.6) → official-protocol evaluation for the A side and the B side | ≤ 300 lines |
 
@@ -213,9 +221,9 @@ new scripts.
 
 ### 6.2 Feature cache
 
-- Location: `/Volumes/code_files/datasets/cityscapes/fusion_feature_cache/{cause_z,depthg_g}/train/`.
-- Format: fp16 `.npy` per image. Estimated ~5 MB/image → ~15 GB for the full train split.
-- The DepthG pass reuses the sliding-window path from `gen_semantic_only_depthg_depthpro.py` (same geometry: 640×1280, 320×320 crops, stride 160), dumping codes instead of (or alongside) argmax labels.
+- Location: `/Volumes/code_files/datasets/cityscapes/fusion_feature_cache/{cause_z,depthg_g_mono[,depthg_g_official]}/train/`.
+- Format: fp16 `.npy` per image — `z` at (32, 64, 90) from a 448×896 forward, `g` at (40, 80, 100) from DepthG's own half-res flip-averaged path (320×640), depth pooled to the z grid. ~1 MB/image → ~3 GB for the full train split per DepthG checkpoint.
+- Training caches only; evaluation computes cross-features live on the official protocols' own tensors (no spatial bookkeeping between protocols).
 
 ### 6.3 Evaluation protocol (locked in Phase 0a)
 
