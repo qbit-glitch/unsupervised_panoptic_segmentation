@@ -33,10 +33,12 @@ export LD_LIBRARY_PATH="${CONDA_ROOT}/envs/${CONDA_ENV}/lib:${LD_LIBRARY_PATH:-}
 export TORCH_DYNAMO_DISABLE=1
 export PYTORCH_SDP_BACKEND=math
 
-if [[ -z "${WANDB_API_KEY:-}" ]] && ! grep -q "api.wandb.ai" "${HOME}/.netrc" 2>/dev/null; then
-  export WANDB_MODE="${WANDB_MODE:-offline}"
-  echo "[run] No W&B credential found; running with WANDB_MODE=${WANDB_MODE}"
-fi
+# wandb.init crashes in this env (working_set() hits a distribution with
+# broken metadata: TypeError NoneType not subscriptable). Disable wandb —
+# PQ/losses still go to stdout/log and ModelCheckpoint reads callback
+# metrics, not wandb.
+export WANDB_MODE="${WANDB_MODE:-disabled}"
+echo "[run] WANDB_MODE=${WANDB_MODE}"
 
 cd "${CUPS_ROOT}"
 
