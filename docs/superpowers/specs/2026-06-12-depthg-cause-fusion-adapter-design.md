@@ -1,7 +1,7 @@
 # DepthG × CAUSE-TR Fusion Adapters — Scale-Separated Cross-Model Distillation
 
 - **Date**: 2026-06-12
-- **Status**: Approved design (user-approved in session; Phase 1 = A + B decoupled, Phase 3 = coupled bridge)
+- **Status**: Approved design, revision 2 (user-approved: Phase 1 = A + B decoupled, Phase 3 = coupled bridge; rev 2: comparison target is the baseline papers' published results, NOT the internal k=80 overclustering eval)
 - **Decision log**: CCR discussion D002
 - **Owner branch**: main (mono/semantics track)
 
@@ -17,42 +17,50 @@ boundaries, thin objects); CAUSE teaches long-range (semantic identity, global
 consistency). The adapters are trained decoupled against frozen teachers, so neither
 model can degrade the other.
 
-Primary deliverable: better Stage-1 mono semantic pseudo-labels (Adapter A output
-replaces DCFA codes in the existing spherical k=80 → SIMCF-ABC pipeline). Secondary
-deliverable: an improved monocular DepthG (Adapter B), targeting recovery of the
-documented cluster-probe regression of the DepthPro retrain.
+Deliverable: a standalone unsupervised-semantic-segmentation result — both adapted
+models evaluated under their own papers' standard protocols and compared against the
+**published** Cityscapes numbers of the CAUSE and DepthG papers. The claim being
+tested: cross-model coupling improves *both* models over their published baselines.
+The internal k=80 overclustering pipeline is explicitly **not** the comparison target
+and is untouched by this work.
 
 ## 2. Goals, gates, and non-goals
+
+Baseline papers: CAUSE (Kim et al. — CAUSE-TR variant) and DepthG (Sick et al.).
+Their exact published Cityscapes numbers are **pinned during Phase 0** from the
+papers/official repos into a verified-numbers ledger (project citation-verification
+rule: no paper number is quoted from memory anywhere in specs, reports, or prose).
 
 ### Goals and acceptance gates
 
 | Phase | Goal | Gate (kill rule if failed) |
 |---|---|---|
-| 0 | Quantify complementarity | GT-oracle headroom ≥ ~1.5 mIoU over the DCFA baseline AND disagreement pixels not dominated by both-wrong; otherwise stop and write a one-page negative note |
-| 1A | Adapter A beats DCFA codes | ≥ +0.3 PQ or +1.0 mIoU over **PQ 26.41 / mIoU 56.57** on the locked same-script spherical-k80 eval (train split, identical script/mapping/split as the 2026-06-09 result) |
-| 1B | Adapter B improves mono DepthG | Cluster-probe mIoU above the `depthg_depthpro_monocular` retrain baseline (numbers in `reports/2026-06-03_1208_depthg_depthpro_retrain.md`); stretch goal: parity with the CUPS-release DepthG cluster probe (closing the −7.5 gap) |
-| 2 | Integration | Adapter-A labels through SIMCF-ABC beat the full DCFA+SIMCF-ABC baseline on train-locked eval, confirmed on val |
+| 0a | Protocol fidelity | Our re-evaluation of each *vanilla* model under its paper's official protocol matches the published number within ~1.0 mIoU; any larger gap is reconciled and documented before proceeding |
+| 0b | Quantify complementarity | GT-oracle headroom ≥ ~1.5 mIoU over the stronger vanilla model (27-class protocol) AND disagreement pixels not dominated by both-wrong; otherwise stop and write a one-page negative note |
+| 1A | Adapter A improves CAUSE-TR | Adapted CAUSE-TR beats the **published CAUSE-TR Cityscapes cluster-probe mIoU** (and our own 0a reproduction) by ≥ +1.0 mIoU under the CAUSE paper's protocol |
+| 1B | Adapter B improves DepthG | Adapted mono DepthG beats the **published DepthG Cityscapes cluster-probe mIoU** (and our 0a reproduction) under the DepthG/STEGO protocol; secondary report: delta over the mono-retrain baseline (`reports/2026-06-03_1208_depthg_depthpro_retrain.md`) |
+| 2 | Benchmark table + report | Full comparison table with verified published numbers (STEGO, DepthG, CAUSE at minimum) + internal attribution rows; all run-matrix results reported including negatives |
 | 3 | Coupled bridge (deferred) | Only entered if BOTH 1A and 1B gates pass |
 
 ### Non-goals
 
-- PQ_things improvement (owned by the motion/A6000 track per the 2026-06-12 campaign decision).
-- Modifying SIMCF-ABC, the k=80 clustering protocol, the φ/LUT machinery, or the Stage-2 detector recipe.
+- Stage-1 k=80 pipeline integration. The fusion adapters are NOT evaluated through, gated on, or merged into the spherical-k80 → SIMCF-ABC pseudo-label pipeline. Revisiting that is a separate future decision with its own spec.
+- PQ / panoptic metrics of any kind (this is a semantic-segmentation result; PQ_things remains owned by the motion/A6000 track).
+- Modifying SIMCF-ABC, the k=80 machinery, the φ/LUT, or the Stage-2 detector recipe.
 - Joint/bidirectional training in Phase 1 (adapters are strictly decoupled; coupling is Phase 3).
 - Improving the faithful-CUPS baseline control. The CUPS-baseline reconstruction must keep vanilla (un-adapted) DepthG — an adapter-improved baseline is no longer the baseline.
 
-## 3. Verified background facts
+## 3. Verified background facts (project context, not comparison targets)
 
-- **CAUSE-TR codes**: DINOv2 ViT-B/14 + TR decoder, 90-dim, frozen. Native 14-px patch grid at the generation resolution used by the existing k=80 pipeline.
-- **Current Stage-1 best (the baseline to beat)**: DCFA codes → spherical k-means k=80 → SIMCF-ABC: **PQ 26.41, PQ_things 15.19, mIoU 56.57** (locked same-script eval, 2026-06-09, train split). Labels: `/Volumes/code_files/datasets/cityscapes/cups_pseudo_labels_dcfa_simcf_abc_spherical_k80/{train,val}`.
-- **DCFA (V3, canonical)**: depth-only residual adapter, `z' = z + r(e(d))`, 16-D sinusoidal depth encoding, `r: 16→384→90`, ~40K params, loss = correlation term + λ_preserve·L_preserve with λ_preserve = 20, σ_d = 0.5, P = 1024 sampled pairs per step.
-- **DepthG model**: DINO ViT-S/8 + STEGO-style segmentation head producing a dense code `g` of dimension d_g (read from the checkpoint head config at implementation time; the adapter projection layer is shape-agnostic, `Linear(d_g, w)`). Inference: sliding window, 320×320 crops, stride 160, at 640×1280, via `refs/cups/cups/semantics/model.py::DepthG` (`model.net(...)` returns the code).
+- **CAUSE-TR codes**: DINOv2 ViT-B/14 + TR decoder, 90-dim, frozen. Native 14-px patch grid. The official CAUSE eval path is the one already exercised by the Mode B (DINOv3 codebook) work.
+- **DepthG model**: DINO ViT-S/8 + STEGO-style segmentation head producing a dense code `g` of dimension d_g (read from the checkpoint head config at implementation time; the adapter projection layer is shape-agnostic, `Linear(d_g, w)`). Inference: sliding window, 320×320 crops, stride 160, at 640×1280, via `refs/cups/cups/semantics/model.py::DepthG`. Official eval/training code vendored at `refs/cups/external/depthg/`.
 - **DepthG checkpoints**:
-  - Shippable (mono-pure): `checkpoints/depthg_depthpro_monocular/epoch6_step1680.ckpt`.
-  - Audit reference only: the CUPS-release DepthG checkpoint used by `refs/cups` `gen_pseudo_labels.py`. Its training-depth provenance must be verified before it could ever ship in the mono pipeline; until verified, treat as non-mono.
-- **DepthG labels on disk**: `/Volumes/code_files/datasets/cityscapes/cups_pseudo_labels_depthg_depthpro_monocular/train` (semantic-only generation, CRF-refined).
+  - Shippable (mono-pure): `checkpoints/depthg_depthpro_monocular/epoch6_step1680.ckpt`. Known to sit below the official checkpoint on cluster probe (−7.5; see retrain report).
+  - The CUPS-release DepthG checkpoint used by `refs/cups` `gen_pseudo_labels.py`: used for Phase 0a protocol reproduction (it is the artifact closest to the published numbers) and as an audit reference. Its training-depth provenance must be verified before it could ship in any mono-pure claim.
+- **DepthG labels on disk** (for the audit): `/Volumes/code_files/datasets/cityscapes/cups_pseudo_labels_depthg_depthpro_monocular/train`.
 - **Existing comparison scaffold**: `notebooks/compare_retrained_vs_cups_baseline.ipynb`, `mbps_pytorch/probe_depthg_depthpro_monocular.py`.
-- **Known dead classes**: the k=80 cluster→class LUT maps zero clusters to motorcycle (trainID 17) and traffic light (trainID 6) — thin/rare structures that an 8-px depth-guided model may separate. This is the concrete complementarity hypothesis Phase 0 tests.
+- **Known CAUSE-TR weakness** (complementarity hypothesis for the audit): thin/rare structures — e.g., in the k=80 study, zero clusters mapped to motorcycle (trainID 17) and traffic light (trainID 6). The k=80 machinery itself is out of scope, but the *diagnosis* (which classes CAUSE misses and whether DepthG sees them) transfers to the 27-class protocol.
+- **DCFA (V3, canonical)** — architectural template only: depth-only residual adapter, `z' = z + r(e(d))`, 16-D sinusoidal depth encoding, `r: 16→384→90`, ~40K params, loss = correlation term + λ_preserve·L_preserve with λ_preserve = 20, σ_d = 0.5, P = 1024 sampled pairs per step.
 
 ## 4. Method
 
@@ -82,7 +90,7 @@ range as DCFA's depth kernel and the existing correlation-loss implementation is
 reused **verbatim** from the DCFA/V3 trainer, parameterized by a teacher similarity
 matrix (no new loss math).
 
-### 4.4 Adapter A (CAUSE side) — pipeline deliverable
+### 4.4 Adapter A (CAUSE side)
 
 ```
 z'(p) = z(p) + r_A( W_A · ĝ(p) )      W_A: d_g → 16,  r_A: 16 → 384 → 90  (~45K params)
@@ -108,7 +116,7 @@ adapter must earn its deviations).
 - A3: dual short-range teacher — mean of DepthG similarity and the DCFA depth kernel.
 - A4: A2 with W_A width 32 (capacity check — 16-D may bottleneck a learned d_g-dim feature in a way it does not bottleneck scalar depth).
 
-### 4.5 Adapter B (DepthG side) — model-improvement deliverable
+### 4.5 Adapter B (DepthG side)
 
 ```
 g'(q) = g(q) + r_B( W_B · ẑ(q) )      W_B: 90 → 16,  r_B: 16 → 384 → d_g
@@ -123,15 +131,22 @@ L_B =   Σ_{P_l} corr( S_{g'}, S_z )      # cross-teacher: CAUSE teaches semanti
 ```
 
 The short-range self-teacher prevents CAUSE's 14-px blockiness from smearing DepthG's
-fine structure (at long range, blockiness is irrelevant). After training, fit
-spherical k-means (27 clusters, CUPS Cityscapes class count) on `g'` over the train
-split **once** and freeze the centroids (centroids are single-source-of-truth — the
-A6000 reproducibility lesson). Linear probe may be reported as an eval-only
-diagnostic; it never ships.
+fine structure (at long range, blockiness is irrelevant).
 
 **Phase 1B run matrix** (2 runs): B1 stratified primary; B2 with W_B width 64.
 
-### 4.6 Training configuration (both adapters)
+### 4.6 Probes on adapted codes
+
+Both adapters change their model's code space, so each paper's probes are refit on
+the adapted codes exactly as the papers fit them on the original codes — cluster
+probe (27 classes, unsupervised k-means + Hungarian matching to GT at evaluation
+only) as the primary headline, linear probe as the standard secondary diagnostic
+(GT-trained by definition; reported because the baseline papers report it, never
+shipped into any training path). Probe fitting happens **once** per adapter variant
+on the train split; centroids/probe weights are saved and frozen (centroids are
+single-source-of-truth — the A6000 reproducibility lesson).
+
+### 4.7 Training configuration (both adapters)
 
 - Data: full Cityscapes train split (2975 images), features pre-cached (§6.2).
 - Batch ≥ 32 images, ~50 epochs (recurring pattern P093: self-supervised adapters need bs ≥ 32, epochs ≥ 50 for stable convergence).
@@ -141,28 +156,38 @@ diagnostic; it never ships.
 
 ## 5. Phases
 
-### Phase 0 — Complementarity audit (~half day, kill-gated)
+### Phase 0 — Protocol fidelity + complementarity audit (~1 day, kill-gated)
 
-Extend `notebooks/compare_retrained_vs_cups_baseline.ipynb`:
+**0a. Reproduce the baselines under their own protocols.**
 
-1. Per-class IoU of DepthG semantic-only labels vs DCFA spherical-k80 labels under the same protocol; inspect traffic light, motorcycle, pole, person specifically.
+1. Pin the published Cityscapes numbers (cluster + linear probe) for CAUSE-TR and DepthG from the papers/official repos into a verified-numbers ledger (in the audit notebook + final report). No number enters the spec, report, or prose without this verification.
+2. Re-evaluate vanilla CAUSE-TR through the official CAUSE eval path, and vanilla DepthG (CUPS-release checkpoint) through the official DepthG/STEGO eval path (`refs/cups/external/depthg/`). Match published numbers within ~1.0 mIoU; reconcile and document any larger gap (resolution, CRF, multi-scale settings are the usual suspects — the protocols, whatever they are, are then **locked** for all subsequent rows).
+3. Also evaluate the mono-retrained DepthG checkpoint under the same locked protocol (it is Adapter B's substrate; its baseline number anchors the secondary delta report).
+
+**0b. Complementarity audit** (extend `notebooks/compare_retrained_vs_cups_baseline.ipynb`):
+
+1. Per-class IoU of vanilla CAUSE-TR vs vanilla DepthG under the locked 27-class protocol; inspect traffic light, motorcycle, pole, person specifically.
 2. Pixel agreement maps (agree-right / agree-wrong / A-only-right / B-only-right).
 3. GT-oracle per-pixel-best upper bound (analysis only; GT never enters any training path) → the headroom number for the gate.
-4. Zero-training concat sanity check: per-branch whiten + L2-norm, concat `[z ; ĝ]`, spherical k=80, locked eval.
-5. Run 1–3 for both DepthG checkpoints (mono-retrained and CUPS-release). If only the CUPS-release checkpoint shows complementarity, that is a kill signal for the mono pipeline and gets recorded as a finding.
+4. Zero-training concat sanity check: per-branch whiten + L2-norm, concat `[z ; ĝ]`, 27-way k-means + Hungarian under the locked protocol.
+5. Run 1–3 for both DepthG checkpoints (mono-retrained and CUPS-release). If only the CUPS-release checkpoint shows complementarity, that is a kill signal for any mono-pure claim and gets recorded as a finding.
 
 ### Phase 1 — A + B decoupled (~3–4 days including training cycles)
 
 Build the shared feature cache, train the A run matrix and B run matrix
-independently (they share the cache; neither blocks the other), evaluate each against
-its gate in §2.
+independently (they share the cache; neither blocks the other), refit probes per
+§4.6, evaluate each variant against its gate in §2 under the Phase-0-locked
+protocols.
 
-### Phase 2 — Integration (~1 day)
+### Phase 2 — Benchmark table + report (~1 day)
 
-Winning A variant: regenerate codes → spherical k=80 → SIMCF-ABC → locked train eval
-→ val confirmation → write report `reports/depthg_cause_fusion_adapter_report.md`
-with the full run matrix, negative results included. Winning B variant: probe
-evaluation + the gap-closure comparison against the CUPS-release checkpoint.
+Assemble the comparison table under the locked protocols: published rows (STEGO,
+DepthG, CAUSE-TR at minimum — every published number citation-verified), our
+reproduction rows, attribution rows (vanilla CAUSE-TR → +DCFA → +Adapter A;
+vanilla/mono DepthG → +Adapter B), and the winning adapter variants. Write
+`reports/depthg_cause_fusion_adapter_report.md` with the full run matrix, all gates
+pass/fail, negative results, and reproducibility commands. Update CCR memory and
+`MEMORY.md`.
 
 ### Phase 3 — Coupled bridge (deferred; only if 1A AND 1B gates pass)
 
@@ -181,9 +206,10 @@ entered.
 | `mbps_pytorch/cache_fusion_features.py` | One-pass cache builder: per image, dump fp16 `z` grid (CAUSE) and `g` grid (DepthG sliding-window) to the data drive | ≤ 300 lines |
 | `mbps_pytorch/models/adapters/cross_model_adapter.py` | `CrossModelAdapter` module (covers A and B via config: in_dim, proj_width, out_dim) + stratified pair sampler | ≤ 300 lines |
 | `mbps_pytorch/train_fusion_adapter.py` | Trainer for both adapters, cloned from the DCFA/V3 trainer (locate via repo index: config label `V3_dd16_h384_l2`); teacher mode and pair stratification as CLI flags | ≤ 400 lines |
-| `mbps_pytorch/eval_fusion_adapter.py` | Glue: adapted codes → spherical k=80 → locked eval (A); cluster-probe refit + CUPS-protocol eval (B) | ≤ 300 lines |
+| `mbps_pytorch/eval_fusion_adapter.py` | Glue: adapted codes → probe refit (§4.6) → official-protocol evaluation for the A side and the B side | ≤ 300 lines |
 
-Audit work goes into the existing comparison notebook, not new scripts.
+Audit and protocol-reproduction work goes into the existing comparison notebook, not
+new scripts.
 
 ### 6.2 Feature cache
 
@@ -191,26 +217,29 @@ Audit work goes into the existing comparison notebook, not new scripts.
 - Format: fp16 `.npy` per image. Estimated ~5 MB/image → ~15 GB for the full train split.
 - The DepthG pass reuses the sliding-window path from `gen_semantic_only_depthg_depthpro.py` (same geometry: 640×1280, 320×320 crops, stride 160), dumping codes instead of (or alongside) argmax labels.
 
-### 6.3 Evaluation protocol (locked)
+### 6.3 Evaluation protocol (locked in Phase 0a)
 
-- **Adapter A / Phase 2**: the exact same evaluation script, cluster→class mapping, and split that produced the 2026-06-09 spherical-k80 result (PQ 26.41 / mIoU 56.57). No protocol variations; numbers are only ever compared same-script. All matching is global Hungarian per the CUPS-standard project rule where the script does matching.
-- **Adapter B**: cluster-probe mIoU under the existing `probe_depthg_depthpro_monocular.py` protocol, against the retrain-report baseline.
-- The φ/LUT GT-derivation disclosure status is unchanged by this work — this spec adds no new GT touchpoints to any training path and inherits the existing pending remedy decision.
+- **Comparison target**: the baseline papers' published Cityscapes results. All our rows are produced by the official eval code paths (CAUSE repo path for the A side; `refs/cups/external/depthg/` STEGO-style eval for the B side), with settings matched to what the published numbers used, then frozen for every subsequent row.
+- **Primary metric**: 27-class Cityscapes val cluster-probe mIoU (unsupervised assignment + Hungarian matching at evaluation only). Secondary: linear-probe mIoU (eval-only diagnostic, reported for protocol completeness).
+- **No internal-protocol numbers** (k=80, φ/LUT, SIMCF, PQ) appear in any comparison row of this work.
+- The φ/LUT GT-derivation disclosure issue is untouched and irrelevant here — nothing in this spec consumes the LUT.
 
 ## 7. Risks and guardrails
 
-1. **Redundancy with DCFA**: depth is already injected. Run A1/A2 vs the existing DCFA baseline answers whether *learned* depth-guided features beat raw depth as a conditioning signal. If A loses to DCFA across the matrix, record the negative result and stop — do not stack A on top of DCFA in Phase 1 (a stacked variant is allowed only as a Phase 2 follow-up if A alone passes its gate).
-2. **Weak-teacher corruption (A)**: guarded by long-range self-teaching + λ_p = 20 pointwise preservation.
-3. **Blockiness smearing (B)**: guarded by short-range self-teaching + preservation.
-4. **Identity shortcut**: the preservation anchor makes identity the safe default; gates are defined as *improvements over* the un-adapted baselines, so a do-nothing adapter fails its gate and is reported as such.
-5. **Checkpoint purity**: only the mono-retrained DepthG checkpoint ships. CUPS-release checkpoint is audit-reference only pending provenance verification.
-6. **Centroid drift**: every k-means in this spec (k=80 for A, 27-way for B) is fit once, saved, and reused — never refit per-machine or per-eval.
-7. **Novelty (paper angle)**: before any paper claim, run the standard "has this been done before" check against multi-backbone feature-fusion literature (e.g., SD+DINO-style fusion, CLIP+DINO open-vocab couplings) and cross-model distillation work. The candidate claim is the scale-separated bidirectional coupling of two *trained unsupervised segmenters* with preservation anchors — not feature fusion per se. Until checked, this is an engineering experiment, not a contribution.
-8. **Campaign scope**: this is a semantics/PQ_stuff/mIoU play. It does not reopen the closed PQ_things local program; any PQ_things movement is incidental and not chased.
+1. **Protocol mismatch — the new top risk.** USS numbers swing wildly with eval settings (this project once measured CAUSE-TR far above its published number using multi-scale + CRF). Comparing against published results is only honest after Phase 0a reproduces them with the official code; every later row uses the identical locked protocol. No row skips 0a.
+2. **Redundancy with DCFA**: depth is already injectable. The attribution rows (vanilla → +DCFA → +Adapter A, all under the locked protocol) answer whether *learned* depth-guided features beat raw depth as a conditioning signal. If Adapter A loses to DCFA across the matrix, record the negative result.
+3. **Weak-teacher corruption (A)**: guarded by long-range self-teaching + λ_p = 20 pointwise preservation.
+4. **Blockiness smearing (B)**: guarded by short-range self-teaching + preservation.
+5. **Identity shortcut**: the preservation anchor makes identity the safe default; gates are defined as *improvements over* the un-adapted baselines, so a do-nothing adapter fails its gate and is reported as such.
+6. **Checkpoint purity**: any mono-pure claim ships only the mono-retrained DepthG checkpoint. The CUPS-release checkpoint is used for protocol reproduction and audit; its training-depth provenance must be verified before it appears in any claim about monocular inputs.
+7. **Centroid/probe drift**: every probe fit in this spec is fit once, saved, and reused — never refit per-machine or per-eval.
+8. **Novelty (paper angle)**: before any paper claim, run the standard "has this been done before" check against multi-backbone feature-fusion literature (e.g., SD+DINO-style fusion, CLIP+DINO open-vocab couplings) and cross-model distillation work. The candidate claim is the scale-separated bidirectional coupling of two *trained unsupervised segmenters* with preservation anchors — not feature fusion per se. Until checked, this is an engineering experiment, not a contribution.
+9. **Campaign scope**: standalone semantics result. It does not touch the closed PQ_things local program, the pseudo-label pipeline, or the detector stages.
 
 ## 8. Reporting
 
-Phase 2 ends with `reports/depthg_cause_fusion_adapter_report.md` (full run matrix,
+Phase 2 ends with `reports/depthg_cause_fusion_adapter_report.md` (benchmark table
+with citation-verified published numbers, verified-numbers ledger, full run matrix,
 all gates pass/fail, negative results, reproducibility commands) plus CCR memory and
 `MEMORY.md` index updates. If Phase 0 kills the project, the one-page negative note
 takes the report's place and memory records the headroom number so the idea is not
