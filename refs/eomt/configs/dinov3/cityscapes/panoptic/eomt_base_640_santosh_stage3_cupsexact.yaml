@@ -1,0 +1,132 @@
+# Stage-3 EoMT self-training on Cityscapes pseudo-labels — EXACT official
+# CUPS Stage-3 protocol (refs/cups/configs/train_self_cityscapes_dinov3_vitb_
+# dcfa_simcf_abc_santosh.yaml + refs/cups/cups/pl_model_self.py +
+# refs/cups/train_self.py), ported to the EoMT query head.
+#
+# CUPS knobs matched exactly:
+#   * weight_decay 1e-5, lr 1e-4, plain AdamW, CONSTANT LR (no warmup/poly),
+#     backbone frozen / decoder+heads-only training, grad clip norm 1.0.
+#   * Teacher TTA: scales [0.5, 0.75, 1.0] + horizontal flip (6 views).
+#   * Copy-paste: enabled, max 3 pasted thing objects, scale 0.25-1.5, flip.
+#   * Photometric: gauss blur p=1.0, color jitter 0.4/0.4/0.4/0.1 p=0.5,
+#     grayscale p=0.2.
+#   * RandomCrop r in [512, 1024], crop (r, 2r); ResolutionJitter over
+#     [(384,768), (416,832), (448,896)].
+#   * Confidence: CONSTANT thresholds (CUPS CLASS_THRESHOLD_ALPHA /
+#     CLASS_FREQUENCIES / CONFIDENCE_STEP are dead config — never consumed).
+#     Stuff queries: relative 0.5 x per-class max; thing queries: absolute
+#     0.5 floor.
+#   * Rounds: 3 x 4000 = 12000 optimizer steps (rounds only set total steps).
+#   * No teacher warmup (NUM_STEPS_STARTUP = 0). EMA 0.999 per batch.
+#   * Crop/teacher resolution: clean 640x1280 (aspect-preserving 0.625 scale),
+#     batch_size 1, accumulate 8, 2-GPU DDP -> effective batch 16.
+#   * Augmentations run INSIDE training_step AFTER teacher labelling:
+#     teacher sees the clean image, student sees the augmented crop.
+#
+# Launch via:
+#   bash scripts/run_eomt_stage3_cupsexact_santosh.sh   (from repo root)
+
+seed_everything: 45
+
+trainer:
+  max_epochs: -1
+  max_steps: 12000
+  devices: 2
+  strategy: ddp_find_unused_parameters_true
+  precision: "32-true"
+  accumulate_grad_batches: 8
+  gradient_clip_val: 1.0
+  gradient_clip_algorithm: "norm"
+  log_every_n_steps: 25
+  val_check_interval: 200
+  check_val_every_n_epoch: null
+  num_sanity_val_steps: 0
+  default_root_dir: /home/santosh/experiments/stage3_eomt_dinov2_vitb_dcfa_simcf_abc_spherical_k80_cupsexact
+  logger:
+    class_path: lightning.pytorch.loggers.wandb.WandbLogger
+    init_args:
+      resume: allow
+      project: "eomt"
+      name: "cityscapes_panoptic_eomt_base_dinov2_dcfa_simcf_abc_spherical_k80_stage3_selftrain_cupsexact"
+      save_dir: /home/santosh/experiments/stage3_eomt_dinov2_vitb_dcfa_simcf_abc_spherical_k80_cupsexact
+  callbacks:
+    - class_path: lightning.pytorch.callbacks.ModelCheckpoint
+      init_args:
+        dirpath: /home/santosh/experiments/stage3_eomt_dinov2_vitb_dcfa_simcf_abc_spherical_k80_cupsexact/checkpoints
+        filename: "eomt-step{step:06d}-epoch{epoch:02d}"
+        monitor: "metrics/val_pq_all"
+        mode: "max"
+        save_top_k: 6
+        save_last: True
+        auto_insert_metric_name: False
+
+model:
+  class_path: training.mask_classification_panoptic_self_train.MaskClassificationPanopticSelfTrain
+  init_args:
+    # CUPS Stage-3 self-training knobs (see header for provenance).
+    ema_decay: 0.999
+    rounds: 3
+    round_steps: 4000
+    semantic_segmentation_threshold: 0.5
+    instance_confidence_threshold: 0.5
+    mask_threshold: 0.50
+    min_mask_pixels: 64
+    tta_scales: [0.5, 0.75, 1.0]
+    tta_flip: True
+    use_copy_paste: True
+    copy_paste_max_objects: 3
+    use_photometric: True
+    crop_resolution_min: 512
+    crop_resolution_max: 1024
+    crop_long_side_scale: 2.0
+    jitter_resolutions: [[384, 768], [416, 832], [448, 896]]
+
+    # Standard MaskClassificationPanoptic args follow.
+    ckpt_path: /home/santosh/experiments/stage2_eomt_dinov2_vitb_dcfa_simcf_abc_spherical_k80/checkpoints/eomt-step004000-epoch22.ckpt
+    delta_weights: False
+    load_ckpt_class_head: True
+    # No re-annealing: keep the Stage-2 final attention-mask state (CUPS has
+    # no analog of EoMT mask annealing; re-enabling it perturbs the seed).
+    attn_mask_annealing_enabled: False
+    lr: 1.0e-4
+    llrd_l2_enabled: False
+    warmup_steps: [0, 0]
+    weight_decay: 1.0e-5
+    no_object_coefficient: 0.1
+    mask_coefficient: 5.0
+    dice_coefficient: 5.0
+    class_coefficient: 2.0
+    mask_thresh: 0.8
+    overlap_thresh: 0.8
+    network:
+      class_path: models.eomt.EoMT
+      init_args:
+        num_q: 100
+        num_blocks: 3
+        masked_attn_enabled: True
+        encoder:
+          class_path: models.vit.ViT
+          init_args:
+            backbone_name: facebook/dinov2-base
+
+data:
+  class_path: datasets.cityscapes_panoptic_pseudo.CityscapesPanopticPseudo
+  init_args:
+    path: /home/santosh/datasets/cityscapes
+    pseudo_path: /home/santosh/datasets/cityscapes/cups_pseudo_labels_dcfa_simcf_abc_spherical_k80
+    num_classes: 80
+    stuff_classes: [0, 1, 2, 4, 5, 7, 8, 9, 10, 11, 12, 13, 17, 18, 19, 20, 21,
+                    22, 23, 24, 25, 26, 28, 30, 31, 33, 34, 35, 36, 37, 38, 39,
+                    42, 43, 44, 46, 47, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58,
+                    60, 61, 62, 63, 64, 65, 68, 69, 70, 71, 72, 73, 74, 75, 76,
+                    77, 79]
+    batch_size: 1
+    num_workers: 2
+    # CUPS Stage-3: clean aspect-preserving 640x1280 (1024x2048 * 0.625).
+    img_size: [640, 1280]
+    self_train_clean: True
+    val_holdout_count: 100
+    min_mask_pixels: 64
+    check_empty_targets: True
+
+ckpt_path: null
