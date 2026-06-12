@@ -46,6 +46,11 @@ local diagnostics only.
 | # | Value | System | Command/log |
 |---|-------|--------|-------------|
 | R1 | **29.8 mIoU / 89.8 Acc (CRF, 500 imgs)** — PASS vs P1=29.9 (Δ 0.1) | CAUSE-TR vanilla re-run, official script, MPS, 2026-06-12 | `logs/phase0a_cause_eval_20260612_180747.log` |
-| R2 | pending | DepthG official ckpt (`cityscapes_vitb.ckpt`), local eval via fusion glue `--vanilla` | `logs/glue_check_B_official_*.log` |
-| R3 | pending | DepthG mono ckpt via fusion glue `--vanilla` (expect ≈ L3) | `logs/glue_check_B_mono_*.log` |
-| R4 | pending | CAUSE-TR vanilla via fusion glue `--vanilla` (expect ≈ R1) | `logs/glue_check_A_*.log` |
+| R2 | **23.094 cluster mIoU / 81.604 Acc (CRF, 500 imgs); linear 29.238** — PASS vs P4=23.1/P5=81.6 (Δ 0.006). Confirms L2 (20.94) was a retrain artifact, not the official ckpt. | DepthG official ckpt (`cityscapes_vitb.ckpt`), fusion glue `--vanilla`, 2026-06-12 | `logs/glue_check_B_official_20260612_184037.log` |
+| R3 | **15.376 cluster mIoU / 76.397 Acc (CRF, 500 imgs); linear 27.713** — canonical mono-DepthG baseline under the locked protocol (supersedes the 14.8 probe-time anchor L3 for all deltas) | DepthG mono ckpt, fusion glue `--vanilla`, 2026-06-12 | `logs/glue_check_B_mono_20260612_184037.log` |
+| R4 | noCRF 29.12 mIoU recorded; CRF pass rerunning after two glue fixes (sequential dense_crf — pool pickling broke under importlib; pairing fix below) | CAUSE-TR vanilla via fusion glue | `logs/redump_A_*.log` |
+
+Resolution notes (2026-06-13):
+- Open item 1 RESOLVED: R2 ≈ P4 exactly; the remote metrics.json (L2=20.94, 267 images) was a retrain artifact evaluated on a partial val. Local loaders yield the full 500-image val on both sides.
+- ⚠ Pairing bug found and fixed in the eval glue (commit "pairing bug" 2026-06-13): dump stems were paired by sorted glob but torchvision Cityscapes lists files in unsorted os.listdir order — all first-round dump PNGs carried wrong stems (metric values unaffected; computed against loader labels). All dumps re-generated post-fix; a startup canary now verifies dataset[0] label vs claimed-stem GT (100% match post-fix).
+- Preliminary audit (pre-fix dumps, cross-model pairing self-consistent): oracle headroom (mono) = 1.75 mIoU, depthg-only-right = 5.84% of pixels, concat k-means HURTS (16.25 vs 18.85 z-only). Final audit reruns on fixed dumps.
