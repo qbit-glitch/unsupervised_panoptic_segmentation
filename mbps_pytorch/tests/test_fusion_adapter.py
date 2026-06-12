@@ -86,3 +86,30 @@ def test_teacher_loss_no_grad_through_teacher() -> None:
     loss.backward()
     assert student.grad is not None and student.grad.abs().sum() > 0
     assert teacher.grad is None or teacher.grad.abs().sum() == 0
+
+
+def test_fusion_dataset_alignment(tmp_path) -> None:
+    """Side A: cond g aligned to z grid (23x46). Side B: cond z aligned to g grid (40x80)."""
+    import numpy as np
+    from mbps_pytorch.train_fusion_adapter import FusionPairDataset
+
+    city = tmp_path / "cause_z" / "train" / "x"
+    gcity = tmp_path / "depthg_g_mono" / "train" / "x"
+    city.mkdir(parents=True)
+    gcity.mkdir(parents=True)
+    np.save(city / "im0_codes.npy", np.random.randn(23, 46, 90).astype(np.float16))
+    np.save(city / "im0_depth.npy", np.random.rand(23, 46).astype(np.float16))
+    np.save(gcity / "im0_g.npy", np.random.randn(40, 80, 100).astype(np.float16))
+
+    ds_a = FusionPairDataset(str(tmp_path), "train", side="A", g_subdir="depthg_g_mono")
+    item = ds_a[0]
+    assert item["codes"].shape == (23 * 46, 90)
+    assert item["cond"].shape == (23 * 46, 100)
+    assert item["depth"].shape == (23 * 46,)
+    assert tuple(item["spatial_shape"].tolist()) == (23, 46)
+
+    ds_b = FusionPairDataset(str(tmp_path), "train", side="B", g_subdir="depthg_g_mono")
+    item = ds_b[0]
+    assert item["codes"].shape == (40 * 80, 100)
+    assert item["cond"].shape == (40 * 80, 90)
+    assert tuple(item["spatial_shape"].tolist()) == (40, 80)
