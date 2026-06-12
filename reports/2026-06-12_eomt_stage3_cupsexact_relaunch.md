@@ -1,5 +1,13 @@
 # EoMT Stage-3 Relaunch — Exact Official CUPS Protocol
 
+> **SUPERSEDED 2026-06-13.** This EoMT-side port collapsed (pseudo-val PQ
+> 16.4 → 4.0 in 1000 optimizer steps): the query-level port of the CUPS
+> relative stuff threshold kept every class's best query regardless of
+> absolute score, flooding the target set with junk masks (no per-pixel
+> argmax containment as in CUPS's semantic maps). Run killed at epoch 6.
+> Replaced by the ORIGINAL CUPS pipeline with EoMT behind a Detectron2
+> adapter — see `reports/2026-06-13_cups_orig_stage3_eomt_adapter.md`.
+
 **Date:** 2026-06-12
 **Run:** `cityscapes_panoptic_eomt_base_dinov2_dcfa_simcf_abc_spherical_k80_stage3_selftrain_cupsexact`
 **Host:** `santosh@172.17.254.146`, PID 36298 (launched 19:09)
