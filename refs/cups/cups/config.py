@@ -37,6 +37,9 @@ _C.MODEL.USE_DINO = True
 _C.MODEL.BACKBONE_TYPE = "resnet50"
 # Freeze DINOv2 backbone (only used when BACKBONE_TYPE="dinov2_vitb")
 _C.MODEL.DINOV2_FREEZE = True
+# EoMT-only: freeze the ENTIRE encoder backbone (all blocks + norm), training
+# only queries + class/mask heads + upscale. Anti-collapse for self-training.
+_C.MODEL.EOMT_FREEZE_ALL_BLOCKS = False
 # Set model checkpoint
 _C.MODEL.CHECKPOINT = None
 # Set inference confidence threshold
@@ -60,6 +63,15 @@ _C.MODEL.ROI_BOX_HEAD.SAM3_MASK_ADAPTER = False
 _C.MODEL.ROI_BOX_HEAD.SAM3_ADAPTER_DIM = 256
 _C.MODEL.ROI_BOX_HEAD.SAM3_N_MAX_MASKS = 20
 _C.MODEL.ROI_BOX_HEAD.SAM3_MASKS_DIR = ""  # absolute path to sam_fine_masks_sam3/train/
+# Box-regression loss type for FastRCNNOutputLayers: "smooth_l1" (default) or "giou".
+# Plumbed to detectron2 cfg in panoptic_cascade_mask_r_cnn_dinov3 before model build.
+_C.MODEL.ROI_BOX_HEAD.BBOX_REG_LOSS_TYPE = "smooth_l1"
+
+# Cascade Mask R-CNN per-stage matching IoU thresholds.
+# Default 0.5/0.6/0.7. Set [0.5, 0.55, 0.6] to give noisy pseudo-boxes a chance
+# to match at the refinement stages s1/s2.
+_C.MODEL.ROI_BOX_CASCADE_HEAD = CfgNode()
+_C.MODEL.ROI_BOX_CASCADE_HEAD.IOUS = (0.5, 0.6, 0.7)
 
 # Depth-aware proposal consistency loss for mask head (0.0 = disabled).
 # Penalizes fg proposals whose bbox region spans high depth variance.
@@ -274,6 +286,10 @@ _C.SELF_TRAINING.CLASS_FREQUENCIES = ()
 _C.SELF_TRAINING.CONFIDENCE_STEP = 0.05
 # Disable EMA teacher updates (Exp 13: test LoRA implicit smoothing)
 _C.SELF_TRAINING.DISABLE_EMA = False
+# EMA teacher decay. Default 0.999 (CUPS). Raise to 0.9999 for high-capacity
+# decoders (EoMT) to slow teacher drift ~10x and prevent self-distillation
+# collapse.
+_C.SELF_TRAINING.EMA_DECAY = 0.999
 
 # Fine-object SAM supervision (Stage-4 fine-tuning).
 # Uses pre-computed SAM masks as region priors to recover dead/rare classes

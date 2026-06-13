@@ -720,11 +720,16 @@ class SelfSupervisedModel(UnsupervisedModel):
         if getattr(self.hparams.config.SELF_TRAINING, "DISABLE_EMA", False):
             return
 
+        # EMA decay is config-driven (SELF_TRAINING.EMA_DECAY, default 0.999).
+        # Higher decay (e.g. 0.9999) keeps the teacher anchored near the seed
+        # for high-capacity decoders (EoMT) that would otherwise drift the
+        # teacher into a degenerate self-distillation attractor.
+        ema_decay = float(getattr(self.hparams.config.SELF_TRAINING, "EMA_DECAY", 0.999))
         # Perform EMA update
         for train_parameter, teacher_parameter in zip(  # type: ignore
             self.model.parameters(), self.teacher_model.model.parameters()  # type: ignore
         ):  # type: ignore
-            teacher_parameter.data.mul_(0.999).add_((1.0 - 0.999) * train_parameter.data)
+            teacher_parameter.data.mul_(ema_decay).add_((1.0 - ema_decay) * train_parameter.data)
 
         # M3: Spectral norm ball projection on magnitude vectors
         lora_cfg = getattr(self.hparams.config.MODEL, "LORA", None)

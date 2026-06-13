@@ -109,35 +109,43 @@ def build_eomt_network(config: CfgNode) -> torch.nn.Module:
     if unexpected:
         log.warning("Unexpected keys (first 5): %s", unexpected[:5])
 
-    # CUPS Stage-3 freezes the backbone (DINOV2_FREEZE) and trains heads
-    # only. EoMT analog: freeze patch embed + all encoder blocks except the
-    # last EOMT_NUM_BLOCKS (the de-facto decoder where queries attend to
-    # image tokens). The CUPS head-only optimizer additionally excludes any
-    # parameter whose name contains "norm".
+    # CUPS Stage-3 freezes the backbone (DINOV2_FREEZE) and trains heads only.
+    #
+    # Two freeze policies, selected by MODEL.EOMT_FREEZE_ALL_BLOCKS:
+    #   False (default): freeze patch_embed + all encoder blocks EXCEPT the
+    #       last EOMT_NUM_BLOCKS (the de-facto decoder) + final norm. These
+    #       last blocks are the highest-capacity, most drift-prone part.
+    #   True (anti-collapse): freeze the ENTIRE encoder backbone (all blocks,
+    #       patch_embed, and norm). Train ONLY queries + class/mask heads +
+    #       upscale. Removes the drift-prone decoder capacity entirely.
+    freeze_all_blocks = bool(getattr(config.MODEL, "EOMT_FREEZE_ALL_BLOCKS", False))
     backbone = network.encoder.backbone
     first_trainable = len(backbone.blocks) - EOMT_NUM_BLOCKS
     frozen, trainable = 0, 0
     for name, param in network.named_parameters():
         if name.startswith("encoder.backbone."):
-            sub = name.replace("encoder.backbone.", "")
-            if sub.startswith("blocks."):
-                keep = int(sub.split(".")[1]) >= first_trainable
-            elif sub.startswith("norm."):
-                keep = True
+            if freeze_all_blocks:
+                keep = False  # freeze the whole backbone (incl. last blocks + norm)
             else:
-                keep = False
+                sub = name.replace("encoder.backbone.", "")
+                if sub.startswith("blocks."):
+                    keep = int(sub.split(".")[1]) >= first_trainable
+                elif sub.startswith("norm."):
+                    keep = True
+                else:
+                    keep = False
             param.requires_grad_(keep)
         else:
-            param.requires_grad_(True)
+            param.requires_grad_(True)  # q, class_head, mask_head, upscale
         if param.requires_grad:
             trainable += param.numel()
         else:
             frozen += param.numel()
     log.info(
-        "EoMT freezing: %.1fM trainable / %.1fM frozen (blocks >= %d + heads).",
+        "EoMT freezing (freeze_all_blocks=%s): %.1fM trainable / %.1fM frozen.",
+        freeze_all_blocks,
         trainable / 1e6,
         frozen / 1e6,
-        first_trainable,
     )
     return network
 

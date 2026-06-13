@@ -1,0 +1,82 @@
+# Stage-3: ORIGINAL CUPS pipeline, DINOv2 + EoMT via D2 adapter.
+# v2 ANTI-DRIFT — fixes the EMA self-distillation collapse seen in v1
+# (peak PQ 20.87 @ step 275, then monotonic slide to 16.3).
+#
+# Three fixes vs v1 (train_self_cityscapes_eomt_dinov2_dcfa_simcf_abc_santosh.yaml):
+#   1. EMA_DECAY 0.999 -> 0.9999  — teacher drifts ~10x slower, stays anchored
+#      near the Stage-2 seed instead of chasing the student into collapse.
+#   2. LR 1e-4 -> 5e-5            — slows student drift to match the teacher.
+#   3. EOMT_FREEZE_ALL_BLOCKS True — freeze the WHOLE encoder backbone; train
+#      only queries + class/mask heads + upscale (4.3M params). Removes the
+#      drift-prone last-3-transformer-block decoder capacity entirely.
+#
+# Restart from the Stage-2 seed (not v1's mid-collapse ckpt) so the teacher
+# anchor is clean. Everything else identical to v1 / canonical CUPS Stage-3.
+
+DATA:
+  CROP_RESOLUTION: (640, 1280)
+  SCALE: 0.625
+  DATASET: "cityscapes"
+  IGNORE_UNKNOWN_THING_REGIONS: False
+  THING_STUFF_THRESHOLD: 0.05
+  ROOT: "/home/santosh/datasets/cityscapes/"
+  ROOT_VAL: "/home/santosh/datasets/cityscapes/"
+  ROOT_PSEUDO: "/home/santosh/datasets/cityscapes/cups_pseudo_labels_dcfa_simcf_abc_spherical_k80/"
+
+MODEL:
+  BACKBONE_TYPE: "eomt_dinov2"
+  DINOV2_FREEZE: True
+  USE_DINO: False
+  EOMT_FREEZE_ALL_BLOCKS: True
+  CHECKPOINT: "/home/santosh/experiments/stage2_eomt_dinov2_vitb_dcfa_simcf_abc_spherical_k80/checkpoints/eomt-step004000-epoch22.ckpt"
+  TTA_SCALES:
+    - 0.5
+    - 0.75
+    - 1.0
+
+AUGMENTATION:
+  NUM_STEPS_STARTUP: 0
+  COPY_PASTE: True
+  CONFIDENCE: 0.75
+  MAX_NUM_PASTED_OBJECTS: 3
+  RESOLUTIONS:
+    - [384, 768]
+    - [416, 832]
+    - [448, 896]
+
+SYSTEM:
+  ACCELERATOR: "gpu"
+  NUM_GPUS: 2
+  NUM_NODES: 1
+  NUM_WORKERS: 2
+  LOG_PATH: "/home/santosh/experiments/stage3_cups_orig_eomt_dinov2_dcfa_simcf_abc_spherical_k80_v2_antidrift"
+  RUN_NAME: "cups_orig_stage3_eomt_dinov2_dcfa_simcf_abc_spherical_k80_v2_antidrift"
+
+TRAINING:
+  BATCH_SIZE: 1
+  ACCUMULATE_GRAD_BATCHES: 8
+  PRECISION: "32-true"
+  OPTIMIZER: "adamw"
+  ADAMW:
+    LEARNING_RATE: 0.00005
+    WEIGHT_DECAY: 0.00001
+  VAL_EVERY_N_STEPS: 200
+  LOG_EVERT_N_STEPS: 50
+  DROP_LOSS: True
+  DROP_LOSS_IOU_THRESHOLD: 0.4
+  LOG_MEDIA_N_STEPS: 500
+  GRADIENT_CLIP_ALGORITHM: "norm"
+  GRADIENT_CLIP_VAL: 1.0
+
+SELF_TRAINING:
+  ROUND_STEPS: 4000
+  ROUNDS: 3
+  CONFIDENCE_STEP: 0.05
+  USE_DROP_LOSS: False
+  SEMANTIC_SEGMENTATION_THRESHOLD: 0.5
+  CLASS_THRESHOLD_ALPHA: 0.3
+  EMA_DECAY: 0.9999
+
+VALIDATION:
+  CACHE_DEVICE: "cpu"
+  USE_TTA: False
