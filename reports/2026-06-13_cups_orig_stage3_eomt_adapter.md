@@ -55,7 +55,39 @@ on per-pixel semantic maps where a weak class only claims pixels it wins in
 the argmax. The original `make_pseudo_labels` (now running unmodified)
 contains this by construction.
 
-## First real-GT validation tick (baseline, ~25 optimizer steps)
+## v1 OUTCOME: peak-then-collapse (EMA self-distillation drift)
+
+v1 ran 49 val ticks (~1225 opt steps). Real-GT PQ:
+- seed (step 25): 19.58
+- **peak (step 275): 20.87** (PQ_th 13.12, +1.3 over seed) — saved as
+  `best_pq_step=000275.ckpt` (top-6 by pq_val, preserved)
+- then **monotonic decline** to 16.30 by step ~1225, still falling → killed.
+
+Same EMA self-distillation collapse as the earlier ports, but it rose first
+(+1.3) and fell slower. Root cause: EMA decay 0.999 lets the teacher track
+the student within ~1000 steps, so when the high-capacity EoMT decoder
+(last-3-transformer-blocks) starts drifting, the teacher follows it down
+instead of anchoring it. CUPS tolerates 0.999 because its Cascade-RCNN
+detection head has far less drift capacity.
+
+## v2 ANTI-DRIFT (2026-06-13, launched from Stage-2 seed)
+
+Config `train_self_cityscapes_eomt_dinov2_dcfa_simcf_abc_santosh_v2_antidrift.yaml`,
+launcher `scripts/run_cups_stage3_eomt_v2_santosh.sh`. Three fixes:
+
+1. **EMA_DECAY 0.999 → 0.9999** — teacher drifts ~10× slower, stays anchored
+   to the seed. (EMA decay was hardcoded `0.999` in `pl_model_self.py:727`;
+   now config-driven via `SELF_TRAINING.EMA_DECAY`.)
+2. **LR 1e-4 → 5e-5** — slows student drift to match the slower teacher.
+3. **`MODEL.EOMT_FREEZE_ALL_BLOCKS=True`** — freeze the entire encoder
+   backbone; train only queries + class_head + mask_head + upscale (**4.3M
+   params**, verified). Removes the drift-prone last-3-block decoder.
+
+Restart from the clean Stage-2 seed (not v1's mid-collapse ckpt) so the
+teacher anchor is uncontaminated. v1's `best_pq_step=000275` (PQ 20.87)
+remains the preserved fallback.
+
+## v1 first real-GT validation tick (baseline, ~25 optimizer steps)
 
 CUPS 27-class Hungarian protocol — directly comparable to CUPS's 27.8:
 
