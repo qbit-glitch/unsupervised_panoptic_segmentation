@@ -32,7 +32,7 @@ local diagnostics only.
 | Gate | Condition |
 |------|-----------|
 | 0a | R1 (CAUSE re-run) within ~1.0 mIoU of P1=29.9; R2 (official DepthG ckpt local eval) within ~1.0 mIoU of P4=23.1. Larger gaps reconciled + documented here before proceeding. |
-| 0b | GT-oracle headroom ≥ ~1.5 mIoU over the stronger vanilla model; disagreements not dominated by both-wrong. |
+| 0b | GT-oracle headroom ≥ ~1.5 mIoU over the stronger vanilla model; disagreements not dominated by both-wrong. **VERDICT: PASS (2026-06-13).** Mono substrate headroom = **8.63 mIoU** (oracle 37.33 vs stronger-vanilla cause 28.71); official substrate headroom = 11.54. both-wrong only 7.10% (mono) / 7.0% (official) — NOT dominated. depthg-only-right 3.10% of pixels but concentrated in CAUSE's dead classes (traffic light 0→14.75, traffic sign 0→28.70, pole 0→13.73, fence 0→4.70 on official). Concat k-means HURTS (16.25 vs 18.85 z-only) — validates preservation-anchored adapter over naive fusion. Note: traffic light recovery is official-only (mono still 0); motorcycle dead everywhere. Full: `reports/fusion_audit_results.json`. |
 | 1A | best adapted CAUSE-TR cluster mIoU ≥ P1 + 1.0 = **30.9** (CAUSE protocol, CRF, frozen `cluster_tr` probe) |
 | 1B | best adapted mono DepthG cluster mIoU > P4 = **23.1** (DepthG protocol, CRF, frozen probes). Secondary report: delta vs L3 = 14.8. Note: substrate starts 8.3 below the gate — this is intentionally a hard gate; the secondary delta documents partial progress. |
 
@@ -48,7 +48,7 @@ local diagnostics only.
 | R1 | **29.8 mIoU / 89.8 Acc (CRF, 500 imgs)** — PASS vs P1=29.9 (Δ 0.1) | CAUSE-TR vanilla re-run, official script, MPS, 2026-06-12 | `logs/phase0a_cause_eval_20260612_180747.log` |
 | R2 | **23.094 cluster mIoU / 81.604 Acc (CRF, 500 imgs); linear 29.238** — PASS vs P4=23.1/P5=81.6 (Δ 0.006). Confirms L2 (20.94) was a retrain artifact, not the official ckpt. | DepthG official ckpt (`cityscapes_vitb.ckpt`), fusion glue `--vanilla`, 2026-06-12 | `logs/glue_check_B_official_20260612_184037.log` |
 | R3 | **15.376 cluster mIoU / 76.397 Acc (CRF, 500 imgs); linear 27.713** — canonical mono-DepthG baseline under the locked protocol (supersedes the 14.8 probe-time anchor L3 for all deltas) | DepthG mono ckpt, fusion glue `--vanilla`, 2026-06-12 | `logs/glue_check_B_mono_20260612_184037.log` |
-| R4 | noCRF 29.12 mIoU recorded; CRF pass rerunning after two glue fixes (sequential dense_crf — pool pickling broke under importlib; pairing fix below) | CAUSE-TR vanilla via fusion glue | `logs/redump_A_*.log` |
+| R4 | **29.81 mIoU / 89.81 Acc (CRF, 500 imgs)** — PASS, matches R1=29.8 exactly → glue is protocol-faithful end-to-end | CAUSE-TR vanilla via fusion glue `--vanilla`, post-pairing-fix, 2026-06-13 | `logs/redump_A_20260613_014215.log` |
 
 Resolution notes (2026-06-13):
 - Open item 1 RESOLVED: R2 ≈ P4 exactly; the remote metrics.json (L2=20.94, 267 images) was a retrain artifact evaluated on a partial val. Local loaders yield the full 500-image val on both sides.

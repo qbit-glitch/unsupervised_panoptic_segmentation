@@ -1,0 +1,48 @@
+{
+  "n_images": 500,
+  "miou_cause": 28.705374205345684,
+  "miou_depthg_mono": 15.375896596395972,
+  "miou_depthg_official": 22.238288380637833,
+  "agreement_mono": {
+    "agree_right": 73.33,
+    "agree_wrong": 2.74,
+    "cause_only_right": 16.48,
+    "depthg_only_right": 3.1,
+    "both_wrong_disagree": 4.36
+  },
+  "oracle_miou_mono": 37.332709212659594,
+  "headroom_mono": 8.63,
+  "agreement_official": {
+    "agree_right": 78.41,
+    "agree_wrong": 3.24,
+    "cause_only_right": 11.4,
+    "depthg_only_right": 3.2,
+    "both_wrong_disagree": 3.75
+  },
+  "oracle_miou_official": 40.24051529700686,
+  "headroom_official": 11.54,
+  "concat_kmeans_miou": 16.24661816397559,
+  "zonly_kmeans_miou": 18.85066296849888,
+  "focus_classes": {
+    "traffic light": {
+      "cause": 0.0,
+      "depthg_mono": 0.0,
+      "depthg_official": 14.75
+    },
+    "motorcycle": {
+      "cause": 0.0,
+      "depthg_mono": 0.0,
+      "depthg_official": 0.0
+    },
+    "pole": {
+      "cause": 0.0,
+      "depthg_mono": 7.9,
+      "depthg_official": 13.73
+    },
+    "person": {
+      "cause": 50.11,
+      "depthg_mono": 42.3,
+      "depthg_official": 51.94
+    }
+  }
+}
