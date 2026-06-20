@@ -105,6 +105,10 @@ affinity_mode: "scalar"
 geom_w_h: 0.4
 geom_w_n: 0.6
 
+# GA-DepthG UNet head (arch=dino_unet): geometry (height+normal) as decoder skip connections.
+# False = ablation rung (decoder runs but ignores geometry).
+unet_geom_skip: true
+
 depth_weight_decay_min: 0.0
 depth_shift_decay_min: 0.0
 

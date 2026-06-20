@@ -615,6 +615,136 @@ class DinoFeaturizerWithDepth(DinoFeaturizer):
         return self.forward_with_depth(img, depth, n=n, return_class_feat=return_class_feat)
 
 
+def _resize_geom(geom, size):
+    """Resize a (B,4,H,W) geometry tensor to ``size`` and re-normalize the unit-normal channels."""
+    geom = F.interpolate(geom, size=size, mode='bilinear', align_corners=True)
+    return torch.cat([geom[:, :1], F.normalize(geom[:, 1:], dim=1)], 1)
+
+
+class UNetConvBlock(nn.Module):
+    """(Conv3x3 -> GroupNorm -> GELU) x 2."""
+
+    def __init__(self, in_channels: int, out_channels: int):
+        super().__init__()
+        self.block = nn.Sequential(
+            nn.Conv2d(in_channels, out_channels, 3, padding=1),
+            nn.GroupNorm(min(32, out_channels), out_channels),
+            nn.GELU(),
+            nn.Conv2d(out_channels, out_channels, 3, padding=1),
+            nn.GroupNorm(min(32, out_channels), out_channels),
+            nn.GELU(),
+        )
+
+    def forward(self, x):
+        return self.block(x)
+
+
+class DinoFeaturizerUNet(DinoFeaturizer):
+    """DepthG head replacement: a small UNet decoder that upsamples frozen DINO features
+    (H/8) to higher-resolution codes (H/2), using gravity-aligned geometry (height + surface
+    normal) as decoder skip connections. ``arch="dino_unet"``.
+
+    The geometry tensor is the same 4-channel ``[ĥ, n_x, n_y, n_z]`` descriptor used by
+    GA-DepthG (channel 0 = standardized height above ground, channels 1:4 = unit surface normal).
+    It enters the decoder only through skip connections; the contrastive loss stays plain STEGO.
+    Set ``cfg.unet_geom_skip=False`` to ablate the geometry skips (decoder still runs).
+    """
+
+    def __init__(self, dim, cfg):
+        super(DinoFeaturizerUNet, self).__init__(dim, cfg)
+        self.geom_skip = getattr(cfg, "unet_geom_skip", True)
+        geom_dim = 32  # channels produced from the 4-ch geometry before concat
+
+        # 768 -> 256 projection of the frozen DINO features (at H/8)
+        self.proj = nn.Sequential(
+            nn.Conv2d(self.n_feats, 256, 1),
+            nn.GroupNorm(32, 256),
+            nn.GELU(),
+        )
+
+        if self.geom_skip:
+            self.geom_conv1 = nn.Conv2d(4, geom_dim, 1)
+            self.geom_conv2 = nn.Conv2d(4, geom_dim, 1)
+
+        # Up-stage 1: H/8 -> H/4, channels (256 [+geom]) -> 128
+        self.up1 = UNetConvBlock(256 + (geom_dim if self.geom_skip else 0), 128)
+        # Up-stage 2: H/4 -> H/2, channels (128 [+geom]) -> 128
+        self.up2 = UNetConvBlock(128 + (geom_dim if self.geom_skip else 0), 128)
+
+        # final code projection -> cfg.dim at H/2
+        self.out = nn.Conv2d(128, self.dim, 1)
+
+    def _decode(self, image_feat, geom):
+        x = self.proj(image_feat)
+
+        # stage 1: upsample x2
+        x = F.interpolate(x, scale_factor=2, mode='bilinear', align_corners=True)
+        if self.geom_skip:
+            g = self.geom_conv1(_resize_geom(geom, x.shape[-2:]))
+            x = torch.cat([x, g], 1)
+        x = self.up1(x)
+
+        # stage 2: upsample x2
+        x = F.interpolate(x, scale_factor=2, mode='bilinear', align_corners=True)
+        if self.geom_skip:
+            g = self.geom_conv2(_resize_geom(geom, x.shape[-2:]))
+            x = torch.cat([x, g], 1)
+        x = self.up2(x)
+
+        return self.out(x)
+
+    def forward_with_geom(self, img, geom, n=1, return_class_feat=False):
+        self.model.eval()
+        with torch.no_grad():
+            assert (img.shape[2] % self.patch_size == 0)
+            assert (img.shape[3] % self.patch_size == 0)
+
+            feat, attn, qkv = self.model.get_intermediate_feat(img, n=n)
+            feat, attn, qkv = feat[0], attn[0], qkv[0]
+
+            feat_h = img.shape[2] // self.patch_size
+            feat_w = img.shape[3] // self.patch_size
+
+            if self.feat_type == "feat":
+                image_feat = feat[:, 1:, :].reshape(feat.shape[0], feat_h, feat_w, -1).permute(0, 3, 1, 2)
+            elif self.feat_type == "KK":
+                image_k = qkv[1, :, :, 1:, :].reshape(feat.shape[0], 6, feat_h, feat_w, -1)
+                B, H, I, J, D = image_k.shape
+                image_feat = image_k.permute(0, 1, 4, 2, 3).reshape(B, H * D, I, J)
+            else:
+                raise ValueError("Unknown feat type:{}".format(self.feat_type))
+
+            if return_class_feat:
+                return feat[:, :1, :].reshape(feat.shape[0], 1, 1, -1).permute(0, 3, 1, 2)
+
+        code = self._decode(image_feat, geom)
+
+        # match the 4-tuple training signature of DinoFeaturizerWithDepth:
+        # (feats_for_loss, code, orig_feats, attn). The contrastive STEGO loss uses the frozen
+        # DINO features (image_feat) as the correspondence signal; sampling is in normalized
+        # coords so the H/8 feats and H/2 code can differ in spatial size.
+        if self.training:
+            if self.cfg.dropout:
+                return self.dropout(image_feat), code, image_feat, attn
+            return image_feat, code, image_feat, attn
+        else:
+            if self.cfg.dropout:
+                return self.dropout(image_feat), code
+            return image_feat, code
+
+    def forward(self, input, n=1, return_class_feat=False):
+        if self.training:
+            assert len(input) == 2, "Input should be a tuple of (image, geom)"
+            img, geom = input
+        else:
+            if isinstance(input, (tuple, list)):   # eval WITH real geometry (fair unet+geom eval)
+                img, geom = input
+            else:                                   # img-only fallback: synthesize zeros
+                img = input
+                geom = torch.zeros((img.shape[0], 4, img.shape[2], img.shape[3]), device=img.device)
+        return self.forward_with_geom(img, geom, n=n, return_class_feat=return_class_feat)
+
+
 # From https://github.com/facebookresearch/detectron2/blob/main/detectron2/layers/batch_norm.py # noqa
 # Itself from https://github.com/facebookresearch/ConvNeXt/blob/d1fa8f6fef0a165b27399986cc2bdacc92777e40/models/convnext.py#L119  # noqa
 class LayerNorm2d(nn.Module):
