@@ -981,10 +981,9 @@ class ContrastiveSegDataset(Dataset):
             dataset_class = DirectoryDataset
             extra_args = dict(path=cfg.dir_dataset_name)
         elif dataset_name == "cityscapes" and crop_type is None:
-            warnings.warn("Depth cannot be used with cityscapes dataset class when crop_type is None. Ignoring depth.")
             self.n_classes = 27
             dataset_class = CityscapesSeg
-            extra_args = dict(return_depth=return_depth)
+            extra_args = dict(return_depth=return_depth, depth_type=depth_type)  # GA-DepthG: forward depth_type
             print(f"DATASET DEBUG: Using {dataset_class} dataset class with crop type {crop_type} and return depth is "
                   f"set to {return_depth}.")
 
