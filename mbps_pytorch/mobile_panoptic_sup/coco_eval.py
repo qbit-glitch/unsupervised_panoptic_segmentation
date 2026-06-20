@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import sys
 from collections import defaultdict
 from functools import lru_cache
@@ -22,7 +23,7 @@ from auto_annotation import taxonomy_coco as T    # noqa: E402
 
 logger = logging.getLogger(__name__)
 
-COCO_ROOT = Path("/Volumes/code_files/datasets/coco")
+COCO_ROOT = Path(os.environ.get("COCO_ROOT", "/Volumes/code_files/datasets/coco"))
 _GT_JSON = COCO_ROOT / "annotations/panoptic_val2017.json"
 _GT_PNG_DIR = COCO_ROOT / "annotations/panoptic_val2017"
 VAL_IMG_DIR = COCO_ROOT / "val2017"

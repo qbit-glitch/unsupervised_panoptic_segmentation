@@ -7,11 +7,13 @@ detectron2 dependency, which would break the CPU auto-label venv).
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
-_GT_JSON = Path("/Volumes/code_files/datasets/coco/annotations/panoptic_val2017.json")
+_GT_JSON = (Path(os.environ.get("COCO_ROOT", "/Volumes/code_files/datasets/coco"))
+            / "annotations/panoptic_val2017.json")
 VOID_IDX = 255
 
 
