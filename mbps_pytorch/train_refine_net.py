@@ -1081,7 +1081,22 @@ def evaluate_panoptic(model, val_loader, device, cityscapes_root,
 # Training loop
 # ---------------------------------------------------------------------------
 
+def set_seed(seed: int) -> None:
+    """Set all RNG seeds + deterministic flags for reproducible training."""
+    import random
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    os.environ["PYTHONHASHSEED"] = str(seed)
+
+
 def train(args):
+    set_seed(getattr(args, "seed", 42))
+    log.info(f"Seed: {getattr(args, 'seed', 42)} (deterministic)")
     # Device
     if args.device == "auto":
         if torch.cuda.is_available():
@@ -1100,7 +1115,7 @@ def train(args):
     if model_type == "unet":
         model = DepthGuidedUNet(
             num_classes=num_classes,
-            feature_dim=768,
+            feature_dim=getattr(args, 'feature_dim', 768),
             bridge_dim=args.bridge_dim,
             num_bottleneck_blocks=getattr(args, 'num_bottleneck_blocks', 2),
             skip_dim=getattr(args, 'skip_dim', 32),
@@ -1119,7 +1134,7 @@ def train(args):
     elif model_type == "hires":
         model = HiResRefineNet(
             num_classes=num_classes,
-            feature_dim=768,
+            feature_dim=getattr(args, 'feature_dim', 768),
             bridge_dim=args.bridge_dim,
             num_blocks=args.num_blocks,
             block_type=args.block_type,
@@ -1135,7 +1150,7 @@ def train(args):
     else:
         model = CSCMRefineNet(
             num_classes=num_classes,
-            feature_dim=768,
+            feature_dim=getattr(args, 'feature_dim', 768),
             bridge_dim=args.bridge_dim,
             num_blocks=args.num_blocks,
             block_type=args.block_type,
@@ -1192,6 +1207,8 @@ def train(args):
     train_dataset = PseudoLabelDataset(
         args.cityscapes_root, split="train",
         semantic_subdir=args.semantic_subdir,
+        feature_subdir=getattr(args, 'feature_subdir', 'dinov2_features'),
+        depth_subdir=getattr(args, 'depth_subdir', 'depth_spidepth'),
         logits_subdir=args.logits_subdir,
         num_classes=num_classes,
         target_h=target_h,
@@ -1203,6 +1220,8 @@ def train(args):
     val_dataset = PseudoLabelDataset(
         args.cityscapes_root, split="val",
         semantic_subdir=args.semantic_subdir,
+        feature_subdir=getattr(args, 'feature_subdir', 'dinov2_features'),
+        depth_subdir=getattr(args, 'depth_subdir', 'depth_spidepth'),
         logits_subdir=args.logits_subdir,
         num_classes=num_classes,
         target_h=target_h,
@@ -1212,10 +1231,15 @@ def train(args):
     )
 
     pin_mem = device.type == "cuda"  # MPS doesn't support pin_memory
+
+    def _worker_init(wid):
+        np.random.seed(getattr(args, "seed", 42) + wid)
+    _g = torch.Generator()
+    _g.manual_seed(getattr(args, "seed", 42))
     train_loader = DataLoader(
         train_dataset, batch_size=args.batch_size, shuffle=True,
         num_workers=args.num_workers, pin_memory=pin_mem,
-        drop_last=True,
+        drop_last=True, worker_init_fn=_worker_init, generator=_g,
     )
     val_loader = DataLoader(
         val_dataset, batch_size=args.batch_size, shuffle=False,
@@ -1568,6 +1592,14 @@ def parse_args():
                         help="Subdirectory for soft logits (optional)")
     parser.add_argument("--centroids_path", type=str, default=None,
                         help="Path to kmeans_centroids.npz for overclustered eval (k>19)")
+    parser.add_argument("--feature_subdir", type=str, default="dinov2_features",
+                        help="Subdir of cached patch features (e.g. dinov3_features_vitl16).")
+    parser.add_argument("--feature_dim", type=int, default=768,
+                        help="Channel dim of cached features (DINOv2=768, DINOv3 ViT-L/16=1024).")
+    parser.add_argument("--depth_subdir", type=str, default="depth_spidepth",
+                        help="Subdir of cached depth maps (e.g. depth_depthpro).")
+    parser.add_argument("--seed", type=int, default=42,
+                        help="Global RNG seed for reproducible training.")
 
     # Output
     parser.add_argument("--output_dir", type=str,
