@@ -24,8 +24,8 @@ class CocoClass:
 
 
 def _color(idx: int) -> tuple:
-    """Deterministic, dependency-free RGB for visualization."""
-    return ((idx * 97) % 256, (idx * 57) % 256, (idx * 137) % 256)
+    """Deterministic, dependency-free RGB for visualization (offset off pure black)."""
+    return (40 + (idx * 97) % 216, 40 + (idx * 57) % 216, 40 + (idx * 137) % 216)
 
 
 @lru_cache(maxsize=1)
