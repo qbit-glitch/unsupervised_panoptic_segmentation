@@ -46,7 +46,7 @@ echo "[3/3] training DepthGuidedUNet (k=27, DINOv3 1024-D, DepthPro)..."
   --block_type attention --num_decoder_stages 2 --num_bottleneck_blocks 2 \
   --bridge_dim 192 --skip_dim 32 --window_size 8 --num_heads 4 \
   --num_epochs 12 --batch_size 4 --lr 1e-4 --seed 42 \
-  --eval_interval 999 \
+  --eval_interval 2 \
   --output_dir checkpoints/gtfree_k27 \
   --device cuda --gpu 0
 echo "PIPELINE DONE"

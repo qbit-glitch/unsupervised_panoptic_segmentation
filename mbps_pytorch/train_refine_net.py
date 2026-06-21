@@ -1509,39 +1509,29 @@ def train(args):
         # Evaluate every eval_interval epochs
         if epoch % args.eval_interval == 0 or epoch == args.num_epochs:
             log.info(f"Evaluating at epoch {epoch}...")
-            metrics = evaluate_panoptic(
-                model, val_loader, device, args.cityscapes_root,
-                num_classes=num_classes,
-                cluster_to_trainid_lut=cluster_to_trainid_lut,
-                eval_instance_subdir=getattr(args, 'eval_instance_subdir', None),
-                use_center_offset=use_instance_heads,
-                center_threshold=getattr(args, 'center_threshold', 0.1),
-                nms_kernel=getattr(args, 'nms_kernel', 7))
-            log.info(
-                f"  PQ={metrics['PQ']:.2f} | "
-                f"PQ_stuff={metrics['PQ_stuff']:.2f} | "
-                f"PQ_things={metrics['PQ_things']:.2f} | "
-                f"mIoU={metrics['mIoU']:.2f} | "
-                f"changed={metrics['changed_pct']:.1f}%"
-            )
-
-            # Log coupling strengths
-            if hasattr(model, 'blocks'):
-                blocks_to_log = model.blocks
-            elif hasattr(model, 'bottleneck'):
-                # DepthGuidedUNet: bottleneck + decoder stage blocks + final blocks
-                blocks_to_log = list(model.bottleneck) + [
-                    s.block for s in model.decoder_stages
-                ] + list(getattr(model, 'final_blocks', []))
-            else:
-                blocks_to_log = []
-            for i, block in enumerate(blocks_to_log):
+            # Eval is best-effort: a missing val split (e.g. eval done elsewhere)
+            # must NOT prevent the checkpoint from being saved.
+            metrics = None
+            try:
+                metrics = evaluate_panoptic(
+                    model, val_loader, device, args.cityscapes_root,
+                    num_classes=num_classes,
+                    cluster_to_trainid_lut=cluster_to_trainid_lut,
+                    eval_instance_subdir=getattr(args, 'eval_instance_subdir', None),
+                    use_center_offset=use_instance_heads,
+                    center_threshold=getattr(args, 'center_threshold', 0.1),
+                    nms_kernel=getattr(args, 'nms_kernel', 7))
                 log.info(
-                    f"  Block {i}: alpha={block.alpha.item():.4f}, "
-                    f"beta={block.beta.item():.4f}"
+                    f"  PQ={metrics['PQ']:.2f} | "
+                    f"PQ_stuff={metrics['PQ_stuff']:.2f} | "
+                    f"PQ_things={metrics['PQ_things']:.2f} | "
+                    f"mIoU={metrics['mIoU']:.2f} | "
+                    f"changed={metrics['changed_pct']:.1f}%"
                 )
+            except Exception as e:
+                log.warning(f"  Eval skipped at epoch {epoch}: {type(e).__name__}: {e}")
 
-            # Save checkpoint
+            # Save checkpoint (always, independent of eval success)
             ckpt_path = os.path.join(
                 args.output_dir, f"checkpoint_epoch_{epoch:04d}.pth")
             torch.save({
@@ -1553,23 +1543,22 @@ def train(args):
                 "config": config,
             }, ckpt_path)
 
-            # Save best (track PQ as primary metric)
-            if metrics["PQ"] > best_pq:
-                best_pq = metrics["PQ"]
-                best_path = os.path.join(args.output_dir, "best.pth")
-                torch.save({
-                    "epoch": epoch,
-                    "model_state_dict": model.state_dict(),
-                    "metrics": metrics,
-                    "config": config,
-                }, best_path)
-                log.info(f"  New best PQ: {best_pq:.2f}% (saved to best.pth)")
-
-            # Save metrics history
-            metrics["epoch"] = epoch
-            metrics_path = os.path.join(args.output_dir, "metrics_history.jsonl")
-            with open(metrics_path, "a") as f:
-                f.write(json.dumps(metrics) + "\n")
+            # Best + metrics history only when eval actually produced metrics
+            if metrics is not None:
+                if metrics["PQ"] > best_pq:
+                    best_pq = metrics["PQ"]
+                    best_path = os.path.join(args.output_dir, "best.pth")
+                    torch.save({
+                        "epoch": epoch,
+                        "model_state_dict": model.state_dict(),
+                        "metrics": metrics,
+                        "config": config,
+                    }, best_path)
+                    log.info(f"  New best PQ: {best_pq:.2f}% (saved to best.pth)")
+                metrics["epoch"] = epoch
+                metrics_path = os.path.join(args.output_dir, "metrics_history.jsonl")
+                with open(metrics_path, "a") as f:
+                    f.write(json.dumps(metrics) + "\n")
 
     log.info(f"Training complete. Best PQ: {best_pq:.2f}%")
     log.info(f"Checkpoints saved to: {args.output_dir}")
