@@ -109,7 +109,9 @@ def run(args) -> None:
                 sem = np.array(Image.fromarray(sem).resize((W, H), Image.NEAREST)).astype(np.int32)
                 pred = build_pred_panoptic(sem, things, min_area=args.min_area)
                 gt = build_gt_panoptic(batch["city"][0], batch["stem"][0], gt_dir)
-                metric.update(torch.from_numpy(pred)[None], torch.from_numpy(gt)[None])
+                # CUPS metric indexes with int64 — cast to long to avoid dtype mismatch.
+                metric.update(torch.from_numpy(pred).long()[None],
+                              torch.from_numpy(gt).long()[None])
         out = metric.compute()
         pq, sq, rq, pq_t, pq_s, miou = out[0], out[1], out[2], out[6], out[9], out[12]
         mode = "one-to-one" if one_to_one else "many-to-one (CUPS default)"

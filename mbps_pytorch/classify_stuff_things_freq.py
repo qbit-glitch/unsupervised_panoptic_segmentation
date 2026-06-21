@@ -40,27 +40,32 @@ def classify_from_arrays(sems: List[np.ndarray], insts: List[np.ndarray],
 
 
 def classify_from_semantic_cc(sems: List[np.ndarray], num_clusters: int = 27,
-                              threshold: float = 0.08, min_area: int = 64
-                              ) -> Tuple[Set[int], Set[int]]:
-    """Instance-free: thing if the cluster mask splits into >1 connected
-    component (area>=min_area) in a >threshold fraction of the images it
-    appears in. Needs only the semantic k27 labels."""
+                              threshold: float = 0.5, min_area: int = 64,
+                              dominance: float = 0.75) -> Tuple[Set[int], Set[int]]:
+    """Instance-free: thing if the cluster is typically FRAGMENTED — in
+    >threshold fraction of the images it covers, the largest connected
+    component is < `dominance` of the cluster's pixels (no single blob
+    dominates). Stuff (road/sky/building) has one dominant blob even when
+    occluders split it; things (cars/people) scatter into many. Needs only
+    the semantic k27 labels."""
     from scipy import ndimage
     appear = np.zeros(num_clusters, dtype=np.int64)
-    multi = np.zeros(num_clusters, dtype=np.int64)
+    fragmented = np.zeros(num_clusters, dtype=np.int64)
     for sem in sems:
         for c in range(num_clusters):
             cm = sem == c
-            if not cm.any():
+            tot = int(cm.sum())
+            if tot < min_area:
                 continue
             appear[c] += 1
             lab, n = ndimage.label(cm)
-            if n <= 1:
+            if n == 0:
                 continue
             sizes = np.bincount(lab.ravel())[1:]  # drop background count
-            if int((sizes >= min_area).sum()) > 1:
-                multi[c] += 1
-    ratio = multi / (appear + 1e-9)
+            largest = int(sizes.max()) if len(sizes) else 0
+            if largest / (tot + 1e-9) < dominance:
+                fragmented[c] += 1
+    ratio = fragmented / (appear + 1e-9)
     things = set(int(c) for c in np.where(ratio > threshold)[0])
     return things, set(range(num_clusters)) - things
 
