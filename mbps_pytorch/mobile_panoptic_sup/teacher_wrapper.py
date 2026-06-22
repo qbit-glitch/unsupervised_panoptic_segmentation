@@ -1,7 +1,8 @@
-"""Frozen fp16 EoMT teacher for knowledge distillation.
+"""Frozen bfloat16 EoMT teacher for knowledge distillation.
 
 Loads tue-mps/eomt-dinov3-coco-panoptic-large-640, applies the
-empty_weight NaN fix, casts to fp16, freezes all params.
+empty_weight NaN fix, casts to bfloat16, freezes all params.
+Note: fp16 overflows in ViT-L attention layers; bf16 is stable.
 
 Usage:
     teacher = TeacherWrapper("cuda")
@@ -44,7 +45,7 @@ class TeacherTargets:
 
 
 class TeacherWrapper(nn.Module):
-    """Frozen fp16 EoMT teacher; forward returns TeacherTargets (fp32 on cpu)."""
+    """Frozen bf16 EoMT teacher; forward returns TeacherTargets (fp32)."""
 
     def __init__(self, device: str = "cuda") -> None:
         super().__init__()
@@ -63,20 +64,20 @@ class TeacherWrapper(nn.Module):
             model.criterion.empty_weight.fill_(1.0)
             model.criterion.empty_weight[-1] = model.config.no_object_weight
 
-        model = model.eval().half().to(device)
+        model = model.eval().to(torch.bfloat16).to(device)
         for p in model.parameters():
             p.requires_grad_(False)
 
         self._model = model
         self._dev = device
         print(
-            f"TeacherWrapper: {REPO} | fp16 | {sum(p.numel() for p in model.parameters()) / 1e6:.0f}M params",
+            f"TeacherWrapper: {REPO} | bf16 | {sum(p.numel() for p in model.parameters()) / 1e6:.0f}M params",
             flush=True,
         )
 
     @torch.no_grad()
     def forward(self, pixel_values: torch.Tensor) -> TeacherTargets:
-        out = self._model(pixel_values=pixel_values.half().to(self._dev))
+        out = self._model(pixel_values=pixel_values.to(torch.bfloat16).to(self._dev))
         return TeacherTargets(
             class_logits=out.class_queries_logits.float(),
             mask_logits=out.masks_queries_logits.float(),
