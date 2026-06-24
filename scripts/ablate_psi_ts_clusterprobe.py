@@ -97,51 +97,44 @@ for c in range(NUM_CLUSTERS):
 # ── PQ computation for a given ψ ─────────────────────────────────────────────
 def compute_pq(thing_clusters):
     tp_iou = np.zeros(NUM_CLASSES)
+    tp_cnt = np.zeros(NUM_CLASSES)
     fp     = np.zeros(NUM_CLASSES)
     fn     = np.zeros(NUM_CLASSES)
 
     for sem, inst, gc, gi in zip(sem_arrs, inst_arrs, gt_cls, gt_iid):
-        # pred panoptic id: cluster*1000 for stuff, cluster*1000+inst_id for things
         pred = sem * 1000
         for tc in thing_clusters:
             m = sem == tc
             if m.any():
                 pred[m] = tc * 1000 + inst[m]
-
-        # gt panoptic id: tid*1000+iid (0 for stuff)
         gt_pan = np.where(gc >= 0, gc * 1000 + gi, -1)
-
         matched_pred = set()
         for gt_id in np.unique(gt_pan):
-            if gt_id < 0:
-                continue
+            if gt_id < 0: continue
             gt_tid = gt_id // 1000
-            if not (0 <= gt_tid < NUM_CLASSES):
-                continue
+            if not (0 <= gt_tid < NUM_CLASSES): continue
             gm = gt_pan == gt_id
             best_iou, best_pid = 0.0, None
             for pc in np.unique(pred[gm]):
                 pc_cluster = pc // 1000
-                if assignment[pc_cluster] != gt_tid:
-                    continue
+                if assignment[pc_cluster] != gt_tid: continue
                 pm  = pred == pc
                 iou = float((gm & pm).sum()) / float((gm | pm).sum() + 1e-9)
                 if iou > 0.5 and iou > best_iou:
                     best_iou, best_pid = iou, pc
             if best_pid is not None:
                 tp_iou[gt_tid] += best_iou
+                tp_cnt[gt_tid] += 1
                 matched_pred.add(best_pid)
             else:
                 fn[gt_tid] += 1
         for pc in np.unique(pred):
-            if pc < 0 or pc in matched_pred:
-                continue
-            pc_cluster = pc // 1000
-            tid = int(assignment[pc_cluster])
+            if pc < 0 or pc in matched_pred: continue
+            tid = int(assignment[pc // 1000])
             if 0 <= tid < NUM_CLASSES:
                 fp[tid] += 1
 
-    denom  = tp_iou + 0.5 * fp + 0.5 * fn
+    denom  = tp_cnt + 0.5 * fp + 0.5 * fn   # count-based denominator (correct)
     pq_cls = np.where(denom > 0, tp_iou / denom, 0.0)
     return pq_cls
 
