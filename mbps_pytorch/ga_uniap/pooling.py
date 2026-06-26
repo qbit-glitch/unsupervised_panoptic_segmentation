@@ -14,13 +14,16 @@ H_SCALE = 3.0  # metres; height-difference scale for the height-similarity term
 
 
 def _affinity(nf_i, nf_j, n_i, n_j, h_i, h_j, w_f, w_n, w_h) -> float:
+    # Convex combination -> affinity stays in [-1, 1] so the same thresholds
+    # are comparable across variants regardless of the weight magnitudes.
     s = w_f * float(nf_i @ nf_j)
+    wsum = w_f
     if w_n and n_i is not None:
-        s += w_n * float(n_i @ n_j)
+        s += w_n * float(n_i @ n_j); wsum += w_n
     if w_h and h_i is not None:
         hsim = 1.0 - abs(float(h_i) - float(h_j)) / H_SCALE
-        s += w_h * max(-1.0, min(1.0, hsim))
-    return s
+        s += w_h * max(-1.0, min(1.0, hsim)); wsum += w_h
+    return s / wsum if wsum else 0.0
 
 
 def ga_aggo_merge(features: np.ndarray,
@@ -46,6 +49,7 @@ def ga_aggo_merge(features: np.ndarray,
                  "nrm": None if nrm is None else nrm[i],
                  "h": None if hgt is None else float(hgt[i]),
                  "n": 1, "nb": set()} for i in range(H * W)]
+    active = set(range(H * W))
     sims = {}
     for idx in range(H * W):
         if idx % W != 0:
@@ -58,12 +62,15 @@ def ga_aggo_merge(features: np.ndarray,
     def caff(a, b):
         ca, cb = clusters[a], clusters[b]
         s = w_f * float(ca["nf"] @ cb["nf"])
+        wsum = w_f
         if w_n and ca["nrm"] is not None:
             s += w_n * float(F.normalize(ca["nrm"], dim=0) @ F.normalize(cb["nrm"], dim=0))
+            wsum += w_n
         if w_h and ca["h"] is not None:
             hsim = 1.0 - abs(ca["h"] - cb["h"]) / H_SCALE
             s += w_h * max(-1.0, min(1.0, hsim))
-        return s
+            wsum += w_h
+        return s / wsum if wsum else 0.0
 
     cur = H * W
     for th in thresholds:
@@ -82,6 +89,7 @@ def ga_aggo_merge(features: np.ndarray,
                 "nb": (c1["nb"] | c2["nb"]) - {i, j},
             }
             clusters.append(merged); del sims[(i, j)]
+            active.discard(i); active.discard(j); active.add(cur)
             for nb in merged["nb"]:
                 for a in (i, j):
                     lo, hi = min(a, nb), max(a, nb)
@@ -92,11 +100,6 @@ def ga_aggo_merge(features: np.ndarray,
                 clusters[nb]["nb"].add(cur)
             cur += 1
 
-    seen, out = set(), []
-    for (m, n) in sims:
-        for k in (m, n):
-            if k not in seen:
-                seen.add(k)
-                if clusters[k]["n"] >= min_size:
-                    out.append(clusters[k]["mask"].reshape(H, W))
+    out = [clusters[k]["mask"].reshape(H, W) for k in sorted(active)
+           if clusters[k]["n"] >= min_size]
     return np.stack(out) if out else np.zeros((0, H, W), bool)

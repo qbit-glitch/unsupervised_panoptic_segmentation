@@ -12,6 +12,7 @@ def _reference_vanilla(features, thresholds, min_size):
     fn = F.normalize(f, dim=1)
     clusters = [{"mask": (np.arange(H * W) == i), "nf": fn[i], "f": f[i],
                  "n": 1, "nb": set()} for i in range(H * W)]
+    active = set(range(H * W))
     sims = {}
     for idx in range(H * W):
         if idx % W != 0:
@@ -32,6 +33,7 @@ def _reference_vanilla(features, thresholds, min_size):
                       "f": c1["f"] + c2["f"], "n": c1["n"] + c2["n"],
                       "nb": (c1["nb"] | c2["nb"]) - {i, j}}
             clusters.append(merged); del sims[(i, j)]
+            active.discard(i); active.discard(j); active.add(cur)
             for nb in merged["nb"]:
                 for a in (i, j):
                     lo, hi = min(a, nb), max(a, nb)
@@ -41,13 +43,8 @@ def _reference_vanilla(features, thresholds, min_size):
                 sims[(nb, cur)] = float(clusters[nb]["nf"] @ merged["nf"])
                 clusters[nb]["nb"].add(cur)
             cur += 1
-    seen, out = set(), []
-    for (m, n) in sims:
-        for k in (m, n):
-            if k not in seen:
-                seen.add(k)
-                if clusters[k]["n"] >= min_size:
-                    out.append(clusters[k]["mask"].reshape(H, W))
+    out = [clusters[k]["mask"].reshape(H, W) for k in sorted(active)
+           if clusters[k]["n"] >= min_size]
     return np.stack(out) if out else np.zeros((0, H, W), bool)
 
 

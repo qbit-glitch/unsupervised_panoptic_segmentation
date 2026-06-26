@@ -14,7 +14,9 @@ class Phase0Config:
     grid_w: int = 64
     work_h: int = 512
     work_w: int = 1024
-    thresholds: Tuple[float, ...] = (0.8, 0.7, 0.6, 0.5, 0.4)
+    # Calibrated for DINOv3 ViT-B/16 (adjacent-patch cosine median ~0.955);
+    # UniAP's original (0.8..0.4) fully collapses the graph on these features.
+    thresholds: Tuple[float, ...] = (0.96, 0.94, 0.92, 0.90)
     min_size: int = 4
     n_images: int = 120
     device: str = "cpu"
