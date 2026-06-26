@@ -317,6 +317,12 @@ def main():
     parser.add_argument("--split", type=str, default="train", choices=["train", "val"])
     parser.add_argument("--stuff_things", type=str, default=None,
                         help="Path to stuff_things JSON (19-class trainID format)")
+    parser.add_argument("--thing_clusters_json", type=str, default=None,
+                        help="Path to classify_stuff_things.py output whose "
+                             "thing_ids are RAW CLUSTER IDs (annotation-free). "
+                             "In --cc_instances/--depth_cc_instances mode this "
+                             "takes precedence over the GT-derived "
+                             "cluster_to_class LUT in --centroids_path.")
     parser.add_argument("--trainid_input", action="store_true",
                         help="If set, input semantics are 19-class trainIDs (0-18) and will be remapped to 27-class CAUSE IDs")
     parser.add_argument("--target_h", type=int, default=1024, help="Target height for labels")
@@ -345,10 +351,10 @@ def main():
 
     args = parser.parse_args()
 
-    if args.cc_instances and args.centroids_path is None:
-        parser.error("--centroids_path is required when --cc_instances is set")
-    if args.depth_cc_instances and args.centroids_path is None:
-        parser.error("--centroids_path is required when --depth_cc_instances is set")
+    if args.cc_instances and args.centroids_path is None and args.thing_clusters_json is None:
+        parser.error("--cc_instances requires --centroids_path or --thing_clusters_json")
+    if args.depth_cc_instances and args.centroids_path is None and args.thing_clusters_json is None:
+        parser.error("--depth_cc_instances requires --centroids_path or --thing_clusters_json")
 
     cs_root = Path(args.cityscapes_root)
     semantic_dir = cs_root / args.semantic_subdir
@@ -363,7 +369,15 @@ def main():
 
     # Determine thing IDs
     if use_cc or use_depth_cc:
-        thing_ids = determine_thing_cluster_ids(args.centroids_path)
+        if args.thing_clusters_json:
+            with open(args.thing_clusters_json) as f:
+                _tc = json.load(f)
+            thing_ids = {int(t) for t in _tc["thing_ids"]}
+            logger.info(f"Thing cluster IDs from {args.thing_clusters_json} "
+                        f"(annotation-free, {len(thing_ids)}/{num_classes}): "
+                        f"{sorted(thing_ids)}")
+        else:
+            thing_ids = determine_thing_cluster_ids(args.centroids_path)
         mode = "Depth-guided CC" if use_depth_cc else "CC"
         logger.info(f"Mode: {mode} instances on {num_classes} raw clusters")
         if use_depth_cc:

@@ -10,7 +10,23 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from detectron2.structures import BitMasks, Boxes, Instances
+try:
+    from detectron2.structures import BitMasks, Boxes, Instances
+except ImportError:
+    class Boxes:  # type: ignore
+        """Placeholder for pseudo-label generation environments without Detectron2."""
+
+        pass
+
+    class BitMasks:  # type: ignore
+        """Placeholder for pseudo-label generation environments without Detectron2."""
+
+        pass
+
+    class Instances:  # type: ignore
+        """Placeholder for pseudo-label generation environments without Detectron2."""
+
+        pass
 from kornia.augmentation import (
     AugmentationSequential,
     CenterCrop,

@@ -33,6 +33,15 @@ from mbps_pytorch.unmore_distill.model import count_parameters, count_trainable_
 from mbps_pytorch.unmore_distill.teacher_cache import collate_unmore_teacher_batch  # noqa: E402
 
 
+LOSS_WEIGHT_ARG = {
+    "loss_classifier": "loss_classifier_weight",
+    "loss_box_reg": "loss_box_weight",
+    "loss_mask": "loss_mask_weight",
+    "loss_objectness": "loss_rpn_objectness_weight",
+    "loss_rpn_box_reg": "loss_rpn_box_weight",
+}
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -51,10 +60,21 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--grad-accum-steps", type=int, default=1)
     parser.add_argument("--lr", type=float, default=2e-5)
     parser.add_argument("--weight-decay", type=float, default=0.05)
+    parser.add_argument("--loss-classifier-weight", type=float, default=1.0)
+    parser.add_argument("--loss-box-weight", type=float, default=1.0)
+    parser.add_argument("--loss-mask-weight", type=float, default=1.0)
+    parser.add_argument("--loss-rpn-objectness-weight", type=float, default=1.0)
+    parser.add_argument("--loss-rpn-box-weight", type=float, default=1.0)
+    parser.add_argument("--teacher-score-weight-power", type=float, default=0.0)
+    parser.add_argument("--teacher-score-weight-min", type=float, default=0.25)
+    parser.add_argument("--teacher-score-weight-max", type=float, default=1.0)
     parser.add_argument("--num-workers", type=int, default=0)
     parser.add_argument("--device", default="auto", choices=["auto", "cpu", "cuda", "mps"])
     parser.add_argument("--pretrained-backbone", action="store_true")
     parser.add_argument("--freeze-backbone", action="store_true")
+    parser.add_argument("--unfreeze-backbone-at-step", type=int, default=None)
+    parser.add_argument("--unfreeze-last-blocks", type=int, default=0)
+    parser.add_argument("--unfreeze-backbone-lr-mult", type=float, default=0.2)
     parser.add_argument("--min-size", type=int, default=512)
     parser.add_argument("--max-size", type=int, default=896)
     parser.add_argument("--fpn-dim", type=int, default=192)
@@ -106,6 +126,79 @@ def loss_to_float(losses: Dict[str, torch.Tensor]) -> Dict[str, float]:
     return {k: float(v.detach().cpu()) for k, v in losses.items()}
 
 
+def weighted_detection_loss(losses: Dict[str, torch.Tensor], args: argparse.Namespace) -> torch.Tensor:
+    total = None
+    for name, value in losses.items():
+        arg_name = LOSS_WEIGHT_ARG.get(name)
+        weight = float(getattr(args, arg_name, 1.0)) if arg_name else 1.0
+        term = value * weight
+        total = term if total is None else total + term
+    if total is None:
+        raise ValueError("Model returned no losses")
+    return total
+
+
+def batch_teacher_score_weight(targets, args: argparse.Namespace, device: torch.device) -> torch.Tensor:
+    if args.teacher_score_weight_power <= 0:
+        return torch.ones((), device=device)
+    weights = []
+    for target in targets:
+        scores = target.get("teacher_scores")
+        if scores is None or scores.numel() == 0:
+            weights.append(torch.tensor(args.teacher_score_weight_min, device=device))
+            continue
+        score = scores.float().mean().clamp(1e-6, 1.0)
+        weights.append(score.pow(args.teacher_score_weight_power))
+    stacked = torch.stack(weights).mean()
+    return stacked.clamp(args.teacher_score_weight_min, args.teacher_score_weight_max)
+
+
+def unfreeze_backbone_tail(model: torch.nn.Module, last_blocks: int) -> int:
+    """Unfreeze the last N DINO/EVA blocks, falling back to the full body."""
+
+    backbone = model.backbone
+    body = getattr(backbone, "body", None)
+    if body is None:
+        return 0
+
+    for param in body.parameters():
+        param.requires_grad = False
+
+    core = getattr(body, "model", body)
+    blocks = getattr(core, "blocks", None)
+    unfrozen_params = []
+    if blocks is not None and last_blocks > 0:
+        for block in list(blocks)[-last_blocks:]:
+            for param in block.parameters():
+                param.requires_grad = True
+                unfrozen_params.append(param)
+        for attr in ("norm", "fc_norm"):
+            module = getattr(core, attr, None)
+            if module is not None:
+                for param in module.parameters():
+                    param.requires_grad = True
+                    unfrozen_params.append(param)
+    else:
+        for param in body.parameters():
+            param.requires_grad = True
+            unfrozen_params.append(param)
+
+    # Deduplicate because norm params may be visited more than once on some timm models.
+    seen = set()
+    unique = []
+    for param in unfrozen_params:
+        ident = id(param)
+        if ident not in seen:
+            seen.add(ident)
+            unique.append(param)
+    return sum(param.numel() for param in unique if param.requires_grad)
+
+
+def newly_trainable_params(model: torch.nn.Module, optimizer: torch.optim.Optimizer):
+    existing = {id(param) for group in optimizer.param_groups for param in group["params"]}
+    return [param for param in model.parameters() if param.requires_grad and id(param) not in existing]
+
+
 def append_history(path: Path, row: Dict) -> None:
     with path.open("a") as f:
         f.write(json.dumps(row) + "\n")
@@ -135,7 +228,15 @@ def save_checkpoint(
     return ckpt_path
 
 
-def run_validation(model, val_loader, device: torch.device, max_batches: int, global_step: int, history_path: Path) -> float:
+def run_validation(
+    model,
+    val_loader,
+    device: torch.device,
+    max_batches: int,
+    global_step: int,
+    history_path: Path,
+    args: argparse.Namespace,
+) -> float:
     model.train()
     losses_total = []
     with torch.no_grad():
@@ -144,8 +245,10 @@ def run_validation(model, val_loader, device: torch.device, max_batches: int, gl
             targets = move_targets(targets, device)
             losses = model(images, targets)
             loss_dict = loss_to_float(losses)
-            total = float(sum(losses.values()).detach().cpu())
+            total_tensor = weighted_detection_loss(losses, args) * batch_teacher_score_weight(targets, args, device)
+            total = float(total_tensor.detach().cpu())
             loss_dict["total"] = total
+            loss_dict["total_unweighted"] = float(sum(losses.values()).detach().cpu())
             losses_total.append(total)
             append_history(
                 history_path,
@@ -249,6 +352,24 @@ def main() -> None:
         history_path.unlink()
 
     stop_training = False
+    backbone_unfrozen = False
+    if args.unfreeze_backbone_at_step is not None and global_step >= args.unfreeze_backbone_at_step:
+        num_unfrozen = unfreeze_backbone_tail(model, args.unfreeze_last_blocks)
+        new_params = newly_trainable_params(model, optimizer)
+        if new_params:
+            optimizer.add_param_group(
+                {
+                    "params": new_params,
+                    "lr": args.lr * args.unfreeze_backbone_lr_mult,
+                    "weight_decay": args.weight_decay,
+                }
+            )
+        backbone_unfrozen = True
+        print(
+            f"Backbone tail already unfrozen at resume: params={num_unfrozen:,} new_optimizer_params={len(new_params)}",
+            flush=True,
+        )
+
     for epoch in range(1, args.epochs + 1):
         if epoch < start_epoch:
             continue
@@ -258,16 +379,42 @@ def main() -> None:
         accum_count = 0
         epoch_start = time.time()
         for images, targets, _metas in pbar:
+            if (
+                not backbone_unfrozen
+                and args.unfreeze_backbone_at_step is not None
+                and global_step >= args.unfreeze_backbone_at_step
+            ):
+                num_unfrozen = unfreeze_backbone_tail(model, args.unfreeze_last_blocks)
+                new_params = newly_trainable_params(model, optimizer)
+                if new_params:
+                    optimizer.add_param_group(
+                        {
+                            "params": new_params,
+                            "lr": args.lr * args.unfreeze_backbone_lr_mult,
+                            "weight_decay": args.weight_decay,
+                        }
+                    )
+                backbone_unfrozen = True
+                print(
+                    f"Unfroze DINOv3 backbone tail at step={global_step}: "
+                    f"params={num_unfrozen:,} new_optimizer_params={len(new_params)}",
+                    flush=True,
+                )
+
             images = [img.to(device) for img in images]
             targets = move_targets(targets, device)
             losses = model(images, targets)
-            loss = sum(losses.values()) / max(args.grad_accum_steps, 1)
+            score_weight = batch_teacher_score_weight(targets, args, device)
+            weighted_total = weighted_detection_loss(losses, args) * score_weight
+            loss = weighted_total / max(args.grad_accum_steps, 1)
 
             loss.backward()
             accum_count += 1
 
             loss_dict = loss_to_float(losses)
-            loss_dict["total"] = float(sum(losses.values()).detach().cpu())
+            loss_dict["total"] = float(weighted_total.detach().cpu())
+            loss_dict["total_unweighted"] = float(sum(losses.values()).detach().cpu())
+            loss_dict["teacher_score_weight"] = float(score_weight.detach().cpu())
             if accum_count >= max(args.grad_accum_steps, 1):
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
                 optimizer.step()
@@ -305,7 +452,7 @@ def main() -> None:
                     )
 
                 if args.val_every_steps > 0 and global_step % args.val_every_steps == 0:
-                    run_validation(model, val_loader, device, args.val_batches, global_step, history_path)
+                    run_validation(model, val_loader, device, args.val_batches, global_step, history_path, args)
 
                 if args.checkpoint_every_steps > 0 and global_step % args.checkpoint_every_steps == 0:
                     save_checkpoint(
@@ -323,7 +470,7 @@ def main() -> None:
                     break
 
         if not stop_training:
-            run_validation(model, val_loader, device, args.val_batches, global_step, history_path)
+            run_validation(model, val_loader, device, args.val_batches, global_step, history_path, args)
 
         if epoch % args.save_every == 0:
             save_checkpoint(

@@ -84,6 +84,8 @@ class EoMTPanopticShim(nn.Module):
         loss_dice_coefficient: float = 5.0,
         loss_class_coefficient: float = 2.0,
         loss_no_object_coefficient: float = 0.1,
+        droploss_enabled: bool = False,
+        droploss_stuff_overlap_max: float = 0.5,
     ) -> None:
         super().__init__()
         # The attribute name deliberately contains "head": CUPS Stage-3's
@@ -121,6 +123,8 @@ class EoMTPanopticShim(nn.Module):
             class_coefficient=loss_class_coefficient,
             num_labels=self.num_classes,
             no_object_coefficient=loss_no_object_coefficient,
+            droploss_enabled=droploss_enabled,
+            droploss_stuff_overlap_max=droploss_stuff_overlap_max,
         )
 
     # -- plumbing ------------------------------------------------------------
@@ -177,6 +181,15 @@ class EoMTPanopticShim(nn.Module):
         device = sem.device
         h, w = sem.shape[-2:]
 
+        # Confident-stuff region for the DropLoss stuff-gate: pixels whose CUPS
+        # pseudo sem-channel is a known stuff class (1..num_stuff). Unmatched
+        # queries NOT predominantly on this region are freed from the no-object
+        # loss (discovery); queries on stuff keep the penalty (see
+        # MaskClassificationLoss). sem==0 is thing-merged, 255 is ignore — both
+        # are off-stuff and thus discovery-eligible.
+        num_stuff = len(self.stuff_class_ids)
+        stuff_region = ((sem >= 1) & (sem <= num_stuff)).reshape(h, w)
+
         masks: List[Tensor] = []
         labels: List[int] = []
 
@@ -207,10 +220,12 @@ class EoMTPanopticShim(nn.Module):
             return {
                 "masks": torch.zeros((0, h, w), dtype=torch.bool, device=device),
                 "labels": torch.zeros((0,), dtype=torch.long, device=device),
+                "stuff_region": stuff_region,
             }
         return {
             "masks": torch.stack(masks),
             "labels": torch.tensor(labels, dtype=torch.long, device=device),
+            "stuff_region": stuff_region,
         }
 
     # -- inference: EoMT logits -> D2 panoptic prediction --------------------
@@ -279,6 +294,7 @@ class EoMTPanopticShim(nn.Module):
                 ):
                     continue
 
+                seg_score = float(kept_scores[k])
                 if cls in self._thing_set:
                     seg_map[final_mask] = segment_id
                     segments_info.append(
@@ -286,6 +302,7 @@ class EoMTPanopticShim(nn.Module):
                             "id": segment_id,
                             "isthing": True,
                             "category_id": self._thing_pos[cls],
+                            "score": seg_score,
                         }
                     )
                     segment_id += 1
@@ -300,6 +317,7 @@ class EoMTPanopticShim(nn.Module):
                             "id": segment_id,
                             "isthing": False,
                             "category_id": self._stuff_channel[cls],
+                            "score": seg_score,
                         }
                     )
                     segment_id += 1

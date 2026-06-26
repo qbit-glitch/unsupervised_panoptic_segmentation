@@ -97,11 +97,20 @@ def dense_crf_object_proposals(image_tensor: torch.FloatTensor, output_probabili
 
 
 def _apply_crf(tup):
-    return dense_crf(tup[0], tup[1])
+    image, logits = tup
+    if isinstance(image, np.ndarray):
+        image = torch.from_numpy(image)
+    if isinstance(logits, np.ndarray):
+        logits = torch.from_numpy(logits)
+    return dense_crf(image, logits)
 
 
 def batched_crf(pool, img_tensor, prob_tensor):
-    outputs = pool.map(_apply_crf, zip(img_tensor.detach().cpu(), prob_tensor.detach().cpu()))
+    inputs = [
+        (image.numpy(), logits.numpy())
+        for image, logits in zip(img_tensor.detach().cpu(), prob_tensor.detach().cpu())
+    ]
+    outputs = list(map(_apply_crf, inputs)) if pool is None else pool.map(_apply_crf, inputs)
     return torch.cat([torch.from_numpy(arr).unsqueeze(0) for arr in outputs], dim=0)
 
 

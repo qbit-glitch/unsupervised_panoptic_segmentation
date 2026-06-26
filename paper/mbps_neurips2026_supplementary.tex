@@ -87,7 +87,7 @@ Pseudo-label generation and panoptic network training use only Cityscapes train~
 DINOv2 ViT-B/14~\cite{oquab2024dinov2} backbone (no fine-tuning) and CAUSE-TR head~\cite{kim2024cause} (frozen, 90-dimensional concept-clusterbook code).
 
 \paragraph{DCFA training.}
-Hidden width $h{=}384$, two-layer MLP, 16-dimensional sinusoidal depth positional embedding, $\sim$40K trainable parameters. Loss: depth-correlation term $+\,\lambda_p \mathcal{L}_\text{preserve}$ with $\lambda_p{=}20$. Optimizer: AdamW, learning rate $10^{-3}$, weight decay $10^{-4}$, 10K iterations, batch size 32 images, sampling 1024 pixels and 1024 pixel pairs per image. The preservation term anchors the residual update to identity at initialisation and is re-applied at every step. Wall-clock: $\approx 1$ hour on a single GTX 1080 Ti.
+Hidden width $h{=}384$, three-layer MLP with concatenated 106-D input (90-D code + 16-D sinusoidal depth), $\sim$225K (225,114) trainable parameters. Loss: depth-correlation term $+\,\lambda_p \mathcal{L}_\text{preserve}$ with $\lambda_p{=}20$. Optimizer: AdamW, learning rate $10^{-3}$, weight decay $10^{-4}$, 10K iterations, batch size 32 images, sampling 1024 pixels and 1024 pixel pairs per image. The preservation term anchors the residual update to identity at initialisation and is re-applied at every step. Wall-clock: $\approx 1$ hour on a single GTX 1080 Ti.
 
 \paragraph{$k$-means over-clustering.}
 $k{=}80$ centroids on L2-normalised DCFA-adjusted CAUSE-TR codes, fitted on the 2{,}975 Cityscapes train images using \texttt{scikit-learn} mini-batch $k$-means (batch 4096, 100 iterations, fixed random seed). Centroids are saved once and reused throughout the rest of the pipeline.

@@ -134,6 +134,37 @@ def get_cityscapes_images(cityscapes_root, split="val"):
     return images
 
 
+def read_manifest(path):
+    """Read city/stem manifest entries in the same format as JPC-Up caches."""
+    items = []
+    with open(path, "r") as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "/" not in line:
+                raise ValueError(f"Manifest line must be city/stem, got: {line}")
+            city, stem = line.split("/", 1)
+            items.append((city, stem))
+    return items
+
+
+def filter_images_by_manifest(images, manifest_path):
+    requested = read_manifest(manifest_path)
+    image_by_key = {(item["city"], item["stem"]): item for item in images}
+    filtered = []
+    missing = []
+    for key in requested:
+        item = image_by_key.get(key)
+        if item is None:
+            missing.append("/".join(key))
+        else:
+            filtered.append(item)
+    if missing:
+        print(f"WARNING: {len(missing)} manifest entries were not found; first: {missing[:5]}")
+    return filtered
+
+
 def visualize_instances(img_rgb, masks, scores, save_path):
     """Save overlay visualization of detected instances."""
     vis = img_rgb.copy().astype(float)
@@ -160,6 +191,8 @@ def main():
     parser.add_argument("--output_dir", type=str, default=None,
                         help="Output directory (auto: pseudo_instances_{model})")
     parser.add_argument("--split", type=str, default="val", choices=["train", "val"])
+    parser.add_argument("--manifest", type=str, default=None,
+                        help="Optional city/stem manifest to process an exact subset")
     parser.add_argument("--weights", type=str, default=None,
                         help="Path to checkpoint (auto-detected if not set)")
     parser.add_argument("--score_thresh", type=float, default=0.35,
@@ -213,6 +246,8 @@ def main():
 
     # Get images
     images = get_cityscapes_images(args.cityscapes_root, args.split)
+    if args.manifest:
+        images = filter_images_by_manifest(images, args.manifest)
     if args.limit:
         images = images[:args.limit]
     print(f"Processing {len(images)} images from {args.split} split")
@@ -320,6 +355,7 @@ def main():
                 "min_mask_area": args.min_mask_area,
                 "device": args.device,
                 "split": args.split,
+                "manifest": args.manifest,
             },
             "total_images": stats["total_images"],
             "total_instances": stats["total_instances"],

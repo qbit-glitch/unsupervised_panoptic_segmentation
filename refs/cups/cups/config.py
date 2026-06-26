@@ -40,6 +40,10 @@ _C.MODEL.DINOV2_FREEZE = True
 # EoMT-only: freeze the ENTIRE encoder backbone (all blocks + norm), training
 # only queries + class/mask heads + upscale. Anti-collapse for self-training.
 _C.MODEL.EOMT_FREEZE_ALL_BLOCKS = False
+# EoMT DropLoss analog (stuff-gate): an unmatched query is excluded from the
+# no-object loss iff its mask is NOT mostly on confident stuff, i.e.
+# (mask ∩ stuff)/area < this value. Higher => more aggressive discovery freeing.
+_C.MODEL.EOMT_DROPLOSS_STUFF_OVERLAP_MAX = 0.5
 # Set model checkpoint
 _C.MODEL.CHECKPOINT = None
 # Set inference confidence threshold
@@ -185,6 +189,8 @@ _C.DATA.ROOT = "datasets/Cityscapes"
 _C.DATA.ROOT_VAL = "datasets/Cityscapes"
 # Pseudo label dataset
 _C.DATA.ROOT_PSEUDO = "pseudo_labels"
+# Image subdirectory name (leftImg8bit or leftImg8bit_sequence)
+_C.DATA.IMAGE_SUBDIR = "leftImg8bit"
 # Number data splits
 _C.DATA.NUM_PREPROCESSING_SUBSPLITS = 2
 # Number data splits

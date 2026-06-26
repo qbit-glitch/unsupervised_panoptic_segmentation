@@ -36,6 +36,11 @@ import torchvision.transforms.functional as TF
 from PIL import Image
 from tqdm import tqdm
 
+# wandb is broken in this venv (protobuf mismatch) and DepthG only uses it for
+# training logs — stub it so inference imports cleanly.
+from unittest.mock import MagicMock as _MagicMock  # noqa: E402
+sys.modules.setdefault("wandb", _MagicMock())
+
 # ---------------------------------------------------------------------------
 # Path setup: DepthG/src MUST come before script dir to prevent
 # mbps_pytorch/data/ from shadowing external/depthg/src/data/

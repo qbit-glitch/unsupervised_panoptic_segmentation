@@ -266,14 +266,20 @@ def _load_pred_instances(npz_path, target_hw):
     return resized, scores
 
 
-def _load_pred_instance_class_ids(npz_path):
+def _load_pred_instance_class_ids(npz_path, class_lut=None, classes_are_train_ids=False):
     """Load optional per-mask trainID labels from an instance NPZ."""
     data = np.load(str(npz_path))
     if "class_ids" not in data:
         return None
     class_ids = data["class_ids"]
     num_valid = int(data["num_valid"]) if "num_valid" in data else class_ids.shape[0]
-    return class_ids[:num_valid].astype(np.int32)
+    class_ids = class_ids[:num_valid].astype(np.int32)
+    if class_lut is not None and not classes_are_train_ids:
+        mapped = np.full_like(class_ids, IGNORE_LABEL)
+        valid = (class_ids >= 0) & (class_ids < len(class_lut))
+        mapped[valid] = class_lut[class_ids[valid]]
+        class_ids = mapped
+    return class_ids
 
 
 def _batch_iou(pred_masks, gt_masks):
@@ -290,6 +296,89 @@ def _batch_iou(pred_masks, gt_masks):
     gt_area = gt_flat.sum(axis=1, keepdims=True).T     # (1, M_gt)
     union = pred_area + gt_area - intersection
     return intersection / (union + 1e-8)
+
+
+def _masks_to_boxes(masks):
+    """Convert binary masks to XYXY boxes."""
+    boxes = np.zeros((masks.shape[0], 4), dtype=np.float32)
+    for i, mask in enumerate(masks):
+        ys, xs = np.where(mask)
+        if ys.size == 0:
+            continue
+        boxes[i] = [xs.min(), ys.min(), xs.max() + 1, ys.max() + 1]
+    return boxes
+
+
+def _batch_box_iou(pred_boxes, gt_boxes):
+    """Compute IoU matrix between XYXY boxes."""
+    if pred_boxes.shape[0] == 0 or gt_boxes.shape[0] == 0:
+        return np.zeros((pred_boxes.shape[0], gt_boxes.shape[0]), dtype=np.float32)
+    px0, py0, px1, py1 = [pred_boxes[:, i:i + 1] for i in range(4)]
+    gx0, gy0, gx1, gy1 = [gt_boxes[:, i][None, :] for i in range(4)]
+    ix0 = np.maximum(px0, gx0)
+    iy0 = np.maximum(py0, gy0)
+    ix1 = np.minimum(px1, gx1)
+    iy1 = np.minimum(py1, gy1)
+    inter = np.maximum(ix1 - ix0, 0) * np.maximum(iy1 - iy0, 0)
+    pred_area = np.maximum(px1 - px0, 0) * np.maximum(py1 - py0, 0)
+    gt_area = np.maximum(gx1 - gx0, 0) * np.maximum(gy1 - gy0, 0)
+    union = pred_area + gt_area - inter
+    return inter / (union + 1e-8)
+
+
+def _box_iou_one(box, boxes):
+    if boxes.shape[0] == 0:
+        return np.zeros((0,), dtype=np.float32)
+    x1 = np.maximum(box[0], boxes[:, 0])
+    y1 = np.maximum(box[1], boxes[:, 1])
+    x2 = np.minimum(box[2], boxes[:, 2])
+    y2 = np.minimum(box[3], boxes[:, 3])
+    inter = np.maximum(0.0, x2 - x1) * np.maximum(0.0, y2 - y1)
+    area_a = max(0.0, box[2] - box[0]) * max(0.0, box[3] - box[1])
+    area_b = np.maximum(0.0, boxes[:, 2] - boxes[:, 0]) * np.maximum(0.0, boxes[:, 3] - boxes[:, 1])
+    return inter / (area_a + area_b - inter + 1e-8)
+
+
+def _mask_iou_one(mask, masks, mask_area, mask_areas):
+    if masks.shape[0] == 0:
+        return np.zeros((0,), dtype=np.float32)
+    inter = np.logical_and(masks, mask).reshape(masks.shape[0], -1).sum(axis=1)
+    union = mask_areas + mask_area - inter
+    return inter / (union + 1e-8)
+
+
+def _mask_nms_indices(masks, scores, iou_thresh, max_instances):
+    if masks.shape[0] == 0:
+        return np.zeros((0,), dtype=np.int64)
+    boxes = _masks_to_boxes(masks)
+    order = np.argsort(-scores)
+    areas = masks.reshape(masks.shape[0], -1).sum(axis=1)
+    kept = []
+
+    for idx in order:
+        if len(kept) >= max_instances:
+            break
+        if not kept:
+            kept.append(int(idx))
+            continue
+
+        kept_arr = np.array(kept, dtype=np.int64)
+        overlaps = _box_iou_one(boxes[idx], boxes[kept_arr]) > 0.0
+        if not overlaps.any():
+            kept.append(int(idx))
+            continue
+
+        overlap_kept = kept_arr[overlaps]
+        ious = _mask_iou_one(
+            masks[idx],
+            masks[overlap_kept],
+            areas[idx],
+            areas[overlap_kept],
+        )
+        if float(ious.max(initial=0.0)) <= iou_thresh:
+            kept.append(int(idx))
+
+    return np.array(kept, dtype=np.int64)
 
 
 # ─── Semantic Evaluation ───
@@ -372,10 +461,26 @@ def evaluate_semantic(pairs, eval_hw, cause27=False, cluster_lut=None):
 
 # ─── Instance Evaluation ───
 
-def evaluate_instances(pairs, eval_hw, max_detections=100):
+def evaluate_instances(
+    pairs,
+    eval_hw,
+    max_detections=100,
+    class_lut=None,
+    instance_classes_are_train_ids=False,
+    score_thresh=0.0,
+    nms_iou=None,
+):
     """Compute class-aware AP, AP@50, AP@75, and AR@100 for thing instances."""
     print(f"\n{'='*60}")
     print(f"INSTANCE EVALUATION")
+    if class_lut is not None and not instance_classes_are_train_ids:
+        print("  (applying cluster -> trainID mapping to instance classes)")
+    if instance_classes_are_train_ids:
+        print("  (instance class_ids are already trainIDs)")
+    if score_thresh > 0:
+        print(f"  Score threshold: {score_thresh:g}")
+    if nms_iou is not None:
+        print(f"  Extra mask NMS IoU: {nms_iou:g}")
     print(f"{'='*60}")
 
     iou_thresholds = np.arange(0.50, 0.96, 0.05)
@@ -394,10 +499,31 @@ def evaluate_instances(pairs, eval_hw, max_detections=100):
             skipped += 1
             continue
 
-        pred_class_ids = _load_pred_instance_class_ids(inst_path)
+        pred_class_ids = _load_pred_instance_class_ids(
+            inst_path,
+            class_lut=class_lut,
+            classes_are_train_ids=instance_classes_are_train_ids,
+        )
         if pred_class_ids is None or pred_class_ids.shape[0] != pred_masks.shape[0]:
             class_aware = False
             pred_class_ids = np.full(pred_masks.shape[0], -1, dtype=np.int32)
+
+        if score_thresh > 0 and pred_masks.shape[0]:
+            keep = pred_scores >= float(score_thresh)
+            pred_masks = pred_masks[keep]
+            pred_scores = pred_scores[keep]
+            pred_class_ids = pred_class_ids[keep]
+
+        if nms_iou is not None and pred_masks.shape[0]:
+            keep_idx = _mask_nms_indices(
+                pred_masks,
+                pred_scores,
+                float(nms_iou),
+                max_instances=max_detections,
+            )
+            pred_masks = pred_masks[keep_idx]
+            pred_scores = pred_scores[keep_idx]
+            pred_class_ids = pred_class_ids[keep_idx]
 
         gt_masks, gt_classes = _load_gt_instances(gt_inst_path, eval_hw)
 
@@ -410,11 +536,16 @@ def evaluate_instances(pairs, eval_hw, max_detections=100):
             pred_scores = pred_scores[top_idx]
             pred_class_ids = pred_class_ids[top_idx]
 
-        # Compute IoU matrix
+        # Compute mask and box IoU matrices
         if pred_masks.shape[0] and gt_masks.shape[0]:
             iou_matrix = _batch_iou(pred_masks, gt_masks)
+            box_iou_matrix = _batch_box_iou(
+                _masks_to_boxes(pred_masks),
+                _masks_to_boxes(gt_masks),
+            )
         else:
             iou_matrix = np.zeros((pred_masks.shape[0], gt_masks.shape[0]), dtype=np.float32)
+            box_iou_matrix = np.zeros((pred_masks.shape[0], gt_masks.shape[0]), dtype=np.float32)
 
         if not class_aware:
             gt_classes = np.full(gt_masks.shape[0], -1, dtype=np.int32)
@@ -425,6 +556,7 @@ def evaluate_instances(pairs, eval_hw, max_detections=100):
             "pred_classes": pred_class_ids.astype(np.int32),
             "gt_classes": gt_classes.astype(np.int32),
             "iou": iou_matrix,
+            "box_iou": box_iou_matrix,
         })
 
     if not class_aware:
@@ -440,7 +572,7 @@ def evaluate_instances(pairs, eval_hw, max_detections=100):
     if not eval_class_ids:
         eval_class_ids = [-1]
 
-    def compute_ap(iou_thresh):
+    def compute_ap(iou_thresh, iou_key="iou"):
         aps = []
         for cls in eval_class_ids:
             num_gt = sum(int((rec["gt_classes"] == cls).sum()) for rec in eval_records)
@@ -463,7 +595,7 @@ def evaluate_instances(pairs, eval_hw, max_detections=100):
                 for j in gt_idx:
                     if int(j) in matched[rec_idx]:
                         continue
-                    iou = float(rec["iou"][pred_idx, j])
+                    iou = float(rec[iou_key][pred_idx, j])
                     if iou > best_iou:
                         best_iou = iou
                         best_j = int(j)
@@ -487,7 +619,7 @@ def evaluate_instances(pairs, eval_hw, max_detections=100):
             aps.append(float(np.sum((mrec[idx] - mrec[idx - 1]) * mpre[idx])))
         return float(np.mean(aps)) if aps else 0.0
 
-    def compute_recall(iou_thresh):
+    def compute_recall(iou_thresh, iou_key="iou"):
         recalls = []
         for cls in eval_class_ids:
             num_gt = sum(int((rec["gt_classes"] == cls).sum()) for rec in eval_records)
@@ -507,7 +639,7 @@ def evaluate_instances(pairs, eval_hw, max_detections=100):
                     for j in gt_idx:
                         if int(j) in matched_gt:
                             continue
-                        iou = float(rec["iou"][pred_i, j])
+                        iou = float(rec[iou_key][pred_i, j])
                         if iou > best_iou:
                             best_iou = iou
                             best_j = int(j)
@@ -519,6 +651,14 @@ def evaluate_instances(pairs, eval_hw, max_detections=100):
 
     ap_values = [compute_ap(float(thresh)) for thresh in iou_thresholds]
     ar_values = [compute_recall(float(thresh)) for thresh in iou_thresholds]
+    box_ap_values = [
+        compute_ap(float(thresh), iou_key="box_iou")
+        for thresh in iou_thresholds
+    ]
+    box_ar_values = [
+        compute_recall(float(thresh), iou_key="box_iou")
+        for thresh in iou_thresholds
+    ]
 
     results = {
         "ar_100": round(float(np.mean(ar_values)) * 100, 2) if ar_values else 0.0,
@@ -526,6 +666,10 @@ def evaluate_instances(pairs, eval_hw, max_detections=100):
         "ap_mean": round(float(np.mean(ap_values)) * 100, 2) if ap_values else 0.0,
         "ap_50": round(compute_ap(0.5) * 100, 2),
         "ap_75": round(compute_ap(0.75) * 100, 2),
+        "box_ar_100": round(float(np.mean(box_ar_values)) * 100, 2) if box_ar_values else 0.0,
+        "ap_box": round(float(np.mean(box_ap_values)) * 100, 2) if box_ap_values else 0.0,
+        "ap_box_50": round(compute_ap(0.5, iou_key="box_iou") * 100, 2),
+        "ap_box_75": round(compute_ap(0.75, iou_key="box_iou") * 100, 2),
         "class_aware": bool(class_aware),
         "num_eval_classes": len(eval_class_ids),
         "avg_pred_instances": round(float(np.mean(pred_counts)), 1) if pred_counts else 0.0,
@@ -540,6 +684,10 @@ def evaluate_instances(pairs, eval_hw, max_detections=100):
     print(f"  AP@[.50:.95]:     {results['ap']:.2f}%")
     print(f"  AP@50:            {results['ap_50']:.2f}%")
     print(f"  AP@75:            {results['ap_75']:.2f}%")
+    print(f"  Box AR@100:       {results['box_ar_100']:.2f}%")
+    print(f"  Box AP@[.50:.95]: {results['ap_box']:.2f}%")
+    print(f"  Box AP@50:        {results['ap_box_50']:.2f}%")
+    print(f"  Box AP@75:        {results['ap_box_75']:.2f}%")
     print(f"  Avg pred instances: {results['avg_pred_instances']:.1f}")
     print(f"  Avg GT instances:   {results['avg_gt_instances']:.1f}")
     print(f"  Images evaluated: {results['num_images']} (skipped: {skipped})")
@@ -570,7 +718,9 @@ def _connected_components_things(pred_sem, thing_ids, min_area=10):
 
 def evaluate_panoptic(pairs, eval_hw, thing_mode="connected_components",
                       pred_stuff_ids=None, pred_thing_ids=None, cause27=False,
-                      cc_min_area=10, cluster_lut=None):
+                      cc_min_area=10, cluster_lut=None,
+                      instance_classes_are_train_ids=False,
+                      instance_score_thresh=0.0):
     """Compute PQ, SQ, RQ with standard Cityscapes stuff/things split.
 
     Args:
@@ -591,6 +741,8 @@ def evaluate_panoptic(pairs, eval_hw, thing_mode="connected_components",
     print(f"\n{'='*60}")
     print(f"PANOPTIC EVALUATION ({split_info})")
     print(f"  Thing instance mode: {thing_mode}")
+    if instance_score_thresh > 0 and thing_mode in ("maskcut", "hybrid"):
+        print(f"  Instance score threshold: {instance_score_thresh:g}")
     if cluster_lut is not None:
         print(f"  Using cluster mapping")
     print(f"{'='*60}")
@@ -654,26 +806,37 @@ def evaluate_panoptic(pairs, eval_hw, thing_mode="connected_components",
             pred_inst_class_ids = None
             if inst_path is not None and inst_path.exists():
                 pred_inst_masks, pred_inst_scores = _load_pred_instances(inst_path, eval_hw)
-                pred_inst_class_ids = _load_pred_instance_class_ids(inst_path)
+                pred_inst_class_ids = _load_pred_instance_class_ids(
+                    inst_path,
+                    class_lut=cluster_lut,
+                    classes_are_train_ids=instance_classes_are_train_ids,
+                )
             if pred_inst_masks is not None and pred_inst_masks.shape[0] > 0:
-                order = np.argsort(-pred_inst_scores) if pred_inst_scores is not None else np.arange(pred_inst_masks.shape[0])
-                for idx in order:
-                    m = pred_inst_masks[idx]
-                    if m.sum() < 10:
-                        continue
-                    if pred_inst_class_ids is not None and idx < len(pred_inst_class_ids):
-                        majority_cls = int(pred_inst_class_ids[idx])
-                    else:
-                        sem_vals = pred_sem[m]
-                        sem_vals = sem_vals[sem_vals < NUM_CLASSES]
-                        if len(sem_vals) == 0:
+                if instance_score_thresh > 0 and pred_inst_scores is not None:
+                    keep = pred_inst_scores >= float(instance_score_thresh)
+                    pred_inst_masks = pred_inst_masks[keep]
+                    pred_inst_scores = pred_inst_scores[keep]
+                    if pred_inst_class_ids is not None and len(pred_inst_class_ids) == len(keep):
+                        pred_inst_class_ids = pred_inst_class_ids[keep]
+                if pred_inst_masks.shape[0] > 0:
+                    order = np.argsort(-pred_inst_scores) if pred_inst_scores is not None else np.arange(pred_inst_masks.shape[0])
+                    for idx in order:
+                        m = pred_inst_masks[idx]
+                        if m.sum() < 10:
                             continue
-                        majority_cls = int(np.bincount(sem_vals, minlength=NUM_CLASSES).argmax())
-                    if majority_cls not in p_thing:
-                        continue
-                    pred_pan[m] = next_id
-                    pred_segments[next_id] = majority_cls
-                    next_id += 1
+                        if pred_inst_class_ids is not None and idx < len(pred_inst_class_ids):
+                            majority_cls = int(pred_inst_class_ids[idx])
+                        else:
+                            sem_vals = pred_sem[m]
+                            sem_vals = sem_vals[sem_vals < NUM_CLASSES]
+                            if len(sem_vals) == 0:
+                                continue
+                            majority_cls = int(np.bincount(sem_vals, minlength=NUM_CLASSES).argmax())
+                        if majority_cls not in p_thing:
+                            continue
+                        pred_pan[m] = next_id
+                        pred_segments[next_id] = majority_cls
+                        next_id += 1
 
             # Hybrid: CC fallback for uncovered thing pixels
             if thing_mode == "hybrid":
@@ -845,8 +1008,16 @@ def discover_pairs(cityscapes_root, split, semantic_subdir="pseudo_semantic_dino
                    instance_subdir="pseudo_instance"):
     """Find matching (semantic, gt_label, instance, gt_instance) file paths."""
     root = Path(cityscapes_root)
-    sem_dir = root / semantic_subdir / split
-    inst_dir = root / instance_subdir / split
+
+    def _resolve_split_dir(subdir):
+        base = Path(subdir)
+        if not base.is_absolute():
+            base = root / base
+        split_dir = base / split
+        return split_dir if split_dir.exists() else base
+
+    sem_dir = _resolve_split_dir(semantic_subdir)
+    inst_dir = _resolve_split_dir(instance_subdir)
     gt_dir = root / "gtFine" / split
 
     if not gt_dir.exists():
@@ -870,20 +1041,31 @@ def discover_pairs(cityscapes_root, split, semantic_subdir="pseudo_semantic_dino
         if not gt_inst_path.exists():
             gt_inst_path = None
 
-        # Predicted semantic — try _leftImg8bit.png first, then plain .png
-        sem_path = sem_dir / (base + "_leftImg8bit.png")
-        if not sem_path.exists():
-            sem_path = sem_dir / (base + ".png")
-        if not sem_path.exists():
+        flat_base = Path(base).name
+
+        # Predicted semantic — support nested Cityscapes layout and flat sweep exports.
+        sem_candidates = [
+            sem_dir / (base + "_leftImg8bit.png"),
+            sem_dir / (base + ".png"),
+            sem_dir / (flat_base + "_leftImg8bit.png"),
+            sem_dir / (flat_base + "_leftImg8bit_semantic.png"),
+            sem_dir / (flat_base + ".png"),
+        ]
+        sem_path = next((p for p in sem_candidates if p.exists()), None)
+        if sem_path is None:
             sem_path = None
         else:
             sem_found += 1
 
-        # Predicted instance — try _leftImg8bit.npz first, then plain .npz
-        inst_path = inst_dir / (base + "_leftImg8bit.npz")
-        if not inst_path.exists():
-            inst_path = inst_dir / (base + ".npz")
-        if not inst_path.exists():
+        # Predicted instance — support nested Cityscapes layout and flat sweep exports.
+        inst_candidates = [
+            inst_dir / (base + "_leftImg8bit.npz"),
+            inst_dir / (base + ".npz"),
+            inst_dir / (flat_base + "_leftImg8bit.npz"),
+            inst_dir / (flat_base + ".npz"),
+        ]
+        inst_path = next((p for p in inst_candidates if p.exists()), None)
+        if inst_path is None:
             inst_path = None
         else:
             inst_found += 1
@@ -915,6 +1097,16 @@ def main():
     parser.add_argument("--skip_semantic", action="store_true")
     parser.add_argument("--skip_instance", action="store_true")
     parser.add_argument("--skip_panoptic", action="store_true")
+    parser.add_argument("--instance_score_thresh", type=float, default=0.0,
+                        help="Filter predicted instances below this score before AP evaluation.")
+    parser.add_argument("--instance_nms_iou", type=float, default=None,
+                        help="Optional extra mask-NMS IoU applied before AP evaluation.")
+    parser.add_argument("--instance_classes_are_train_ids", action="store_true",
+                        help="Do not remap NPZ instance class_ids through cluster_mapping_path. "
+                             "Use when semantic labels are overclustered but instance NPZ classes "
+                             "are already Cityscapes trainIDs.")
+    parser.add_argument("--max_detections", type=int, default=100,
+                        help="Maximum detections per image for AP/AR evaluation.")
     parser.add_argument("--thing_mode", type=str, default="connected_components",
                         choices=["connected_components", "maskcut", "hybrid"],
                         help="How to create thing instances for panoptic eval")
@@ -1004,7 +1196,15 @@ def main():
     # 2. Instance evaluation
     if has_instance and not args.skip_instance:
         inst_pairs = [(s, gl, i, gi) for s, gl, i, gi in pairs if i is not None and gi is not None]
-        results["instance"] = evaluate_instances(inst_pairs, eval_hw)
+        results["instance"] = evaluate_instances(
+            inst_pairs,
+            eval_hw,
+            max_detections=args.max_detections,
+            class_lut=cluster_lut,
+            instance_classes_are_train_ids=args.instance_classes_are_train_ids,
+            score_thresh=args.instance_score_thresh,
+            nms_iou=args.instance_nms_iou,
+        )
     elif not has_instance:
         print(f"\n  [SKIP] No instance pseudo-labels found for {args.split}")
 
@@ -1019,6 +1219,8 @@ def main():
             cause27=args.cause27,
             cc_min_area=args.cc_min_area,
             cluster_lut=cluster_lut,
+            instance_classes_are_train_ids=args.instance_classes_are_train_ids,
+            instance_score_thresh=args.instance_score_thresh,
         )
     elif not can_panoptic:
         print(f"\n  [SKIP] Panoptic eval requires semantic pseudo-labels"
@@ -1038,6 +1240,8 @@ def main():
         print(f"  Instance AP:       {results['instance']['ap']:.1f}%")
         print(f"  Instance AP@50:    {results['instance']['ap_50']:.1f}%")
         print(f"  Instance AP@75:    {results['instance']['ap_75']:.1f}%")
+        print(f"  Instance Box AP:   {results['instance']['ap_box']:.1f}%")
+        print(f"  Instance Box AR:   {results['instance']['box_ar_100']:.1f}%")
     if "panoptic" in results:
         r = results["panoptic"]
         print(f"  Panoptic PQ:       {r['PQ']:.1f}%")

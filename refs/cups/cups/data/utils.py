@@ -3,7 +3,13 @@ from typing import Any, Dict, List, Tuple, Union
 
 import torch
 import torch.nn.functional as F
-from detectron2.structures import Instances
+try:
+    from detectron2.structures import Instances
+except ImportError:
+    class Instances:  # type: ignore
+        """Placeholder for pseudo-label generation environments without Detectron2."""
+
+        pass
 from torch import Tensor
 from torch.utils.data import Dataset
 from torchvision.io import read_image

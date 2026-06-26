@@ -54,6 +54,7 @@ class PseudoLabelDataset(Dataset):
         depth_subdir: str = "",
         num_pseudo_classes: int = 80,
         load_pseudo_onehot: bool = False,
+        image_subdir: str = "leftImg8bit_sequence",
     ) -> None:
         """Constructor method.
 
@@ -96,6 +97,9 @@ class PseudoLabelDataset(Dataset):
         self.ignore_unknown_thing_regions: bool = ignore_unknown_thing_regions
         self.only_use_training_samples: bool = only_use_training_samples
         self.ignore_object_proposal_stuff_regions: bool = ignore_object_proposal_stuff_regions
+        # RGB image subdir. CUPS default reads sequence frames ("leftImg8bit_sequence");
+        # for pseudo-labels on the annotated train frames, point at "leftImg8bit".
+        self.image_subdir: str = image_subdir
         # Init crop module
         self.crop_module: nn.Module = CenterCrop(size=crop_resolution, keepdim=True)
         self.pad_module: nn.Module = (
@@ -277,21 +281,34 @@ class PseudoLabelDataset(Dataset):
             instance_paths (List[str]): List of pseudo instance paths.
             semantic_paths (List[str]): List of pseudo semantic paths.
         """
-        # Get both semantic and instance pseudo label path
-        instance_paths = [file for file in sorted(os.listdir(root_pseudo)) if "_instance.png" in file]
-        semantic_paths = [file for file in sorted(os.listdir(root_pseudo)) if "_semantic.png" in file]
-        # Get corresponding image path
-        image_paths = []
-        for file in instance_paths:
-            # Get city name
+        # Get instance pseudo-label files; build aligned (image, instance, semantic)
+        # triples. Skip any pseudo-label whose RGB frame is absent (e.g. non-
+        # annotated clip-sampled frames not present under image_subdir) so a
+        # missing image can never crash a DataLoader worker mid-training.
+        # Supports both flat root_pseudo and city-nested root_pseudo.
+        raw_inst_paths = sorted(
+            os.path.join(dirpath, fname)
+            for dirpath, _, filenames in os.walk(root_pseudo)
+            for fname in filenames
+            if "_instance.png" in fname
+        )
+        image_paths: List[str] = []
+        instance_paths = []
+        semantic_paths = []
+        skipped = 0
+        for inst_full in raw_inst_paths:
+            file = os.path.basename(inst_full)
             city: str = file.split("_")[0]
-            # Make image path with city
-            image_paths.append(
-                os.path.join(root, "leftImg8bit_sequence", split, city, file.replace("_instance.png", ".png"))
-            )
-        # Add pseudo root to paths
-        instance_paths = [os.path.join(root_pseudo, file) for file in instance_paths]
-        semantic_paths = [os.path.join(root_pseudo, file) for file in semantic_paths]
+            image_path = os.path.join(root, self.image_subdir, split, city, file.replace("_instance.png", ".png"))
+            sem_full = inst_full.replace("_instance.png", "_semantic.png")
+            if not os.path.exists(image_path):
+                skipped += 1
+                continue
+            image_paths.append(image_path)
+            instance_paths.append(inst_full)
+            semantic_paths.append(sem_full)
+        if skipped:
+            log.warning("Skipped %d pseudo-labels with no RGB under %s.", skipped, self.image_subdir)
         return image_paths, instance_paths, semantic_paths
 
     def __len__(self) -> int:

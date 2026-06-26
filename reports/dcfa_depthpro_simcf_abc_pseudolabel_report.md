@@ -50,7 +50,7 @@ where $\mathbf{f} \in \mathbb{R}^{90}$ is the frozen DINOv3 code, $[\cdot;\cdot]
 
 $$\mathcal{L} = \mathcal{L}_{\text{depth-corr}} + \lambda_{\text{preserve}} \cdot \|\mathcal{A}_\theta(\mathbf{f}, d) - \mathbf{f}\|_2^2$$
 
-**Specifications.** 40K parameters, hidden dimension 384, 2 layers, 16D sinusoidal depth input. Checkpoint: `results/depth_adapter/V3_dd16_h384_l2/best.pt`. After adaptation, k-means (k=80) is re-run on the adjusted codes to produce refined semantic pseudo-labels.
+**Specifications.** 225,114 parameters, concatenated 106-D input (90-D code + 16-D sinusoidal depth), hidden dimension 384, two hidden layers with LayerNorm, zero-init output. Checkpoint: `results/depth_adapter/V3_dd16_h384_l2/best.pt` (mlp.0.weight = [384,106], verified 2026-06-26). After adaptation, k-means (k=80) is re-run on the adjusted codes to produce refined semantic pseudo-labels.
 
 **Result.** mIoU improves from 52.69% to 55.29% (+2.60 points at k=80).
 

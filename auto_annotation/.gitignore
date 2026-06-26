@@ -1,0 +1,6 @@
+# generated artifacts — do not commit
+data/
+outputs/
+*.mp4
+__pycache__/
+.pytest_cache/

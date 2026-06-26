@@ -17,6 +17,7 @@ import torch
 import torch.nn.functional as F
 from PIL import Image
 from torchvision import transforms as T
+from tqdm import tqdm
 
 CAUSE = os.path.join(os.path.dirname(__file__), "..", "refs", "cause")
 CAUSE = os.path.abspath(CAUSE)
@@ -122,8 +123,9 @@ def main():
 
     net, seg, cl = load(a.device)
     n_done = n_skip = 0
-    total = len(items)
-    for n, (city, stem, img_path) in enumerate(items):
+    desc = f"shard{a.shard}/{a.total}" if a.total > 1 else "frames"
+    bar = tqdm(items, desc=desc, unit="frame", dynamic_ncols=True)
+    for city, stem, img_path in bar:
         if nested:
             out_dir = os.path.join(a.out_dir, city)
             os.makedirs(out_dir, exist_ok=True)
@@ -134,14 +136,14 @@ def main():
 
         if os.path.exists(out_path):
             n_skip += 1
+            bar.set_postfix(done=n_done, skip=n_skip, refresh=False)
             continue
 
         pil = Image.open(img_path).convert("RGB")
         sem = infer(net, seg, cl, pil, a.device)
         Image.fromarray(sem).save(out_path)
         n_done += 1
-        if n_done % 100 == 0:
-            print(f"  [{n+1}/{total}] done={n_done} skip={n_skip}")
+        bar.set_postfix(done=n_done, skip=n_skip, refresh=False)
 
     print(f"done: {n_done} new, {n_skip} skipped -> {a.out_dir}")
 

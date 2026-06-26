@@ -4,13 +4,22 @@ import os
 import cv2
 import matplotlib
 import numpy as np
-import open3d as o3d
 import torch
+
+try:
+    import open3d as o3d
+except ImportError:
+    o3d = None
 
 import cups.scene_flow_2_se3.geometric.pinhole as o4geo_pinhole
 import cups.scene_flow_2_se3.mask.rearrange as o4mask_rearr
 import cups.scene_flow_2_se3.rearrange as ops_rearr
-from cups.scene_flow_2_se3.open3d import mesh as o4o3d_mesh
+
+try:
+    from cups.scene_flow_2_se3.open3d import mesh as o4o3d_mesh
+except ImportError:
+    o4o3d_mesh = None
+
 from cups.scene_flow_2_se3.vision.resize import resize
 
 

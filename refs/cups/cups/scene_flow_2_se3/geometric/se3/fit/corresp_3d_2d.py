@@ -1,7 +1,11 @@
 import cv2
 import numpy as np
-import pytorch3d as t3d
 import torch
+
+try:
+    import pytorch3d as t3d
+except ImportError:
+    t3d = None  # only needed for method="gpu-epnp"; cpu-* branches don't use it
 
 from cups.scene_flow_2_se3.geometric.se3.fit.elemental import mask_points
 

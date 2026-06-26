@@ -154,7 +154,7 @@ def write_manifest(out_dir: Path, args: argparse.Namespace, stats: Dict[str, Any
 
 def cache_predictions(args: argparse.Namespace) -> None:
     out_dir = args.out_root / args.dataset_name
-    if out_dir.exists() and any(out_dir.iterdir()) and not args.allow_existing:
+    if out_dir.exists() and any(out_dir.iterdir()) and not args.allow_existing and not args.append:
         raise FileExistsError(f"Output directory is not empty: {out_dir}")
     out_dir.mkdir(parents=True, exist_ok=True)
     shards_dir = out_dir / "shards"
@@ -175,11 +175,43 @@ def cache_predictions(args: argparse.Namespace) -> None:
     score_max_seen = 0.0
     start_time = time.time()
 
+    if args.append:
+        if not output_index_path.exists():
+            raise FileNotFoundError(f"--append requested but missing output index: {output_index_path}")
+        existing_manifest_path = out_dir / "manifest.json"
+        existing_manifest = {}
+        if existing_manifest_path.exists():
+            with existing_manifest_path.open("r") as f:
+                existing_manifest = json.load(f)
+        existing_stats = existing_manifest.get("cache_stats", existing_manifest)
+        total_records = int(existing_stats.get("records", 0))
+        total_predictions = int(existing_stats.get("total_cached_predictions", 0))
+        score_sum = float(existing_stats.get("mean_cached_score", 0.0)) * total_predictions
+        old_min = existing_stats.get("min_cached_score")
+        old_max = existing_stats.get("max_cached_score")
+        if old_min is not None:
+            score_min_seen = float(old_min)
+        if old_max is not None:
+            score_max_seen = float(old_max)
+
+        existing_shards = sorted(shards_dir.glob("shard_*.jsonl.gz"))
+        shard_idx = -1
+        if existing_shards:
+            shard_idx = max(int(path.stem.split("_")[-1].split(".")[0]) for path in existing_shards)
+        print(
+            f"Appending to {out_dir}: existing_records={total_records:,} "
+            f"existing_predictions={total_predictions:,} next_shard={shard_idx + 1:05d}",
+            flush=True,
+        )
+    else:
+        shard_idx = -1
+
     shard_f = None
-    shard_idx = -1
     line_idx = 0
+    new_records = 0
     try:
-        with output_index_path.open("w") as index_f:
+        index_mode = "a" if args.append else "w"
+        with output_index_path.open(index_mode) as index_f:
             source_iter = iter_source_records(index_path, args.offset, args.max_images)
             for source_idx, rec in enumerate(source_iter, 1):
                 image_path = Path(rec["image_path"])
@@ -202,7 +234,7 @@ def cache_predictions(args: argparse.Namespace) -> None:
                     top_k=args.top_k,
                 )
 
-                if total_records % args.shard_size == 0:
+                if new_records % args.shard_size == 0:
                     if shard_f is not None:
                         shard_f.close()
                     shard_idx += 1
@@ -251,15 +283,16 @@ def cache_predictions(args: argparse.Namespace) -> None:
                 )
                 total_records += 1
                 total_predictions += num_predictions
+                new_records += 1
                 line_idx += 1
 
-                if total_records == 1 or total_records % args.log_every == 0:
+                if new_records == 1 or new_records % args.log_every == 0:
                     index_f.flush()
                     shard_f.flush()
                     elapsed = max(time.time() - start_time, 1e-6)
-                    ips = total_records / elapsed
+                    ips = new_records / elapsed
                     print(
-                        f"records={total_records:,} predictions={total_predictions:,} "
+                        f"records={total_records:,} new_records={new_records:,} predictions={total_predictions:,} "
                         f"source_seen={source_idx:,} ips={ips:.3f} missing={missing_images} unreadable={unreadable_images}",
                         flush=True,
                     )
@@ -277,6 +310,7 @@ def cache_predictions(args: argparse.Namespace) -> None:
         "max_cached_score": score_max_seen if total_predictions else None,
         "missing_images": missing_images,
         "unreadable_images": unreadable_images,
+        "last_append_records": new_records,
         "index": "index.jsonl",
         "shards_dir": "shards",
     }
@@ -315,6 +349,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--log-every", type=int, default=100)
     parser.add_argument("--torch-threads", type=int, default=4)
     parser.add_argument("--allow-existing", action="store_true")
+    parser.add_argument("--append", action="store_true", help="Append new shards and index rows to an existing cache.")
     return parser.parse_args()
 
 

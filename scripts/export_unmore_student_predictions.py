@@ -27,11 +27,60 @@ from mbps_pytorch.unmore_distill import build_unmore_dinov3s_maskrcnn  # noqa: E
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 
+def resolve_data_path(path: str | Path, dataset_roots: List[Path]) -> Path:
+    """Resolve cached dataset paths after moving datasets out of the repo."""
+
+    raw = Path(path)
+    candidates = []
+    if raw.is_absolute():
+        candidates.append(raw)
+    else:
+        candidates.append(Path.cwd() / raw)
+        for root in dataset_roots:
+            candidates.append(root / raw)
+            parts = raw.parts
+            if parts and parts[0] == "datasets":
+                candidates.append(root / Path(*parts[1:]))
+                if len(parts) > 2:
+                    candidates.append(root / Path(*parts[2:]))
+
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+
+    searched = "\n  ".join(str(p) for p in candidates)
+    raise FileNotFoundError(f"Could not resolve data path {path!s}. Tried:\n  {searched}")
+
+
+def parse_dataset_roots(values: List[str] | None) -> List[Path]:
+    roots: List[Path] = []
+    env_roots = []
+    import os
+
+    if os.environ.get("UNMORE_DATASETS_ROOTS"):
+        env_roots.extend(os.environ["UNMORE_DATASETS_ROOTS"].split(":"))
+    if os.environ.get("UNMORE_DATASETS_ROOT"):
+        env_roots.append(os.environ["UNMORE_DATASETS_ROOT"])
+
+    for item in [*(values or []), *env_roots]:
+        for part in str(item).split(":"):
+            part = part.strip()
+            if part:
+                roots.append(Path(part).expanduser())
+    return roots
+
+
 class CacheImageDataset(Dataset):
     """Image-only view of an unMORE teacher cache index."""
 
-    def __init__(self, cache_dir: Path, max_images: int | None = None) -> None:
+    def __init__(
+        self,
+        cache_dir: Path,
+        max_images: int | None = None,
+        dataset_roots: List[Path] | None = None,
+    ) -> None:
         self.cache_dir = cache_dir
+        self.dataset_roots = dataset_roots or []
         manifest_path = cache_dir / "manifest.json"
         index_path = cache_dir / "index.jsonl"
         if not manifest_path.exists():
@@ -54,11 +103,12 @@ class CacheImageDataset(Dataset):
 
     def __getitem__(self, idx: int):
         rec = self.records[idx]
-        image = Image.open(rec["image_path"]).convert("RGB")
+        image_path = resolve_data_path(rec["image_path"], self.dataset_roots)
+        image = Image.open(image_path).convert("RGB")
         return F.to_tensor(image), {
             "image_id": int(rec["image_id"]),
             "file_name": rec["file_name"],
-            "image_path": rec["image_path"],
+            "image_path": str(image_path),
             "height": int(rec["height"]),
             "width": int(rec["width"]),
         }
@@ -86,6 +136,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--mask-thresh", type=float, default=0.5)
     parser.add_argument("--detections-per-image", type=int, default=100)
     parser.add_argument("--annotation-json", type=Path, default=None)
+    parser.add_argument(
+        "--datasets-root",
+        action="append",
+        default=None,
+        help=(
+            "Dataset root used to resolve cached relative paths. Can be passed "
+            "multiple times or as a colon-separated list. A leading 'datasets/' "
+            "component is tried both with and without that prefix."
+        ),
+    )
     parser.add_argument("--iou-types", nargs="+", default=["bbox", "segm"], choices=["bbox", "segm"])
     parser.add_argument("--skip-eval", action="store_true")
     parser.add_argument("--fpn-dim", type=int, default=None)
@@ -144,7 +204,8 @@ def xyxy_to_xywh(box: torch.Tensor, width: int, height: int) -> List[float]:
 def export_predictions(args: argparse.Namespace) -> Dict[str, Any]:
     args.output_dir.mkdir(parents=True, exist_ok=True)
     device = resolve_device(args.device)
-    dataset = CacheImageDataset(args.cache_dir, max_images=args.max_images)
+    dataset_roots = parse_dataset_roots(args.datasets_root)
+    dataset = CacheImageDataset(args.cache_dir, max_images=args.max_images, dataset_roots=dataset_roots)
     loader = DataLoader(
         dataset,
         batch_size=args.batch_size,
@@ -198,6 +259,7 @@ def export_predictions(args: argparse.Namespace) -> Dict[str, Any]:
         "detections_per_image": args.detections_per_image,
         "checkpoint_args": ckpt_args,
         "teacher_cache_manifest": dataset.manifest,
+        "dataset_roots": [str(root) for root in dataset_roots],
         "predictions_json": str(predictions_path),
     }
     with (args.output_dir / "export_metadata.json").open("w") as f:
@@ -244,6 +306,7 @@ def main() -> None:
     annotation_json = args.annotation_json
     if annotation_json is None:
         annotation_json = Path(exported["metadata"]["teacher_cache_manifest"]["annotation_json"])
+    annotation_json = resolve_data_path(annotation_json, parse_dataset_roots(args.datasets_root))
 
     if not args.skip_eval:
         metrics = evaluate_coco(annotation_json, exported["results"], exported["image_ids"], args.iou_types)

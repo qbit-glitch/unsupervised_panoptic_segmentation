@@ -1,3 +1,13 @@
 # Tooling source installed locally for Codex; keep MBPS graphs focused on MBPS.
 external/graphify/
 external/graphify/**
+
+# Pathological files that cause the AST/regex extractor to hang (catastrophic
+# O(n^2) string indexing on multi-hundred-thousand-char single lines). Isolated
+# 2026-06-16 after a full-tree build wedged in build_indices_unicode/GC thrash.
+# Minified JS (single mega-lines; no useful code structure):
+*.min.js
+# Generated LVIS category lookup tables (200K+ char single lines):
+lvis_v0_5_categories.py
+lvis_v1_categories.py
+lvis_v1_category_image_count.py

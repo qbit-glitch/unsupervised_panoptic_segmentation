@@ -99,5 +99,6 @@ def raft_smurf() -> nn.Module:
         )
     )
     # Load checkpoint from SMURF paper
-    raft.load_state_dict(torch.load(os.path.join(pathlib.Path(__file__).parent.resolve(), "checkpoints/raft_smurf.pt")))
+    checkpoint_path = os.path.join(pathlib.Path(__file__).parent.resolve(), "checkpoints/raft_smurf.pt")
+    raft.load_state_dict(torch.load(checkpoint_path, map_location="cpu"))
     return raft

@@ -244,7 +244,8 @@ def step_b(semantic: np.ndarray, instance: np.ndarray,
 # ---------------------------------------------------------------------------
 
 def compute_depth_stats(stems: list, input_dir: Path, depth_dir: Path,
-                        cluster_to_class: np.ndarray) -> tuple:
+                        cluster_to_class: np.ndarray, split: str = "train",
+                        min_count: int = 0) -> tuple:
     """First pass: compute per-class depth mean and std across all images.
 
     Returns:
@@ -262,7 +263,7 @@ def compute_depth_stats(stems: list, input_dir: Path, depth_dir: Path,
         mapped = cluster_to_class[sem].astype(np.int64)
         sem_h, sem_w = sem.shape
 
-        depth_path = _resolve_depth_path(depth_dir, "train", city, cups_stem)
+        depth_path = _resolve_depth_path(depth_dir, split, city, cups_stem)
         if depth_path is None:
             continue
 
@@ -287,6 +288,12 @@ def compute_depth_stats(stems: list, input_dir: Path, depth_dir: Path,
     class_mean = class_sum / safe_count
     class_var = class_sum_sq / safe_count - class_mean ** 2
     class_std = np.sqrt(np.maximum(class_var, 0.0))
+    if min_count > 0:
+        starved = class_count < min_count
+        if starved.any():
+            logger.info(f"Step C: skipping {int(starved.sum())} groups with "
+                        f"fewer than {min_count} pixels (unstable statistics)")
+            class_std[starved] = 0.0  # step_c skips groups with ~zero std
 
     for cls in range(NUM_CLASSES):
         if class_count[cls] > 0:
@@ -359,8 +366,9 @@ def main():
                         help="CUPS flat label directory (source)")
     parser.add_argument("--output_dir", type=str, required=True,
                         help="Output directory for refined labels")
-    parser.add_argument("--centroids_path", type=str, required=True,
-                        help="Path to kmeans_centroids.npz with cluster_to_class")
+    parser.add_argument("--centroids_path", type=str, default=None,
+                        help="Path to kmeans_centroids.npz with cluster_to_class "
+                             "(required for --grouping lut; unused for cluster)")
     parser.add_argument("--cityscapes_root", type=str, required=True,
                         help="Cityscapes root (for features and depth)")
     parser.add_argument("--steps", type=str, default="A,B,C",
@@ -373,9 +381,20 @@ def main():
                         help="Cosine similarity threshold for Step B merging")
     parser.add_argument("--sigma_threshold", type=float, default=3.0,
                         help="Sigma threshold for Step C depth outlier masking")
+    parser.add_argument("--split", type=str, default="train", choices=["train", "val"],
+                        help="Split for feature/depth lookups (Step B/C). Default train.")
     parser.add_argument("--num_clusters", type=int, default=80,
                         help="Number of k-means clusters")
+    parser.add_argument("--grouping", type=str, default="lut",
+                        choices=["lut", "cluster"],
+                        help="Grouping for steps A/B/C: 'lut' uses the "
+                             "cluster_to_class table from --centroids_path "
+                             "(legacy, GT-derived); 'cluster' groups by raw "
+                             "cluster ID directly (annotation-free identity "
+                             "phi; no LUT consulted)")
     args = parser.parse_args()
+
+    global NUM_CLASSES
 
     steps = set(args.steps.upper().split(","))
     logger.info(f"SIMCF steps: {sorted(steps)}")
@@ -385,13 +404,25 @@ def main():
     cs_root = Path(args.cityscapes_root).expanduser()
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Load cluster-to-class mapping (extend to 256 for ignore label safety)
-    data = np.load(args.centroids_path)
-    _raw_c2c = data["cluster_to_class"].astype(np.uint8)
-    cluster_to_class = np.full(256, 255, dtype=np.uint8)
-    cluster_to_class[:len(_raw_c2c)] = _raw_c2c
+    # Build grouping map (extend to 256 for ignore label safety)
     num_clusters = args.num_clusters
-    logger.info(f"Loaded cluster_to_class: {num_clusters} clusters -> {NUM_CLASSES} classes")
+    cluster_to_class = np.full(256, 255, dtype=np.uint8)
+    if args.grouping == "cluster":
+        # Annotation-free mode: steps A/B/C operate on raw cluster IDs
+        # (identity phi). NUM_CLASSES widens to the cluster count so the
+        # bincount/validity logic in the step functions groups per cluster.
+        NUM_CLASSES = num_clusters
+        cluster_to_class[:num_clusters] = np.arange(num_clusters, dtype=np.uint8)
+        logger.info(f"Grouping: cluster-level identity phi over {num_clusters} "
+                    "clusters (annotation-free; no LUT consulted)")
+    else:
+        if args.centroids_path is None:
+            parser.error("--centroids_path is required for --grouping lut")
+        data = np.load(args.centroids_path)
+        _raw_c2c = data["cluster_to_class"].astype(np.uint8)
+        cluster_to_class[:len(_raw_c2c)] = _raw_c2c
+        logger.info(f"Loaded cluster_to_class: {num_clusters} clusters -> "
+                    f"{NUM_CLASSES} classes (legacy GT-derived LUT)")
 
     stems = list_cups_images(input_dir)
     logger.info(f"Found {len(stems)} images in {input_dir}")
@@ -403,7 +434,8 @@ def main():
     class_mean, class_std = None, None
     if "C" in steps:
         class_mean, class_std = compute_depth_stats(
-            stems, input_dir, depth_dir, cluster_to_class
+            stems, input_dir, depth_dir, cluster_to_class, split=args.split,
+            min_count=10000 if args.grouping == "cluster" else 0,
         )
 
     # Main loop
@@ -428,7 +460,7 @@ def main():
 
         # Step B
         if "B" in steps:
-            feat_path = feat_dir / "train" / city / f"{cups_stem}.npy"
+            feat_path = feat_dir / args.split / city / f"{cups_stem}.npy"
             if feat_path.exists():
                 features = np.load(str(feat_path)).astype(np.float32)
                 norms = np.linalg.norm(features, axis=-1, keepdims=True) + 1e-8
@@ -443,7 +475,7 @@ def main():
 
         # Step C
         if "C" in steps:
-            depth_path = _resolve_depth_path(depth_dir, "train", city, cups_stem)
+            depth_path = _resolve_depth_path(depth_dir, args.split, city, cups_stem)
             if depth_path is not None:
                 depth = np.load(str(depth_path)).astype(np.float64)
                 sem_h, sem_w = semantic.shape

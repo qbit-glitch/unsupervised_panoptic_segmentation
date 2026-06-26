@@ -1410,7 +1410,7 @@ Before celebrating any improvement, verify:
 
 ### 8.5 Depth-Semantic Fusion
 
-22. **DFormerv2**: Yin, J. et al. (2025). "DFormerv2: Geometry Self-Attention for RGBD Semantic Segmentation." *CVPR 2025*. [Paper](https://openaccess.thecvf.com/content/CVPR2025/papers/Yin_DFormerv2_Geometry_Self-Attention_for_RGBD_Semantic_Segmentation_CVPR_2025_paper.pdf)
+22. **DFormerv2**: Yin, B.-W. et al. (2025). "DFormerv2: Geometry Self-Attention for RGBD Semantic Segmentation." *CVPR 2025*. [Paper](https://openaccess.thecvf.com/content/CVPR2025/papers/Yin_DFormerv2_Geometry_Self-Attention_for_RGBD_Semantic_Segmentation_CVPR_2025_paper.pdf)
 
 23. **CMX**: Zhang, J. et al. (2023). "CMX: Cross-Modal Fusion for RGB-X Semantic Segmentation with Transformers." *TITS*. [arXiv:2203.04838](https://arxiv.org/abs/2203.04838)
 

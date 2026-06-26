@@ -4,7 +4,7 @@ Date: 2026-05-20
 
 ## Objective
 
-Test four research-driven upgrades over the current dynamic-kernel 90D upsampler baseline while keeping the semantic clustering constraint fixed at **K=80**.
+Test the research-driven upgrades over the current dynamic-kernel 90D upsampler baseline while keeping the semantic clustering constraint fixed at **K=80**.
 
 Current reference:
 
@@ -23,6 +23,7 @@ pixel acc   89.390
 | `jafar_attn_90d_dcfa_v3_h64w128_k80_seed42` | JAFAR-style local cross-attention | New `AttentiveCodeUpsampler`: high-res RGB/depth/coordinate queries attend over local 90D code key/value windows with SFT modulation. |
 | `loftup_coord_mask_90d_dcfa_v3_h64w128_k80_seed42` | LoftUp-style coordinates + mask self-distillation | Dynamic-kernel upsampler with Fourier coordinate features plus local class-agnostic mask affinity distillation from teacher/guidance. |
 | `anyup_crop_teacher_90d_dcfa_v3_h64w128_k80_seed42` | AnyUp/FeatUp crop-local supervision | Dynamic-kernel upsampler trained with local crop teacher loss instead of only full-map teacher loss. |
+| `anyup_crop_teacher_stuff_preserve_90d_dcfa_v3_h64w128_k80_seed42` | Crop teacher + stuff preservation | Crop-local supervision plus a weighted full-map cosine anchor on smooth, teacher-consistent RGB/depth/code regions. |
 | `neco_neighbor_90d_dcfa_v3_h64w128_k80_seed42` | NeCo-style patch-neighbor ordering | Dynamic-kernel upsampler with KL matching of teacher patch-neighbor similarity distributions. |
 
 ## Shared Setup
@@ -104,4 +105,37 @@ Secondary checks:
 stuff mIoU should not improve by destroying things mIoU
 things mIoU should remain near or above 43.991
 zero-IoU thin/rare classes should be inspected in per-class IoU
+```
+
+## Completed Results
+
+All four full K=80 runs completed on Cityscapes val.
+
+| Variant | mIoU | Stuff mIoU | Things mIoU | Pixel Acc | Delta vs 42.796 baseline |
+|---|---:|---:|---:|---:|---:|
+| JAFAR-style attentive upsampler | 41.301 | 40.944 | 41.873 | 89.285 | -1.495 |
+| LoftUp-style coord + mask loss | 39.348 | 41.510 | 35.889 | 89.426 | -3.448 |
+| AnyUp/FeatUp crop-teacher loss | 42.062 | 39.156 | 46.711 | 89.679 | -0.734 |
+| NeCo neighbor-order loss | 36.699 | 39.474 | 32.260 | 89.421 | -6.097 |
+
+Takeaway: none of the isolated upgrades beats the original dynamic-kernel 90D upsampler. The crop-teacher variant is the most interesting failure: it improves things mIoU to **46.711** but loses enough stuff mIoU to miss the overall baseline. This suggests the next run should combine crop-teacher training with a stuff-preserving regularizer or use crop-teacher only on high-edge / thin-object crops.
+
+## Follow-up Prototype
+
+The trainer now includes `--lambda_stuff_preserve`, which adds a stuff-preserving full-map teacher anchor while keeping crop-teacher supervision local. The regularizer builds a label-free smooth-region weight from two cues:
+
+```text
+stuff_weight = exp(-alpha_rgbd * RGBD_edge) * exp(-alpha_code * teacher_code_edge)
+```
+
+This makes the full-map cosine loss strongest on smooth, teacher-consistent regions, which are the regions most likely to represent road, building, vegetation, sky, sidewalk, and other stuff classes. The first full run to test is:
+
+```bash
+DEVICE=mps EPOCHS=20 BATCH_SIZE=2 scripts/run_code_upsampler_next_ablation.sh
+```
+
+For a targeted single-run launch without repeating the older variants:
+
+```bash
+DEVICE=mps EPOCHS=20 BATCH_SIZE=2 scripts/run_code_upsampler_crop_stuff_ablation.sh
 ```

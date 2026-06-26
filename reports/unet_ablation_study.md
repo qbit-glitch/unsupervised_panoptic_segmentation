@@ -486,7 +486,7 @@ Among six targeted ablations, focal loss (γ = 1.0) emerges as the most effectiv
 
 [38] Z. Zhang, Q. Liu, and Y. Wang. Road extraction by deep residual U-Net. IEEE GRSL, 2018.
 
-[39] Z. Yin et al. DFormerv2: Multi-modal dense prediction with cross-modal attention. CVPR, 2025.
+[39] B.-W. Yin et al. DFormerv2: Geometry Self-Attention for RGBD Semantic Segmentation. CVPR, 2025.
 
 ---
 

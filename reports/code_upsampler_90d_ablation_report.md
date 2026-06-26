@@ -42,9 +42,9 @@ Cache path:
 outputs/code_upsampler/cache_dcfa_v3_90d_64x128/
 ```
 
-### Training Targets
+### Training Targets And Losses
 
-The upsampler was trained with a crop-teacher style target:
+The upsampler was trained on a dense frozen-teacher cache. The cache target is produced from sliding-window/crop-derived CAUSE-TR features, but the winning dynamic-kernel baseline **does not** use the later `--crop_teacher` loss. It uses full-map feature supervision against the cached dense teacher.
 
 ```text
 low_code:      low-resolution adapted DCFA 90D code map
@@ -52,7 +52,16 @@ teacher_code:  denser adapted DCFA 90D code map at 64x128
 guidance:      RGB + DepthPro depth at 64x128
 ```
 
-The training objective was:
+For one training sample, define:
+
+```text
+Z_l  in R^{90 x H_l x W_l}       low-resolution DCFA code
+Z_t  in R^{90 x H x W}           dense frozen DCFA teacher code
+G    in R^{4 x H x W}            RGB/depth guidance, 3 RGB channels + 1 depth channel
+Z_p  in R^{90 x H x W}           predicted high-resolution code from the upsampler
+```
+
+The winning dynamic-kernel baseline used:
 
 ```text
 L_total =
@@ -60,6 +69,234 @@ L_total =
 + lambda_down * L_downsample_consistency
 + lambda_edge * L_boundary_smoothness
 + lambda_var * L_variance_preservation
+```
+
+with the following exact weights:
+
+```text
+lambda_down = 0.25
+lambda_edge = 0.02
+lambda_var  = 0.05
+edge_alpha  = 12.0
+```
+
+Implementation:
+
+```text
+mbps_pytorch/train_code_upsampler.py
+  cosine_code_loss()
+  downsample_consistency_loss()
+  boundary_smoothness_loss()
+  variance_preservation_loss()
+```
+
+Run config:
+
+```text
+outputs/code_upsampler/runs/dynamic_kernel_90d_dcfa_v3_h64w128_k80_seed42/args.json
+```
+
+#### 1. Dense Teacher Cosine Loss
+
+The main supervision term matches the predicted 90D code to the frozen dense DCFA teacher code at each high-resolution location:
+
+```text
+normalize(z) = z / (||z||_2 + eps)
+
+L_teacher_cosine =
+  1 - mean_{u in Omega}
+        < normalize(Z_p[:, u]), normalize(Z_t[:, u]) >
+```
+
+where `Omega` is the `H x W` spatial grid. In code this is `cosine_code_loss(pred, teacher)`.
+
+Why we use it:
+
+```text
+The output is a continuous 90D semantic code map, not a class-logit map.
+Therefore the primary target is feature-space agreement with the frozen
+DCFA/CAUSE teacher, not cross-entropy against labels.
+```
+
+Source / inspiration:
+
+```text
+Feature-distillation and feature-upsampling supervision. This is aligned with
+FeatUp's and AnyUp's core objective of learning high-resolution features that
+preserve the semantics of the original foundation-model feature space.
+```
+
+References:
+
+```text
+FeatUp: A Model-Agnostic Framework for Features at Any Resolution, ICLR 2024
+https://arxiv.org/abs/2403.10516
+
+AnyUp: Universal Feature Upsampling, ICLR 2026
+https://wimmerth.github.io/anyup/
+```
+
+#### 2. Downsample Consistency Loss
+
+The predicted high-resolution code is downsampled back to the low-resolution DCFA grid and matched to the original low-resolution code:
+
+```text
+D(Z_p) = bilinear_downsample(Z_p, size=(H_l, W_l))
+
+L_downsample_consistency =
+  1 - mean_{v in Omega_l}
+        < normalize(D(Z_p)[:, v]), normalize(Z_l[:, v]) >
+```
+
+where `Omega_l` is the low-resolution grid. In code this is `downsample_consistency_loss(pred, low_code)`.
+
+Why we use it:
+
+```text
+The upsampler should add spatial detail without changing the original DCFA
+semantic identity. This loss anchors the high-resolution output to the original
+low-resolution feature field, preventing the learned upsampler from hallucinating
+codes that no longer reduce to the input representation.
+```
+
+Source / inspiration:
+
+```text
+Feature-consistency constraints used by feature upsampling methods. FeatUp uses
+multi-view feature consistency, while AnyUp uses feature-consistency
+regularization and crop-based supervision. Our version is a lightweight
+single-scale consistency anchor: high-res output must collapse back to the
+original low-res feature map.
+```
+
+References:
+
+```text
+FeatUp: A Model-Agnostic Framework for Features at Any Resolution, ICLR 2024
+https://arxiv.org/abs/2403.10516
+
+AnyUp: Universal Feature Upsampling, ICLR 2026
+https://wimmerth.github.io/anyup/
+```
+
+#### 3. RGB/Depth Edge-Aware Boundary Smoothness Loss
+
+The predicted code map is encouraged to be smooth inside homogeneous regions, but the smoothness penalty is reduced at strong RGB/depth edges:
+
+```text
+Delta_x Z_p[u] = |Z_p[:, y, x+1] - Z_p[:, y, x]|
+Delta_y Z_p[u] = |Z_p[:, y+1, x] - Z_p[:, y, x]|
+
+Delta_x G[u] = mean_c |G[c, y, x+1] - G[c, y, x]|
+Delta_y G[u] = mean_c |G[c, y+1, x] - G[c, y, x]|
+
+w_x[u] = exp(-edge_alpha * Delta_x G[u])
+w_y[u] = exp(-edge_alpha * Delta_y G[u])
+
+L_boundary_smoothness =
+  mean_u w_x[u] * mean_d Delta_x Z_p[d, u]
++ mean_u w_y[u] * mean_d Delta_y Z_p[d, u]
+```
+
+Here `G` contains RGB and DepthPro depth, so the edge gates are cross-modal. In code this is `boundary_smoothness_loss(pred, guidance, edge_alpha=12.0)`.
+
+Why we use it:
+
+```text
+Raw feature upsampling can create noisy high-frequency code fields. We want
+nearby pixels inside the same visual/depth region to share similar 90D codes,
+while allowing sharp semantic changes at image/depth boundaries.
+```
+
+Source / inspiration:
+
+```text
+Edge-aware smoothness from self-supervised monocular depth estimation and
+boundary-aware dense prediction. The exact formula is adapted to 90D semantic
+codes and uses both RGB and depth gradients rather than only RGB image gradients.
+```
+
+Reference:
+
+```text
+Godard et al., Digging Into Self-Supervised Monocular Depth Estimation,
+ICCV 2019 (Monodepth2)
+https://openaccess.thecvf.com/content_ICCV_2019/papers/Godard_Digging_Into_Self-Supervised_Monocular_Depth_Estimation_ICCV_2019_paper.pdf
+```
+
+#### 4. Variance Preservation Loss
+
+The predicted 90D code field is prevented from collapsing by requiring each channel's spatial standard deviation to stay above half the teacher's spatial standard deviation:
+
+```text
+sigma_p[d] = std_{u in Omega}(Z_p[d, u])
+sigma_t[d] = stopgrad(std_{u in Omega}(Z_t[d, u]))
+
+L_variance_preservation =
+  mean_d max(0, 0.5 * sigma_t[d] - sigma_p[d])
+```
+
+In code this is `variance_preservation_loss(pred, teacher)`.
+
+Why we use it:
+
+```text
+The K=80 clustering stage needs a non-collapsed, well-spread feature space.
+If the upsampler over-smooths the 90D codes, KMeans loses rare classes and
+thin structures. This term keeps the predicted code distribution from becoming
+too flat relative to the teacher.
+```
+
+Source / inspiration:
+
+```text
+Anti-collapse variance regularization. This is inspired by VICReg's variance
+term, but simplified for dense 90D feature maps: we keep only a per-channel
+variance floor and do not use VICReg's covariance/decorrelation term.
+```
+
+Reference:
+
+```text
+Bardes, Ponce, LeCun, VICReg: Variance-Invariance-Covariance Regularization
+for Self-Supervised Learning, ICLR 2022
+https://openreview.net/forum?id=xm6YD62D1Ub
+```
+
+#### Reproduction Notes
+
+The original dynamic-kernel baseline did **not** use these later ablation losses:
+
+```text
+lambda_mask = 0.0
+lambda_neco = 0.0
+crop_teacher = false
+use_coords = false
+```
+
+The exact training command can be reconstructed as:
+
+```bash
+python3 mbps_pytorch/train_code_upsampler.py \
+  --variant dynamic \
+  --cache_dir outputs/code_upsampler/cache_dcfa_v3_90d_64x128 \
+  --output_dir outputs/code_upsampler/runs \
+  --run_name dynamic_kernel_90d_dcfa_v3_h64w128_k80_seed42 \
+  --epochs 20 \
+  --batch_size 4 \
+  --lr 2e-4 \
+  --weight_decay 1e-4 \
+  --lambda_down 0.25 \
+  --lambda_edge 0.02 \
+  --lambda_var 0.05 \
+  --edge_alpha 12.0 \
+  --hidden_ch 64 \
+  --guidance_hidden 32 \
+  --num_blocks 3 \
+  --kernel_size 3 \
+  --residual_scale 0.25 \
+  --seed 42 \
+  --device mps
 ```
 
 Both models were trained for 20 epochs. Training used MPS for the upsampler models after the MPS compatibility fix. The train cache was generated with CPU frozen feature extraction.

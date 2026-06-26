@@ -342,3 +342,7 @@ The resolution effect (256x512 via 3 decoder stages) is confounded by halved bat
 | GPU 1 | GTX 1080 Ti | 11 GB | P2-B, then P2-D |
 
 256x512 runs require batch_size=2; 128x256 runs use batch_size=4.
+
+
+
+/Users/qbit-glitch/Desktop/coding-projects/mbps_panoptic_segmentation/notebooks/qualitative_results/stage2_tick15_vs_cups/step250_vs_cups_3col.png

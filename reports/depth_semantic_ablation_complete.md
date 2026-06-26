@@ -147,14 +147,18 @@ L = depth_guided_correlation_loss(adjusted_codes, depth) + lambda_preserve * MSE
 
 All variants use lambda_preserve=20.0 (best from sweep above). Tests whether richer depth input, wider hidden layers, or deeper networks improve mIoU.
 
-| Variant | Depth Input | Hidden | Layers | Params | mIoU | PQ | motorcycle | train |
+| Variant | Depth Input | Hidden | Layers | Params* | mIoU | PQ | motorcycle | train |
 |---------|------------|--------|--------|--------|------|-----|------------|-------|
-| **Original** | **1D raw** | **128** | **2** | **40K** | **60.65%** | **27.64** | **48.21%** | **73.92%** |
-| V1 | 16D sinusoidal | 128 | 2 | 40K | 59.61% | 27.32 | 48.75% | 73.73% |
-| V2 | 16D sinusoidal | 256 | 2 | 91K | 59.17% | 26.93 | 48.88% | 73.51% |
-| V3 | 16D sinusoidal | 384 | 2 | 177K | 60.27% | 27.59 | 48.54% | 73.37% |
-| V4 | 16D sinusoidal | 256 | 3 | 157K | 60.14% | 27.67 | 44.04% | 73.96% |
-| V5 | 1D raw | 256 | 2 | 91K | 59.12% | 26.83 | 36.62% | 73.84% |
+| **Original** | **1D raw** | **128** | **2** | **40,410** | **60.65%** | **27.64** | **48.21%** | **73.92%** |
+| V1 | 16D sinusoidal | 128 | 2 | 42,330 | 59.61% | 27.32 | 48.75% | 73.73% |
+| V2 | 16D sinusoidal | 256 | 2 | 117,338 | 59.17% | 26.93 | 48.88% | 73.51% |
+| V3 | 16D sinusoidal | 384 | 2 | 225,114 | 60.27% | 27.59 | 48.54% | 73.37% |
+| V4 | 16D sinusoidal | 256 | 3 | 183,642 | 60.14% | 27.67 | 44.04% | 73.96% |
+| V5 | 1D raw | 256 | 2 | 113,498 | 59.12% | 26.83 | 36.62% | 73.84% |
+
+*Params corrected 2026-06-16 from the model-instantiation lines in `logs/approach_c/arch_sweep.log` (`DepthAdapter: N parameters`). The earlier table values (V2 91K, V3 177K, V4 157K, V5 91K) were wrong; the true h=384 V3 adapter is **225,114** params (not 177K, and not the "40K" sometimes cited for canonical DCFA — that 40K is the *Original* h=128 variant).
+
+> **⚠️ Non-standard stuff/things split (read before using PQ_stuff / PQ_things).** All panoptic numbers in this report come from `evaluate_semantic_pseudolabels.py`, whose `STUFF_TRAINIDS = {0,1,2,3,4,8,9,10}` is an **8-class** stuff set (road, sidewalk, building, wall, fence, vegetation, terrain, sky). It reassigns **pole, traffic light, traffic sign** into "things", giving an **8-stuff / 11-things** split — the inverse cardinality of the Cityscapes panoptic standard (11 stuff / 8 things, with pole/TL/TS as stuff). Consequences: (1) PQ_stuff / PQ_things here are **NOT comparable** to CUPS or to the clustering reports (`evaluate_cascade_pseudolabels.py`, which uses the standard `_STUFF_IDS = range(0,11)`); (2) they reconcile with overall PQ as `ALL = (8·PQ_stuff + 11·PQ_things)/19`, verified exactly for every row, **not** the standard 11/8 weighting. For cross-method comparison, rely on **mIoU and overall PQ** only.
 
 ### Panoptic Quality Details (per variant)
 

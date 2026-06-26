@@ -490,6 +490,41 @@ def _apply_depth_adapter(
     return adjusted.squeeze(0).cpu().numpy().astype(np.float64)
 
 
+def _fit_spherical_centroids(
+    feats_norm: np.ndarray, k: int, seed: int, refine_iters: int = 20,
+) -> np.ndarray:
+    """Fit true spherical k-means (centroid-renormalized) on L2-normalized feats.
+
+    Mirrors ``fit_spherical_kmeans`` in ``generate_clustering_ablation.py``:
+    a MiniBatchKMeans warm start, then ``refine_iters`` rounds of cosine-assign →
+    mean → renormalize-to-unit-norm. Returns (k, D) unit-norm centroids. The
+    clustering ablation found this beats Euclidean k-means by ~+1.5 PQ via the
+    centroid renormalization, at no extra inference cost (assignment is already
+    cosine-based in ``predict_with_depth_kmeans``).
+    """
+    kmeans = MiniBatchKMeans(
+        n_clusters=k, batch_size=10000, max_iter=300, random_state=seed, n_init=3,
+    )
+    kmeans.fit(feats_norm)
+    centers = kmeans.cluster_centers_.copy()
+    centers = centers / (np.linalg.norm(centers, axis=1, keepdims=True) + 1e-8)
+    for it in range(refine_iters):
+        labels = (feats_norm @ centers.T).argmax(axis=1)
+        new_centers = np.zeros_like(centers)
+        for c in range(k):
+            mask = labels == c
+            new_centers[c] = feats_norm[mask].mean(axis=0) if mask.any() else centers[c]
+        new_centers = new_centers / (
+            np.linalg.norm(new_centers, axis=1, keepdims=True) + 1e-8
+        )
+        shift = float(np.max(np.abs(new_centers - centers)))
+        centers = new_centers
+        if shift < 1e-6:
+            logger.info("Spherical k-means converged at iter %d (shift=%.2e)", it + 1, shift)
+            break
+    return centers
+
+
 def fit_kmeans_with_depth(
     net, segment, cityscapes_root: str, depth_subdir: str,
     device: torch.device, crop_size: int, patch_size: int,
@@ -498,6 +533,8 @@ def fit_kmeans_with_depth(
     adapter: Optional[torch.nn.Module] = None,
     codes_subdir: str = "cause_codes_90d",
     limit: int = 0,
+    cluster_method: str = "euclidean",
+    gt_free: bool = False,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Fit k-means on concatenated [90D CAUSE | alpha*depth_D] features.
 
@@ -564,6 +601,14 @@ def fit_kmeans_with_depth(
         else:
             feats = feats_90
 
+        if gt_free:
+            # GT-free fit: sample all patches, no gtFine read, no ignore mask.
+            feats_valid = feats
+            n = min(max_per_image, len(feats_valid))
+            idx = rng.choice(len(feats_valid), n, replace=False)
+            all_feats.append(feats_valid[idx])
+            continue
+
         # Load GT for majority-vote mapping
         gt_path = os.path.join(
             cityscapes_root, "gtFine", "val", entry["city"],
@@ -586,31 +631,44 @@ def fit_kmeans_with_depth(
         all_labels.append(gt_valid[idx])
 
     all_feats = np.concatenate(all_feats)
-    all_labels = np.concatenate(all_labels)
+    all_labels = np.concatenate(all_labels) if all_labels else None
     logger.info("Collected %d feature vectors (dim=%d)", len(all_feats), all_feats.shape[1])
 
-    # L2 normalize
+    # L2 normalize. Sanitize any stray non-finite rows (rare adapter/MPS
+    # artifacts) so the cosine matmuls below stay clean; a zeroed row falls
+    # harmlessly into some cluster and never poisons a centroid mean.
     norms = np.linalg.norm(all_feats, axis=1, keepdims=True)
     feats_norm = all_feats / np.maximum(norms, 1e-8)
+    feats_norm = np.nan_to_num(feats_norm, nan=0.0, posinf=0.0, neginf=0.0)
 
-    # Fit k-means
-    logger.info("Fitting MiniBatchKMeans (k=%d)...", k)
-    kmeans = MiniBatchKMeans(
-        n_clusters=k, batch_size=10000, max_iter=300,
-        random_state=seed, n_init=3,
-    )
-    kmeans.fit(feats_norm)
+    # Fit centroids: Euclidean MiniBatchKMeans (default) or true spherical k-means.
+    if cluster_method == "spherical":
+        logger.info("Fitting spherical k-means (k=%d)...", k)
+        centroids_norm = _fit_spherical_centroids(feats_norm, k=k, seed=seed)
+    else:
+        logger.info("Fitting MiniBatchKMeans (k=%d)...", k)
+        kmeans = MiniBatchKMeans(
+            n_clusters=k, batch_size=10000, max_iter=300,
+            random_state=seed, n_init=3,
+        )
+        kmeans.fit(feats_norm)
+        centroids = kmeans.cluster_centers_
+        centroids_norm = centroids / (np.linalg.norm(centroids, axis=1, keepdims=True) + 1e-8)
 
-    # Majority-vote mapping
-    cluster_labels = kmeans.predict(feats_norm)
+    if gt_free:
+        # No GT majority-vote LUT; identity placeholder (unused in raw_clusters).
+        cluster_to_class = np.arange(k, dtype=np.uint8)
+        logger.info("GT-free fit: cluster_to_class set to identity (no gtFine read)")
+        return centroids_norm, cluster_to_class
+
+    # Majority-vote mapping via cosine assignment (consistent with
+    # predict_with_depth_kmeans, and valid for both fit methods).
+    cluster_labels = (feats_norm @ centroids_norm.T).argmax(axis=1)
     conf = np.zeros((k, NUM_CLASSES), dtype=np.int64)
     for cl, gt in zip(cluster_labels, all_labels):
         if gt < NUM_CLASSES:
             conf[cl, gt] += 1
     cluster_to_class = np.argmax(conf, axis=1).astype(np.uint8)
-
-    centroids = kmeans.cluster_centers_
-    centroids_norm = centroids / (np.linalg.norm(centroids, axis=1, keepdims=True) + 1e-8)
 
     for c in range(NUM_CLASSES):
         n_clusters = int((cluster_to_class == c).sum())
@@ -780,6 +838,12 @@ def main() -> None:
                         help="Cached CAUSE-code subdir used for adapter extras.")
     parser.add_argument("--k", type=int, default=300)
     parser.add_argument("--kmeans_seed", type=int, default=42)
+    parser.add_argument(
+        "--cluster_method", type=str, default="euclidean",
+        choices=["euclidean", "spherical"],
+        help="Centroid fit: 'euclidean' MiniBatchKMeans (default) or "
+             "'spherical' centroid-renormalized k-means (clustering-ablation winner).",
+    )
     parser.add_argument("--depth_subdir", type=str, default="depth_depthpro")
     parser.add_argument(
         "--variant", type=str, default="none",
@@ -792,6 +856,9 @@ def main() -> None:
     parser.add_argument("--device", type=str, default="auto")
     parser.add_argument("--limit", type=int, default=0)
     parser.add_argument("--raw_clusters", action="store_true")
+    parser.add_argument("--gt_free_fit", action="store_true",
+                        help="Fit k-means without reading gtFine (no ignore mask, "
+                             "identity cluster_to_class). For GT-free pseudo-labels.")
     parser.add_argument("--load_centroids", type=str, default=None)
     parser.add_argument("--adapter_checkpoint", type=str, default=None,
                         help="Optional DCFA/DCFA-X/X2 checkpoint to apply before clustering.")
@@ -844,6 +911,8 @@ def main() -> None:
             k=args.k, variant=args.variant, alpha=args.alpha,
             seed=args.kmeans_seed, adapter=adapter,
             codes_subdir=args.codes_subdir, limit=args.limit,
+            cluster_method=args.cluster_method,
+            gt_free=args.gt_free_fit,
         )
         os.makedirs(output_dir, exist_ok=True)
         centroids_path = os.path.join(output_dir, "kmeans_centroids.npz")

@@ -126,8 +126,8 @@ def main() -> None:
     ap.add_argument("--epochs", type=int, default=40)
     ap.add_argument("--steps", type=int, default=0, help="cap optimizer steps (smoke)")
     ap.add_argument("--workers", type=int, default=4)
-    ap.add_argument("--masked_attn", action="store_true",
-                    help="EoMT masked attention (needs annealing); default off => train==eval")
+    ap.add_argument("--no_masked_attn", action="store_true",
+                    help="disable EoMT masked attention (debug only; cripples mask quality)")
     ap.add_argument("--device", default="cuda")
     ap.add_argument("--out", type=Path, default=ROOT / "checkpoints/eomt_mobile")
     args = ap.parse_args()
@@ -146,23 +146,29 @@ def main() -> None:
                 len(ds), args.micro_batch, accum, args.eff_batch, len(loader) // accum)
 
     dev = torch.device(args.device)
+    use_masked = not args.no_masked_attn
     model = EoMT(encoder=ViT(img_size=(args.img, args.img), backbone_name=args.backbone),
                  num_classes=133, num_q=100, num_blocks=4,
-                 masked_attn_enabled=args.masked_attn).to(dev).train()
+                 masked_attn_enabled=use_masked).to(dev).train()
     crit = MaskClassificationLoss(num_points=12544, oversample_ratio=3.0,
                                   importance_sample_ratio=0.75, mask_coefficient=5.0,
                                   dice_coefficient=5.0, class_coefficient=2.0,
                                   num_labels=133, no_object_coefficient=0.1).to(dev)
     opt = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=0.05)
 
+    loss_w = {"loss_mask": 5.0, "loss_dice": 5.0, "loss_cross_entropy": 2.0}  # Mask2Former weights
+    total_steps = args.steps or args.epochs * max(1, len(loader) // accum)
     opt_step, micro = 0, 0
     opt.zero_grad()
     for epoch in range(args.epochs):
         for imgs, targets in loader:
             imgs = imgs.to(dev)
             targets = [{k: v.to(dev) for k, v in t.items()} for t in targets]
+            if use_masked:  # anneal masked-attn prob 1->0 so train converges to unmasked eval
+                model.attn_mask_probs.fill_(max(0.0, 1.0 - opt_step / total_steps))
             mask_l, cls_l = model(imgs)
-            loss = sum(sum(crit(m, targets, c).values()) for m, c in zip(mask_l, cls_l)) / accum
+            loss = sum(sum(loss_w.get(k, 1.0) * v for k, v in crit(m, targets, c).items())
+                       for m, c in zip(mask_l, cls_l)) / accum
             loss.backward()
             micro += 1
             if micro % accum == 0:

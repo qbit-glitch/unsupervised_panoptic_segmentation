@@ -16,9 +16,11 @@ def connected_components(input: Tensor) -> Tensor:
     Returns:
         output (Tensor): Connected components as a long tensor of the shape [H, W].
     """
-    # Perform connected components
-    if input.is_cpu:
-        output: Tensor = torch.from_numpy(label(input.detach().numpy())[0]).long()
+    # Perform connected components.
+    # cc_torch is CUDA-only; for CPU, MPS, or any non-CUDA accelerator fall back to scipy.
+    if connected_components_labeling is None or not input.is_cuda:
+        np_in = input.detach().cpu().numpy()
+        output: Tensor = torch.from_numpy(label(np_in)[0]).long().to(input.device)
     else:
         output = connected_components_labeling(input.byte()).long()
         for index, value in enumerate(output.unique(sorted=True)):

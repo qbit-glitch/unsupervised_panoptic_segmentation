@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import logging
+import math
 import os
+import re
 from copy import deepcopy
 from typing import Any, Dict, List, Optional, Set, Tuple
 
@@ -191,11 +193,30 @@ class UnsupervisedModel(LightningModule):
             batch_aug = deepcopy(batch)
         # Get losses
         loss_dict = self(self.photometric_augmentation(self.resolution_jitter_augmentation(batch_aug)))
+        # --- Stabilize (Stage-3 parity): sanitize each component so a single
+        #     non-finite layer-loss (NaN/Inf) cannot poison the optimizer step.
+        n_nonfinite = 0
+        for _k in list(loss_dict.keys()):
+            if not torch.isfinite(loss_dict[_k]).all():
+                n_nonfinite += 1
+                loss_dict[_k] = torch.nan_to_num(
+                    loss_dict[_k], nan=0.0, posinf=0.0, neginf=0.0
+                )
         # Compute sum of losses
         loss: Tensor = sum(loss_dict.values())
         # Log final loss
         self.log("loss", loss, prog_bar=True, sync_dist=True)
-        # Log all losses
+        # Display every loss FAMILY live on the progress bar (sum over decoder
+        # layers / cascade stages: loss_mask_0,loss_mask_1,... -> loss_mask).
+        family: Dict[str, Tensor] = {}
+        for key, value in loss_dict.items():
+            fam = re.sub(r"_(stage)?\d+$", "", key)
+            family[fam] = family.get(fam, 0.0) + value.detach()
+        for fam, value in family.items():
+            self.log(fam, value, prog_bar=True, sync_dist=True)
+        if n_nonfinite:
+            self.log("n_nonfinite", float(n_nonfinite), prog_bar=True, sync_dist=True)
+        # Log all individual losses (full breakdown to logger/csv)
         for key, value in loss_dict.items():
             self.log("losses/" + key, value, sync_dist=True)
         # Make inference prediction
@@ -521,7 +542,42 @@ class UnsupervisedModel(LightningModule):
                 betas=self.hparams.config.TRAINING.ADAMW.BETAS,
             )
             log.info("AdamW used.")
-        return optimizer
+        return self._maybe_wrap_scheduler(optimizer)
+
+    def _maybe_wrap_scheduler(self, optimizer: torch.optim.Optimizer):
+        """Optionally attach a cosine LR schedule with linear warmup.
+
+        Stabilizes training the same way as the Stage-3 / loss-only path.
+        Gated on TRAINING.LR_SCHEDULER.TYPE == "cosine_warmup"; otherwise the
+        flat-LR optimizer is returned unchanged (default CUPS behavior).
+        """
+        sched_cfg = getattr(self.hparams.config.TRAINING, "LR_SCHEDULER", None)
+        if sched_cfg is None or getattr(sched_cfg, "TYPE", "none") == "none":
+            return optimizer
+        if sched_cfg.TYPE != "cosine_warmup":
+            log.warning("Unknown LR_SCHEDULER.TYPE=%s; using flat LR.", sched_cfg.TYPE)
+            return optimizer
+
+        warmup_steps = int(getattr(sched_cfg, "WARMUP_STEPS", 500))
+        total_steps = int(self.hparams.config.TRAINING.STEPS)
+        base_lr = max(self.hparams.config.TRAINING.ADAMW.LEARNING_RATE, 1e-12)
+        min_lr_ratio = float(getattr(sched_cfg, "MIN_LR", 1e-6)) / base_lr
+
+        def lr_lambda(step: int) -> float:
+            if step < warmup_steps:
+                return float(step) / max(1, warmup_steps)
+            progress = (step - warmup_steps) / max(1, total_steps - warmup_steps)
+            cos = 0.5 * (1.0 + math.cos(math.pi * min(progress, 1.0)))
+            return max(min_lr_ratio, cos)
+
+        scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lr_lambda)
+        log.info(
+            "LR schedule: linear warmup %d steps then cosine to MIN_LR=%.2e over %d steps",
+            warmup_steps,
+            getattr(sched_cfg, "MIN_LR", 1e-6),
+            total_steps,
+        )
+        return [optimizer], [{"scheduler": scheduler, "interval": "step"}]
 
 
 def build_model_pseudo(
@@ -643,6 +699,16 @@ def build_model_pseudo(
             stage4_ids=stage4_ids,
             roi_box_head_cfg=getattr(config.MODEL, "ROI_BOX_HEAD", None),
             sem_seg_head_cfg=getattr(config.MODEL, "SEM_SEG_HEAD", None),
+            cascade_ious=(
+                tuple(getattr(config.MODEL.ROI_BOX_CASCADE_HEAD, "IOUS", ()))
+                if hasattr(config.MODEL, "ROI_BOX_CASCADE_HEAD")
+                else None
+            ) or None,
+            bbox_reg_loss_type=(
+                getattr(config.MODEL.ROI_BOX_HEAD, "BBOX_REG_LOSS_TYPE", "")
+                if hasattr(config.MODEL, "ROI_BOX_HEAD")
+                else ""
+            ) or None,
         )
     elif backbone_type == "dinov3_vitl":
         from cups.model.model_vitb import panoptic_cascade_mask_r_cnn_dinov3_vitl

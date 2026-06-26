@@ -8,6 +8,10 @@ MBPS is an unsupervised panoptic segmentation model targeting NeurIPS 2026. It f
 - Cityscapes: PQ >= 25.0 (28.0 with self-training)
 - COCO-Stuff-27: PQ >= 22.5
 
+## Development Style
+
+Use ponytail (full mode) by default for all code work: build the simplest solution that works, following the YAGNI → stdlib → native → one line → minimum ladder. Invoke the `ponytail:ponytail` skill at the start of coding tasks; use `/ponytail-review` to flag over-engineering. This complements the global code-style rules without overriding the small-file / config-driven conventions.
+
 ## Architecture
 
 ```

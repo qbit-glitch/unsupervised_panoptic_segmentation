@@ -177,6 +177,8 @@ def panoptic_cascade_mask_r_cnn_dinov3(
     sam3_adapter_dim: int = 256,
     sam3_n_max_masks: int = 20,
     sam3_masks_dir: str = "",
+    cascade_ious: Tuple[float, ...] | None = None,
+    bbox_reg_loss_type: str | None = None,
 ) -> nn.Module:
     """Build Panoptic Cascade Mask R-CNN with DINOv3 ViT-B/16 + SimpleFeaturePyramid.
 
@@ -251,6 +253,19 @@ def panoptic_cascade_mask_r_cnn_dinov3(
     cfg.MODEL.ROI_BOX_HEAD.SAM3_MASKS_DIR = sam3_masks_dir
     apply_stage4_detectron_cfg(cfg, stage4_cfg, stage4_ids)
     apply_model_long_tail_detectron_cfg(cfg, roi_box_head_cfg, sem_seg_head_cfg)
+    # v3 surgery: override cascade IoU thresholds + box-reg loss type before freeze.
+    # Both also bypass the IOU_THRESHOLDS[0] assertion in CustomCascadeROIHeads
+    # by keeping cascade_ious[0] == cfg.MODEL.ROI_HEADS.IOU_THRESHOLDS[0].
+    if cascade_ious is not None:
+        ious = tuple(float(x) for x in cascade_ious)
+        assert len(ious) == 3, f"cascade_ious must have 3 entries, got {ious}"
+        cfg.MODEL.ROI_BOX_CASCADE_HEAD.IOUS = ious
+        # Stage-0 IoU must match the global ROI_HEADS first IoU threshold.
+        cfg.MODEL.ROI_HEADS.IOU_THRESHOLDS = [ious[0]]
+        log.info("v3 override: cascade IOUS=%s, ROI_HEADS.IOU_THRESHOLDS=[%s]", ious, ious[0])
+    if bbox_reg_loss_type is not None:
+        cfg.MODEL.ROI_BOX_HEAD.BBOX_REG_LOSS_TYPE = bbox_reg_loss_type
+        log.info("v3 override: BBOX_REG_LOSS_TYPE=%s", bbox_reg_loss_type)
     cfg.freeze()
 
     # ── Step 2: Build model with ResNet backbone (heads configured correctly) ──

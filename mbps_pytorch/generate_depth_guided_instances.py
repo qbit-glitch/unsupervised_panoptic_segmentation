@@ -53,6 +53,56 @@ CS_NAMES = {
     14: "truck", 15: "bus", 16: "train", 17: "motorcycle", 18: "bicycle",
 }
 
+CITYSCAPES27_TO_TRAINID = np.full(256, 255, dtype=np.uint8)
+for _c27, _train_id in {
+    0: 0, 1: 1, 2: 255, 3: 255, 4: 2, 5: 3, 6: 4,
+    7: 255, 8: 255, 9: 255, 10: 5, 11: 5, 12: 6, 13: 7,
+    14: 8, 15: 9, 16: 10, 17: 11, 18: 12, 19: 13, 20: 14,
+    21: 15, 22: 13, 23: 14, 24: 16, 25: 17, 26: 18,
+}.items():
+    CITYSCAPES27_TO_TRAINID[_c27] = _train_id
+
+
+def load_cluster_mapping(mapping_path):
+    """Load a raw-cluster to Cityscapes trainID LUT.
+
+    Supports the baseline ``kmeans_centroids.npz`` format and the
+    Cityscapes-27 JSON emitted by ``evaluate_cityscapes27_clusters.py``.
+    """
+    if mapping_path is None:
+        return None
+
+    mapping_path = Path(mapping_path)
+    lut = np.full(256, 255, dtype=np.uint8)
+
+    if mapping_path.suffix == ".npz":
+        data = np.load(mapping_path)
+        if "cluster_to_class" not in data:
+            raise KeyError(f"{mapping_path} does not contain 'cluster_to_class'")
+        values = data["cluster_to_class"].astype(np.uint8)
+        lut[: len(values)] = values
+        return lut
+
+    with open(mapping_path, "r") as f:
+        data = json.load(f)
+
+    if "cluster_to_trainid" in data:
+        for key, value in data["cluster_to_trainid"].items():
+            if value is not None:
+                lut[int(key)] = int(value)
+        return lut
+
+    if "cluster_to_cityscapes27" in data:
+        for key, value in data["cluster_to_cityscapes27"].items():
+            if value is not None:
+                lut[int(key)] = CITYSCAPES27_TO_TRAINID[int(value)]
+        return lut
+
+    raise KeyError(
+        f"{mapping_path} must contain cluster_to_class, "
+        "cluster_to_trainid, or cluster_to_cityscapes27"
+    )
+
 
 def load_thing_ids(stuff_things_path):
     """Load thing class IDs from stuff_things.json.
@@ -156,7 +206,7 @@ def depth_guided_instances(semantic, depth, thing_ids=DEFAULT_THING_IDS,
 
 def process_single_image(semantic_path, depth_path, thing_ids=DEFAULT_THING_IDS,
                          grad_threshold=0.05, min_area=100, dilation_iters=3,
-                         depth_blur_sigma=1.0):
+                         depth_blur_sigma=1.0, cluster_lut=None):
     """Process one image pair and return instances.
 
     Returns:
@@ -165,6 +215,8 @@ def process_single_image(semantic_path, depth_path, thing_ids=DEFAULT_THING_IDS,
     """
     # Load semantic labels
     semantic_full = np.array(Image.open(semantic_path))
+    if cluster_lut is not None:
+        semantic_full = cluster_lut[semantic_full]
     # Resize to working resolution (nearest neighbor preserves class IDs)
     if semantic_full.shape != (WORK_H, WORK_W):
         semantic = np.array(
@@ -202,6 +254,7 @@ def save_instances(instances, output_path, h=WORK_H, w=WORK_W):
             str(output_path),
             masks=np.zeros((0, h * w), dtype=bool),
             scores=np.zeros((0,), dtype=np.float32),
+            class_ids=np.zeros((0,), dtype=np.uint8),
             num_valid=0,
             h_patches=h,
             w_patches=w,
@@ -214,15 +267,18 @@ def save_instances(instances, output_path, h=WORK_H, w=WORK_W):
     num_instances = len(instances)
     masks = np.zeros((num_instances, h * w), dtype=bool)
     scores = np.zeros(num_instances, dtype=np.float32)
+    class_ids = np.zeros(num_instances, dtype=np.uint8)
 
     for i, (mask, cls, score) in enumerate(instances):
         masks[i] = mask.ravel()
         scores[i] = score
+        class_ids[i] = cls
 
     np.savez_compressed(
         str(output_path),
         masks=masks,
         scores=scores,
+        class_ids=class_ids,
         num_valid=num_instances,
         h_patches=h,
         w_patches=w,
@@ -260,7 +316,7 @@ def find_image_pairs(semantic_dir, depth_dir):
 
 def process_dataset(semantic_dir, depth_dir, output_dir, thing_ids=DEFAULT_THING_IDS,
                     grad_threshold=0.05, min_area=100, dilation_iters=3,
-                    depth_blur_sigma=1.0, limit=None):
+                    depth_blur_sigma=1.0, limit=None, cluster_lut=None):
     """Process all images in the dataset."""
     pairs = find_image_pairs(semantic_dir, depth_dir)
     logger.info(f"Found {len(pairs)} semantic+depth pairs")
@@ -283,6 +339,7 @@ def process_dataset(semantic_dir, depth_dir, output_dir, thing_ids=DEFAULT_THING
             min_area=min_area,
             dilation_iters=dilation_iters,
             depth_blur_sigma=depth_blur_sigma,
+            cluster_lut=cluster_lut,
         )
 
         # Output path: preserve city subdirectory structure
@@ -316,6 +373,7 @@ def process_dataset(semantic_dir, depth_dir, output_dir, thing_ids=DEFAULT_THING
             "min_area": min_area,
             "dilation_iters": dilation_iters,
             "depth_blur_sigma": depth_blur_sigma,
+            "cluster_mapping": cluster_lut is not None,
         },
         "elapsed_seconds": round(elapsed, 1),
     }
@@ -375,6 +433,13 @@ def main():
              "Example for DINOv3 k=80: --thing_ids 15 20 33 35 43 49 70",
     )
     parser.add_argument(
+        "--cluster_mapping_path", type=str, default=None,
+        help="Optional raw-cluster to trainID mapping. Supports "
+             "kmeans_centroids.npz with cluster_to_class or "
+             "evaluate_cityscapes27_clusters.py JSON with "
+             "cluster_to_cityscapes27.",
+    )
+    parser.add_argument(
         "--limit", type=int, default=None,
         help="Limit to first N images (for testing)",
     )
@@ -402,6 +467,10 @@ def main():
         thing_ids = DEFAULT_THING_IDS
         logger.info(f"No --stuff_things provided, using default thing IDs: {sorted(thing_ids)}")
 
+    cluster_lut = load_cluster_mapping(args.cluster_mapping_path)
+    if cluster_lut is not None:
+        logger.info(f"Loaded cluster mapping from {args.cluster_mapping_path}")
+
     process_dataset(
         semantic_dir=args.semantic_dir,
         depth_dir=args.depth_dir,
@@ -412,6 +481,7 @@ def main():
         dilation_iters=args.dilation_iters,
         depth_blur_sigma=args.depth_blur,
         limit=args.limit,
+        cluster_lut=cluster_lut,
     )
 
 

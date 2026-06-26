@@ -151,6 +151,52 @@ def variance_preservation_loss(pred: torch.Tensor, target: torch.Tensor) -> torc
     return F.relu(floor - pred_std).mean()
 
 
+def _pixel_edge_energy(x: torch.Tensor) -> torch.Tensor:
+    """Return per-pixel local edge energy from adjacent absolute differences."""
+    dx = (x[:, :, :, 1:] - x[:, :, :, :-1]).abs().mean(dim=1)
+    dy = (x[:, :, 1:, :] - x[:, :, :-1, :]).abs().mean(dim=1)
+
+    edge = x.new_zeros((x.shape[0], x.shape[-2], x.shape[-1]))
+    count = x.new_zeros((x.shape[0], x.shape[-2], x.shape[-1]))
+
+    edge = edge + F.pad(dx, (0, 1, 0, 0)) + F.pad(dx, (1, 0, 0, 0))
+    count = count + F.pad(torch.ones_like(dx), (0, 1, 0, 0))
+    count = count + F.pad(torch.ones_like(dx), (1, 0, 0, 0))
+
+    edge = edge + F.pad(dy, (0, 0, 0, 1)) + F.pad(dy, (0, 0, 1, 0))
+    count = count + F.pad(torch.ones_like(dy), (0, 0, 0, 1))
+    count = count + F.pad(torch.ones_like(dy), (0, 0, 1, 0))
+    return edge / count.clamp_min(1.0)
+
+
+def stuff_preservation_loss(
+    pred: torch.Tensor,
+    teacher: torch.Tensor,
+    guidance: torch.Tensor,
+    guidance_alpha: float = 12.0,
+    teacher_alpha: float = 8.0,
+    min_weight: float = 0.02,
+) -> torch.Tensor:
+    """Preserve smooth, teacher-consistent regions while crop loss targets objects.
+
+    Crop-local teacher supervision helped thing classes but hurt stuff classes.
+    This term keeps the full-map teacher anchor strongest where RGB/depth and
+    the teacher 90D code field are both locally smooth, which is a useful proxy
+    for road/building/vegetation/sky-like stuff regions in this label-free cache.
+    """
+    pred_n = F.normalize(pred.float(), dim=1, eps=1e-6)
+    teacher_n = F.normalize(teacher.float(), dim=1, eps=1e-6).detach()
+    pixel_loss = 1.0 - (pred_n * teacher_n).sum(dim=1)
+
+    guidance_edge = _pixel_edge_energy(guidance.float().detach())
+    teacher_edge = _pixel_edge_energy(teacher_n)
+    weights = torch.exp(-guidance_alpha * guidance_edge) * torch.exp(-teacher_alpha * teacher_edge)
+    if min_weight > 0:
+        weights = min_weight + (1.0 - min_weight) * weights
+    weights = weights.detach()
+    return (pixel_loss * weights).sum() / weights.sum().clamp_min(1.0)
+
+
 def _shift_pair(x: torch.Tensor, dy: int, dx: int) -> tuple[torch.Tensor, torch.Tensor]:
     y0_a = max(0, -dy)
     y1_a = x.shape[-2] - max(0, dy)
@@ -277,6 +323,7 @@ def iter_epoch(
         "var": 0.0,
         "mask": 0.0,
         "neco": 0.0,
+        "stuff": 0.0,
     }
     count = 0
 
@@ -318,6 +365,16 @@ def iter_epoch(
                     num_samples=args.neco_samples,
                     temperature=args.neco_tau,
                 )
+            loss_stuff = pred.new_tensor(0.0)
+            if args.lambda_stuff_preserve > 0:
+                loss_stuff = stuff_preservation_loss(
+                    pred,
+                    teacher,
+                    guidance,
+                    guidance_alpha=args.stuff_guidance_alpha,
+                    teacher_alpha=args.stuff_teacher_alpha,
+                    min_weight=args.stuff_min_weight,
+                )
             loss = (
                 loss_teacher
                 + args.lambda_down * loss_down
@@ -325,6 +382,7 @@ def iter_epoch(
                 + args.lambda_var * loss_var
                 + args.lambda_mask * loss_mask
                 + args.lambda_neco * loss_neco
+                + args.lambda_stuff_preserve * loss_stuff
             )
             if is_train:
                 optimizer.zero_grad(set_to_none=True)
@@ -342,6 +400,7 @@ def iter_epoch(
         totals["var"] += float(loss_var.detach().cpu()) * bsz
         totals["mask"] += float(loss_mask.detach().cpu()) * bsz
         totals["neco"] += float(loss_neco.detach().cpu()) * bsz
+        totals["stuff"] += float(loss_stuff.detach().cpu()) * bsz
 
     return {key: val / max(count, 1) for key, val in totals.items()}
 
@@ -394,12 +453,16 @@ def main() -> None:
     parser.add_argument("--lambda_var", type=float, default=0.05)
     parser.add_argument("--lambda_mask", type=float, default=0.0)
     parser.add_argument("--lambda_neco", type=float, default=0.0)
+    parser.add_argument("--lambda_stuff_preserve", type=float, default=0.0)
     parser.add_argument("--edge_alpha", type=float, default=12.0)
     parser.add_argument("--mask_edge_alpha", type=float, default=12.0)
     parser.add_argument("--mask_teacher_temp", type=float, default=10.0)
     parser.add_argument("--mask_neg_margin", type=float, default=0.25)
     parser.add_argument("--neco_samples", type=int, default=256)
     parser.add_argument("--neco_tau", type=float, default=0.1)
+    parser.add_argument("--stuff_guidance_alpha", type=float, default=12.0)
+    parser.add_argument("--stuff_teacher_alpha", type=float, default=8.0)
+    parser.add_argument("--stuff_min_weight", type=float, default=0.02)
     parser.add_argument("--grad_clip", type=float, default=1.0)
     parser.add_argument("--hidden_ch", type=int, default=64)
     parser.add_argument("--guidance_hidden", type=int, default=32)

@@ -15,7 +15,6 @@ weights/
 # ============================================
 # Reference repos (19GB) — cloned externally
 # ============================================
-refs/
 
 # ============================================
 # External project clone
@@ -133,3 +132,20 @@ test-instance-labels/
 .ccr/
 .gcloud_waymo/
 .claude/*.lock
+
+# cloned upstream model repos (large; not part of this project)
+external/INSID3/
+external/sam3/
+external/dinov3/
+
+# ============================================
+# Local venvs / large training dirs / chat logs (not part of repo)
+# ============================================
+.venv_cups_cpu/
+96gb_a6000_depthg_training/
+Claude Conversations/
+
+# ============================================
+# Local Claude settings (contains tokens — never commit)
+# ============================================
+.claude/settings.local.json

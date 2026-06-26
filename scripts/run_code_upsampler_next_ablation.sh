@@ -26,6 +26,7 @@ N_INIT="${N_INIT:-5}"
 MAX_ITER="${MAX_ITER:-100}"
 LIMIT_TRAIN="${LIMIT_TRAIN:-0}"
 LIMIT_ASSIGN="${LIMIT_ASSIGN:-0}"
+PYTHON="${PYTHON:-python3}"
 
 mkdir -p "$LOG_DIR" "$(dirname "$SUMMARY_CSV")"
 if [[ ! -f "$SUMMARY_CSV" ]]; then
@@ -36,7 +37,7 @@ append_summary() {
   local run_name="$1"
   local variant="$2"
   local eval_json="$3"
-  python3 - "$run_name" "$variant" "$eval_json" "$SUMMARY_CSV" <<'PY'
+  "$PYTHON" - "$run_name" "$variant" "$eval_json" "$SUMMARY_CSV" <<'PY'
 import csv
 import json
 import sys
@@ -66,7 +67,7 @@ run_one() {
   local eval_json="${PSEUDO_ROOT}/${run_name}_cityscapes27.json"
 
   echo "=== Training ${run_name} (${variant}) ==="
-  python3 mbps_pytorch/train_code_upsampler.py \
+  "$PYTHON" mbps_pytorch/train_code_upsampler.py \
     --variant "$variant" \
     --cache_dir "$CACHE_DIR" \
     --output_dir "$RUN_ROOT" \
@@ -81,7 +82,7 @@ run_one() {
     "$@" 2>&1 | tee "$LOG_DIR/${run_name}_train.log"
 
   echo "=== Generating K=${K} val clusters for ${run_name} ==="
-  python3 mbps_pytorch/generate_code_upsampler_kmeans.py \
+  "$PYTHON" mbps_pytorch/generate_code_upsampler_kmeans.py \
     --cache_dir "$CACHE_DIR" \
     --checkpoint "${RUN_ROOT}/${run_name}/best.pt" \
     --output_dir "$pseudo_dir" \
@@ -97,7 +98,7 @@ run_one() {
     --limit_assign "$LIMIT_ASSIGN" 2>&1 | tee "$LOG_DIR/${run_name}_kmeans.log"
 
   echo "=== Evaluating ${run_name} on strict Cityscapes-27 ==="
-  python3 mbps_pytorch/evaluate_cityscapes27_clusters.py \
+  "$PYTHON" mbps_pytorch/evaluate_cityscapes27_clusters.py \
     --pred_dir "${pseudo_dir}/val" \
     --gt_dir "$GT_DIR" \
     --num_clusters "$K" \
@@ -129,6 +130,15 @@ run_one "anyup_crop_teacher_90d_dcfa_v3_h64w128_k80_seed${SEED}" "dynamic" \
   --crop_teacher \
   --crop_h 32 \
   --crop_w 64
+
+run_one "anyup_crop_teacher_stuff_preserve_90d_dcfa_v3_h64w128_k80_seed${SEED}" "dynamic" \
+  --crop_teacher \
+  --crop_h 32 \
+  --crop_w 64 \
+  --lambda_stuff_preserve 0.25 \
+  --stuff_guidance_alpha 12.0 \
+  --stuff_teacher_alpha 8.0 \
+  --stuff_min_weight 0.02
 
 run_one "neco_neighbor_90d_dcfa_v3_h64w128_k80_seed${SEED}" "dynamic" \
   --lambda_neco 0.02 \

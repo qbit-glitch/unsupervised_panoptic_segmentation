@@ -1,4 +1,5 @@
 import os
+import pathlib
 import sys
 from typing import Tuple
 
@@ -7,12 +8,16 @@ import torch.nn.functional as F
 from einops import rearrange
 
 sys.path.append(os.getcwd())
-sys.path.append(os.path.join(os.getcwd(), "external", "depthg", "src"))
+DEPTHG_ROOT = str(pathlib.Path(__file__).resolve().parents[2] / "external" / "depthg")
+DEPTHG_SRC = str(pathlib.Path(DEPTHG_ROOT) / "src")
+sys.path.append(DEPTHG_ROOT)
+sys.path.append(DEPTHG_SRC)
 from external.depthg.src.train_segmentation import (
     LitUnsupervisedSegmenter as LitUnsupervisedSegmenterDepthg,
 )
 
-sys.path.remove(os.path.join(os.getcwd(), "external", "depthg", "src"))
+sys.path.remove(DEPTHG_SRC)
+sys.path.remove(DEPTHG_ROOT)
 
 
 class DepthG:
@@ -26,7 +31,11 @@ class DepthG:
         crop: Tuple = (320, 320),
     ):
         self.call_type = call_type
-        self.model = LitUnsupervisedSegmenterDepthg.load_from_checkpoint(checkpoint_root)
+        self.model = LitUnsupervisedSegmenterDepthg.load_from_checkpoint(
+            checkpoint_root,
+            map_location=device,
+            weights_only=False,
+        )
         self.model.eval()
         for param in self.model.parameters():
             param.requires_grad = False
