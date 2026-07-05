@@ -44,7 +44,7 @@ run_arm () {
     "$PY" -u refs/cups/eval_eomt_checkpoint.py \
         --experiment_config_file "$cfg" --ckpt "$ck" SYSTEM.NUM_GPUS 1 \
       2>&1 | tee "logs/eval_${name}_$(basename "$ck" .ckpt).txt"
-  done < <(find "$logp" -name 'best_pq_step*.ckpt' 2>/dev/null | sort -V)
+  done < <(find "$logp" -name 'best_pq_*.ckpt' 2>/dev/null | sort -V)
   [ "$found" -eq 0 ] && echo "!!! no best_pq ckpt found under $logp for arm=$name"
 }
 
