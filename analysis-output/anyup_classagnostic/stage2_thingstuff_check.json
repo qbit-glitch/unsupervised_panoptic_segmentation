@@ -1,0 +1,22 @@
+{
+  "num_classes": 27,
+  "thr": 0.08,
+  "n_bilinear": 2975,
+  "anyup_things": [
+    1,
+    6,
+    7,
+    9,
+    14,
+    24
+  ],
+  "bilinear_things": [
+    1,
+    6,
+    7,
+    9,
+    14,
+    24
+  ],
+  "thing_set_identical": true
+}
