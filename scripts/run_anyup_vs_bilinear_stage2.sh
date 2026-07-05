@@ -15,6 +15,9 @@ CONDA="${CONDA:-$HOME/anaconda3/envs/cups}"
 PY="$CONDA/bin/python"
 export LD_LIBRARY_PATH="$CONDA/lib:${LD_LIBRARY_PATH:-}"
 export PYTHONPATH="$REPO/refs/cups:$REPO/refs/eomt"
+# headless SSH doesn't source ~/.bashrc, so WANDB_API_KEY is absent -> wandb tries to prompt and
+# crashes (no-tty). Offline logs locally (we read PQ from eval logs, not the W&B dashboard).
+export WANDB_MODE="${WANDB_MODE:-offline}"
 cd "$REPO" || { echo "cannot cd to REPO=$REPO"; exit 1; }
 mkdir -p logs
 
