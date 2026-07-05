@@ -18,12 +18,22 @@ export PYTHONPATH="$REPO/refs/cups:$REPO/refs/eomt"
 cd "$REPO" || { echo "cannot cd to REPO=$REPO"; exit 1; }
 mkdir -p logs
 
+# SMOKE=1 -> 40 steps/arm, eval skipped: confirms data+config load, .pt parse, checkpointing.
+# Run this FIRST (~20 min) before the full 2-day run.
+SMOKE="${SMOKE:-0}"
+SMOKE_OVERRIDE=""
+if [ "$SMOKE" != "0" ]; then
+  SMOKE_OVERRIDE="TRAINING.STEPS 40 TRAINING.VAL_EVERY_N_STEPS 20 TRAINING.LOG_MEDIA_N_STEPS 40"
+  echo ">>> SMOKE MODE: 40 steps/arm, eval skipped."
+fi
+
 run_arm () {
   local name="$1" cfg="$2" logp="$3"
   echo "########## [$(date)] TRAIN arm=$name cfg=$cfg ##########"
   CUDA_VISIBLE_DEVICES=0,1 "$PY" -u refs/cups/train_eomt.py \
-      --experiment_config_file "$cfg" \
+      --experiment_config_file "$cfg" $SMOKE_OVERRIDE \
     || { echo "!!! TRAIN $name FAILED (see above) -- continuing to next arm"; return 1; }
+  if [ "$SMOKE" != "0" ]; then echo ">>> SMOKE arm=$name completed (data+config+ckpt OK)"; return 0; fi
 
   echo "########## [$(date)] EVAL arm=$name (every retained best_pq ckpt, NUM_GPUS=1) ##########"
   local found=0 ck
