@@ -1,5 +1,0 @@
-tau,A_min,n_images,instances_per_image,eligible_pairs,pseudo_boundaries,consensus_boundaries,unsupported_split_pairs,unsupported_split_rate_pct,unsupported_split_pairs_per_image,missed_boundary_pairs,missed_boundary_rate_pct,missed_boundary_pairs_per_image,boundary_noise_pairs,boundary_noise_pairs_per_image,boundary_noise_rate_pct
-0.1,500,5,17.0,1721,368,377,247,67.1195652173913,49.4,256,67.90450928381964,51.2,503,100.6,29.227193492155724
-0.1,1000,5,13.8,1713,353,376,235,66.57223796033995,47.0,258,68.61702127659575,51.6,493,98.6,28.77991827203736
-0.2,500,5,16.2,1721,357,377,240,67.22689075630252,48.0,260,68.96551724137932,52.0,500,100.0,29.05287623474724
-0.2,1000,5,13.6,1713,348,376,232,66.66666666666667,46.4,260,69.14893617021276,52.0,492,98.4,28.721541155866902
